@@ -85,11 +85,12 @@ export function useFarmGeneration() {
     setGen((prev) => {
       switch (event.type) {
         case "snapshot":
+          // NOTE: event.credits is the REQUESTED amount, NOT earned.
+          // Only update state/email from snapshot, never creditsEarned.
           return {
             ...prev,
             state: (event.status as FarmState) || prev.state,
             masterEmail: event.masterEmail || prev.masterEmail,
-            creditsEarned: typeof event.credits === "number" && event.credits > prev.creditsEarned ? event.credits : prev.creditsEarned,
           };
 
         case "status": {
