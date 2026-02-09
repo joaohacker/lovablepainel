@@ -20,6 +20,15 @@ export type FarmState =
   | "expired"
   | "cancelled";
 
+export interface FeedEntry {
+  id: number;
+  kind: "credit" | "info";
+  botName?: string;
+  credits?: number;
+  message: string;
+  timestamp: number;
+}
+
 interface FarmGenerationState {
   state: FarmState;
   farmId: string | null;
@@ -31,8 +40,11 @@ interface FarmGenerationState {
   result: FarmStatus["result"] | null;
   errorMessage: string | null;
   logs: string[];
+  feed: FeedEntry[];
   expiresAt: number | null;
 }
+
+let feedIdCounter = 0;
 
 export function useFarmGeneration() {
   const [gen, setGen] = useState<FarmGenerationState>({
@@ -46,6 +58,7 @@ export function useFarmGeneration() {
     result: null,
     errorMessage: null,
     logs: [],
+    feed: [],
     expiresAt: null,
   });
 
@@ -73,6 +86,7 @@ export function useFarmGeneration() {
             ...prev,
             state: (event.status as FarmState) || prev.state,
             masterEmail: event.masterEmail || prev.masterEmail,
+            creditsEarned: typeof event.credits === "number" && event.credits > prev.creditsEarned ? event.credits : prev.creditsEarned,
           };
 
         case "status": {
@@ -90,17 +104,34 @@ export function useFarmGeneration() {
           const data = event as unknown as { message: string; type: string };
           const newLogs = [...prev.logs, data.message].slice(-50);
           let newCredits = prev.creditsEarned;
-          // Detect credit events: type "credit", message contains "+5", or credit-related patterns
-          if (
-            data.type === "credit" ||
-            data.message.includes("+5") ||
-            data.message.toLowerCase().includes("credit") ||
-            data.message.toLowerCase().includes("crédito")
-          ) {
-            const match = data.message.match(/\+(\d+)/);
-            newCredits += match ? parseInt(match[1], 10) : 5;
+          const newFeed = [...prev.feed];
+
+          // Parse credit events
+          const creditMatch = data.message.match(/^\+(\d+)\s/);
+          if (creditMatch && (data.type === "credit" || data.message.includes("crédito") || data.message.includes("credit"))) {
+            const amount = parseInt(creditMatch[1], 10);
+            newCredits += amount;
+            const nameMatch = data.message.match(/\((.+)\)/);
+            const botName = nameMatch ? nameMatch[1] : "Bot";
+            newFeed.push({
+              id: ++feedIdCounter,
+              kind: "credit",
+              botName,
+              credits: amount,
+              message: data.message,
+              timestamp: Date.now(),
+            });
+          } else {
+            // Info event
+            newFeed.push({
+              id: ++feedIdCounter,
+              kind: "info",
+              message: data.message,
+              timestamp: Date.now(),
+            });
           }
-          return { ...prev, logs: newLogs, creditsEarned: newCredits };
+
+          return { ...prev, logs: newLogs, feed: newFeed.slice(-50), creditsEarned: newCredits };
         }
 
         case "completed":
@@ -121,7 +152,7 @@ export function useFarmGeneration() {
           return { ...prev, state: "cancelled" };
 
         case "polling":
-          return { ...prev, logs: [...prev.logs, event.message].slice(-50) };
+          return prev;
 
         case "heartbeat":
           return prev;
@@ -140,7 +171,6 @@ export function useFarmGeneration() {
         try {
           const status = await getFarmStatus(farmId);
           
-          // Handle terminal states directly from polling
           if (status.status === "completed") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
@@ -173,7 +203,6 @@ export function useFarmGeneration() {
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
           } else if (status.status === "running" || status.status === "invite_detected") {
-            // Running state - update credits from polling too
             setGen((prev) => ({
               ...prev,
               state: "running",
@@ -182,7 +211,6 @@ export function useFarmGeneration() {
               creditsEarned: status.credits > prev.creditsEarned ? status.credits : prev.creditsEarned,
             }));
             
-            // Try SSE if not already connected
             if (!disconnectSSE.current) {
               disconnectSSE.current = connectSSE(
                 farmId,
@@ -193,7 +221,6 @@ export function useFarmGeneration() {
               );
             }
           } else if (status.status !== "queued") {
-            // Other non-queued status, try SSE
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
 
@@ -221,6 +248,7 @@ export function useFarmGeneration() {
   const startGeneration = useCallback(
     async (credits: number) => {
       cleanup();
+      feedIdCounter = 0;
       setGen({
         state: "creating",
         farmId: null,
@@ -232,6 +260,7 @@ export function useFarmGeneration() {
         result: null,
         errorMessage: null,
         logs: [],
+        feed: [],
         expiresAt: null,
       });
 
@@ -256,7 +285,6 @@ export function useFarmGeneration() {
             expiresAt,
           }));
 
-          // Connect SSE + polling as fallback
           disconnectSSE.current = connectSSE(
             response.farmId,
             handleSSEEvent,
@@ -275,10 +303,10 @@ export function useFarmGeneration() {
     [cleanup, handleSSEEvent, startPolling]
   );
 
-  // Start generation with an already-created farmId (from validate-token edge function)
   const startGenerationWithFarmId = useCallback(
     (farmId: string, credits: number, queued = false, queuePosition?: number, masterEmail?: string) => {
       cleanup();
+      feedIdCounter = 0;
 
       if (queued) {
         setGen({
@@ -292,6 +320,7 @@ export function useFarmGeneration() {
           result: null,
           errorMessage: null,
           logs: [],
+          feed: [],
           expiresAt: null,
         });
         startPolling(farmId);
@@ -308,6 +337,7 @@ export function useFarmGeneration() {
           result: null,
           errorMessage: null,
           logs: [],
+          feed: [],
           expiresAt,
         });
 
@@ -343,6 +373,7 @@ export function useFarmGeneration() {
 
   const reset = useCallback(() => {
     cleanup();
+    feedIdCounter = 0;
     setGen({
       state: "idle",
       farmId: null,
@@ -354,6 +385,7 @@ export function useFarmGeneration() {
       result: null,
       errorMessage: null,
       logs: [],
+      feed: [],
       expiresAt: null,
     });
   }, [cleanup]);
