@@ -9,10 +9,12 @@ import { Zap, Bot, Package } from "lucide-react";
 interface CreditSelectorProps {
   onGenerate: (credits: number) => void;
   disabled: boolean;
+  maxCredits?: number;
 }
 
-export function CreditSelector({ onGenerate, disabled }: CreditSelectorProps) {
-  const [credits, setCredits] = useState(100);
+export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: CreditSelectorProps) {
+  const max = Math.min(5005, maxCredits);
+  const [credits, setCredits] = useState(Math.min(100, max));
   const [stock, setStock] = useState<StockResponse | null>(null);
   const [stockLoading, setStockLoading] = useState(true);
 
@@ -34,13 +36,13 @@ export function CreditSelector({ onGenerate, disabled }: CreditSelectorProps) {
 
   const handleSliderChange = (value: number[]) => {
     const rounded = Math.round(value[0] / 5) * 5;
-    setCredits(Math.max(5, Math.min(5005, rounded)));
+    setCredits(Math.max(5, Math.min(max, rounded)));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value) || 0;
     const rounded = Math.round(val / 5) * 5;
-    setCredits(Math.max(5, Math.min(5005, rounded)));
+    setCredits(Math.max(5, Math.min(max, rounded)));
   };
 
   const botsNeeded = Math.ceil(credits / 5);
@@ -72,7 +74,7 @@ export function CreditSelector({ onGenerate, disabled }: CreditSelectorProps) {
             value={credits}
             onChange={handleInputChange}
             min={5}
-            max={5005}
+            max={max}
             step={5}
             className="w-28 text-center text-2xl font-bold bg-secondary border-border h-14"
             disabled={disabled}
@@ -86,14 +88,14 @@ export function CreditSelector({ onGenerate, disabled }: CreditSelectorProps) {
           value={[credits]}
           onValueChange={handleSliderChange}
           min={5}
-          max={5005}
+          max={max}
           step={5}
           disabled={disabled}
           className="w-full"
         />
         <div className="flex justify-between mt-2 text-xs text-muted-foreground">
           <span>5</span>
-          <span>5005</span>
+          <span>{max}</span>
         </div>
       </div>
 

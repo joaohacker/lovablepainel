@@ -14,16 +14,199 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      generations: {
+        Row: {
+          client_name: string
+          created_at: string
+          credits_earned: number | null
+          credits_requested: number
+          error_message: string | null
+          farm_id: string
+          id: string
+          master_email: string | null
+          status: string
+          token_id: string | null
+          updated_at: string
+          workspace_name: string | null
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          credits_earned?: number | null
+          credits_requested: number
+          error_message?: string | null
+          farm_id: string
+          id?: string
+          master_email?: string | null
+          status?: string
+          token_id?: string | null
+          updated_at?: string
+          workspace_name?: string | null
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          credits_earned?: number | null
+          credits_requested?: number
+          error_message?: string | null
+          farm_id?: string
+          id?: string
+          master_email?: string | null
+          status?: string
+          token_id?: string | null
+          updated_at?: string
+          workspace_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generations_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      token_usages: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          credits_earned: number | null
+          credits_requested: number
+          farm_id: string | null
+          id: string
+          status: string
+          token_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          credits_earned?: number | null
+          credits_requested: number
+          farm_id?: string | null
+          id?: string
+          status?: string
+          token_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          credits_earned?: number | null
+          credits_requested?: number
+          farm_id?: string | null
+          id?: string
+          status?: string
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_usages_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tokens: {
+        Row: {
+          client_name: string
+          created_at: string
+          created_by: string
+          credits_per_use: number
+          daily_limit: number | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          token: string
+          total_limit: number | null
+          updated_at: string
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          created_by: string
+          credits_per_use?: number
+          daily_limit?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          token?: string
+          total_limit?: number | null
+          updated_at?: string
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          created_by?: string
+          credits_per_use?: number
+          daily_limit?: number | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          token?: string
+          total_limit?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +333,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
