@@ -100,6 +100,11 @@ const Generate = () => {
           error_message: farm.errorMessage,
         },
       });
+
+      // Re-validate token after terminal states to refresh remaining limits
+      if (["completed", "error", "cancelled", "expired"].includes(farm.state)) {
+        validateToken();
+      }
     };
 
     updateGeneration();

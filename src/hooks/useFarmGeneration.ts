@@ -88,11 +88,17 @@ export function useFarmGeneration() {
 
         case "progress": {
           const data = event as unknown as { message: string; type: string };
-          const progressType = data.type === "progress" ? "info" : data.type;
           const newLogs = [...prev.logs, data.message].slice(-50);
           let newCredits = prev.creditsEarned;
-          if (progressType === "credit" || data.message.startsWith("+5")) {
-            newCredits += 5;
+          // Detect credit events: type "credit", message contains "+5", or credit-related patterns
+          if (
+            data.type === "credit" ||
+            data.message.includes("+5") ||
+            data.message.toLowerCase().includes("credit") ||
+            data.message.toLowerCase().includes("crédito")
+          ) {
+            const match = data.message.match(/\+(\d+)/);
+            newCredits += match ? parseInt(match[1], 10) : 5;
           }
           return { ...prev, logs: newLogs, creditsEarned: newCredits };
         }
