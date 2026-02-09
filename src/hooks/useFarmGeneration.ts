@@ -139,18 +139,63 @@ export function useFarmGeneration() {
       pollingRef.current = setInterval(async () => {
         try {
           const status = await getFarmStatus(farmId);
+          
+          // Handle terminal states directly from polling
+          if (status.status === "completed") {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            setGen((prev) => ({
+              ...prev,
+              state: "completed",
+              result: status.result || null,
+              creditsEarned: status.result?.credits || prev.creditsEarned,
+              workspaceName: status.workspaceName || prev.workspaceName,
+              masterEmail: status.masterEmail || prev.masterEmail,
+            }));
+            return;
+          }
+          
+          if (status.status === "error" || status.status === "expired" || status.status === "cancelled") {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            setGen((prev) => ({
+              ...prev,
+              state: status.status as FarmState,
+              errorMessage: status.status === "error" ? "Erro na geração" : prev.errorMessage,
+            }));
+            return;
+          }
+
           if (status.status === "waiting_invite" || status.status === "allocating") {
             setGen((prev) => ({
               ...prev,
               state: status.status as FarmState,
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
+          } else if (status.status === "running" || status.status === "invite_detected") {
+            // Running state - try SSE for real-time updates, keep polling as fallback
+            setGen((prev) => ({
+              ...prev,
+              state: "running",
+              workspaceName: status.workspaceName || prev.workspaceName,
+              masterEmail: status.masterEmail || prev.masterEmail,
+            }));
+            
+            // Try SSE if not already connected
+            if (!disconnectSSE.current) {
+              disconnectSSE.current = connectSSE(
+                farmId,
+                handleSSEEvent,
+                () => {
+                  disconnectSSE.current = null;
+                }
+              );
+            }
           } else if (status.status !== "queued") {
-            // Status changed from queued, try SSE again
+            // Other non-queued status, try SSE
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
 
-            // Connect SSE for real-time updates
             disconnectSSE.current = connectSSE(
               farmId,
               handleSSEEvent,
@@ -210,14 +255,13 @@ export function useFarmGeneration() {
             expiresAt,
           }));
 
-          // Connect SSE
+          // Connect SSE + polling as fallback
           disconnectSSE.current = connectSSE(
             response.farmId,
             handleSSEEvent,
-            () => {
-              if (response.farmId) startPolling(response.farmId);
-            }
+            () => { disconnectSSE.current = null; }
           );
+          startPolling(response.farmId);
         }
       } catch (err) {
         setGen((prev) => ({
@@ -269,8 +313,9 @@ export function useFarmGeneration() {
         disconnectSSE.current = connectSSE(
           farmId,
           handleSSEEvent,
-          () => startPolling(farmId)
+          () => { disconnectSSE.current = null; }
         );
+        startPolling(farmId);
       }
     },
     [cleanup, handleSSEEvent, startPolling]
