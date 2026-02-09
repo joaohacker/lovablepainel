@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Copy, Check, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { Plus, Copy, Check, Trash2, ExternalLink, Loader2, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -104,8 +104,36 @@ export function TokenManager() {
       setCreating(false);
     }
   };
+  const quickCreateToken = async () => {
+    setCreating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-  const toggleToken = async (id: string, isActive: boolean) => {
+      const { data: inserted, error } = await supabase
+        .from("tokens")
+        .insert({
+          client_name: "guilherme",
+          daily_limit: 5000,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const url = `https://painelcreditoslovbl.lovable.app/generate/${inserted.token}`;
+      navigator.clipboard.writeText(url);
+      toast({ title: "Token rápido criado e URL copiada!", description: url });
+      fetchTokens();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+
     await supabase.from("tokens").update({ is_active: !isActive }).eq("id", id);
     fetchTokens();
   };
@@ -147,12 +175,17 @@ export function TokenManager() {
           <h2 className="text-2xl font-bold text-foreground">Tokens de Acesso</h2>
           <p className="text-sm text-muted-foreground">Gerencie tokens para seus clientes</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2" onClick={() => setLastCreatedUrl(null)}>
-              <Plus className="h-4 w-4" /> Novo Token
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={quickCreateToken} disabled={creating}>
+            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+            Token Rápido
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2" onClick={() => setLastCreatedUrl(null)}>
+                <Plus className="h-4 w-4" /> Novo Token
+              </Button>
+            </DialogTrigger>
           <DialogContent className="bg-card border-border">
             <DialogHeader>
               <DialogTitle>Criar Novo Token</DialogTitle>
@@ -221,6 +254,7 @@ export function TokenManager() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {tokens.length === 0 ? (
