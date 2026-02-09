@@ -123,6 +123,8 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
+    console.log(`[farm-proxy] ${method} ${upstreamUrl}`);
+
     const upstreamRes = await fetch(upstreamUrl, {
       method,
       headers,
@@ -130,13 +132,14 @@ serve(async (req) => {
     });
 
     const data = await upstreamRes.text();
+    console.log(`[farm-proxy] upstream responded: ${upstreamRes.status}`);
 
     return new Response(data, {
       status: upstreamRes.status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Farm proxy error:", error);
+    console.error("[farm-proxy] error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
