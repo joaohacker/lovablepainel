@@ -4,10 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { fetchStock, type StockResponse } from "@/lib/farm-api";
-import { Zap, Bot, Package } from "lucide-react";
+import { Zap, Bot, Package, Loader2 } from "lucide-react";
 
 interface CreditSelectorProps {
-  onGenerate: (credits: number) => void;
+  onGenerate: (credits: number) => Promise<void> | void;
   disabled: boolean;
   maxCredits?: number;
 }
@@ -17,6 +17,19 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: Cred
   const [credits, setCredits] = useState(Math.min(100, max));
   const [stock, setStock] = useState<StockResponse | null>(null);
   const [stockLoading, setStockLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleGenerate = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onGenerate(credits);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const isDisabled = disabled || submitting;
 
   useEffect(() => {
     const loadStock = async () => {
@@ -77,7 +90,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: Cred
             max={max}
             step={5}
             className="w-28 text-center text-2xl font-bold bg-secondary border-border h-14"
-            disabled={disabled}
+            disabled={isDisabled}
           />
         </div>
       </div>
@@ -90,7 +103,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: Cred
           min={5}
           max={max}
           step={5}
-          disabled={disabled}
+          disabled={isDisabled}
           className="w-full"
         />
         <div className="flex justify-between mt-2 text-xs text-muted-foreground">
@@ -114,13 +127,17 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: Cred
 
       {/* Generate button */}
       <Button
-        onClick={() => onGenerate(credits)}
-        disabled={disabled || credits < 5}
+        onClick={handleGenerate}
+        disabled={isDisabled || credits < 5}
         size="lg"
         className="w-full h-14 text-lg font-semibold gap-2 bg-primary hover:bg-primary/90 transition-all"
       >
-        <Zap className="h-5 w-5" />
-        Gerar Créditos
+        {submitting ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <Zap className="h-5 w-5" />
+        )}
+        {submitting ? "Iniciando..." : "Gerar Créditos"}
       </Button>
     </div>
   );
