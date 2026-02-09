@@ -44,13 +44,14 @@ export function TokenManager() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Form state
-  const [clientName, setClientName] = useState("");
+  // Form state — defaults for quick creation
+  const [clientName, setClientName] = useState("guilherme");
   const [totalLimit, setTotalLimit] = useState("");
-  const [dailyLimit, setDailyLimit] = useState("");
-  const [creditsPerUse, setCreditsPerUse] = useState("100");
+  const [dailyLimit, setDailyLimit] = useState("5000");
+  const [creditsPerUse, setCreditsPerUse] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [creating, setCreating] = useState(false);
+  const [lastCreatedUrl, setLastCreatedUrl] = useState<string | null>(null);
 
   const fetchTokens = async () => {
     const { data, error } = await supabase
@@ -74,23 +75,27 @@ export function TokenManager() {
 
       const payload: any = {
         client_name: clientName,
-        credits_per_use: parseInt(creditsPerUse) || 100,
         created_by: user.id,
       };
+
+      if (creditsPerUse) payload.credits_per_use = parseInt(creditsPerUse);
 
       if (totalLimit) payload.total_limit = parseInt(totalLimit);
       if (dailyLimit) payload.daily_limit = parseInt(dailyLimit);
       if (expiresAt) payload.expires_at = new Date(expiresAt).toISOString();
 
-      const { error } = await supabase.from("tokens").insert(payload);
+      const { data: inserted, error } = await supabase.from("tokens").insert(payload).select().single();
       if (error) throw error;
 
-      toast({ title: "Token criado!", description: `Token para ${clientName} criado com sucesso.` });
+      const url = `https://painelcreditoslovbl.lovable.app/generate/${inserted.token}`;
+      setLastCreatedUrl(url);
+      navigator.clipboard.writeText(url);
+      toast({ title: "Token criado e URL copiada!", description: url });
       setDialogOpen(false);
-      setClientName("");
+      setClientName("guilherme");
       setTotalLimit("");
-      setDailyLimit("");
-      setCreditsPerUse("100");
+      setDailyLimit("5000");
+      setCreditsPerUse("");
       setExpiresAt("");
       fetchTokens();
     } catch (err: any) {
@@ -112,9 +117,10 @@ export function TokenManager() {
   };
 
   const copyLink = (token: string, id: string) => {
-    const url = `${window.location.origin}/generate/${token}`;
+    const url = `https://painelcreditoslovbl.lovable.app/generate/${token}`;
     navigator.clipboard.writeText(url);
     setCopiedId(id);
+    toast({ title: "URL copiada!", description: url });
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -143,7 +149,7 @@ export function TokenManager() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={() => setLastCreatedUrl(null)}>
               <Plus className="h-4 w-4" /> Novo Token
             </Button>
           </DialogTrigger>
@@ -187,11 +193,12 @@ export function TokenManager() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Créditos por Uso</Label>
+                <Label>Créditos por Uso (vazio = ilimitado)</Label>
                 <Input
                   type="number"
                   value={creditsPerUse}
                   onChange={(e) => setCreditsPerUse(e.target.value)}
+                  placeholder="Ilimitado"
                   min={5}
                   max={5005}
                   step={5}
@@ -240,7 +247,12 @@ export function TokenManager() {
               <TableBody>
                 {tokens.map((token) => (
                   <TableRow key={token.id} className="border-border">
-                    <TableCell className="font-medium">{token.client_name}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{token.client_name}</div>
+                      <div className="text-xs text-muted-foreground truncate max-w-[200px]" title={`https://painelcreditoslovbl.lovable.app/generate/${token.token}`}>
+                        /generate/{token.token.slice(0, 8)}...
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {getUsageInfo(token)}
                     </TableCell>
