@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -7,59 +7,71 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const adminCheckDone = useRef(false);
 
   useEffect(() => {
-    let resolved = false;
-    const resolve = () => { resolved = true; setLoading(false); };
+    let cancelled = false;
 
-    // Safety timeout - never stay loading forever
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        console.warn("useAuth: timeout reached, forcing loading=false");
-        resolve();
+    const checkAdmin = async (userId: string): Promise<boolean> => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const { data, error } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId)
+            .eq("role", "admin")
+            .maybeSingle();
+          if (error) throw error;
+          return !!data;
+        } catch (err) {
+          console.warn(`useAuth: admin check attempt ${attempt + 1} failed`, err);
+          if (attempt < 2) await new Promise(r => setTimeout(r, 500));
+        }
       }
-    }, 5000);
-
-    const checkAdmin = async (userId: string) => {
-      try {
-        const { data } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .eq("role", "admin")
-          .maybeSingle();
-        setIsAdmin(!!data);
-      } catch (err) {
-        console.error("useAuth: admin check failed", err);
-        setIsAdmin(false);
-      }
+      return false;
     };
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await checkAdmin(session.user.id);
+    const handleSession = async (s: Session | null) => {
+      if (cancelled) return;
+      setSession(s);
+      setUser(s?.user ?? null);
+
+      if (s?.user) {
+        const admin = await checkAdmin(s.user.id);
+        if (!cancelled) {
+          setIsAdmin(admin);
+          adminCheckDone.current = true;
+        }
+      } else {
+        setIsAdmin(false);
+        adminCheckDone.current = true;
       }
-      if (!resolved) resolve();
+      if (!cancelled) setLoading(false);
+    };
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      handleSession(s);
     }).catch(() => {
-      if (!resolved) resolve();
+      if (!cancelled) setLoading(false);
     });
 
+    // Listen for auth changes (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await checkAdmin(session.user.id);
-        } else {
-          setIsAdmin(false);
-        }
-        if (!resolved) resolve();
+      (_event, s) => {
+        // Skip INITIAL_SESSION if we already handled it via getSession
+        if (_event === "INITIAL_SESSION" && adminCheckDone.current) return;
+        handleSession(s);
       }
     );
 
+    // Safety timeout
+    const timeout = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 5000);
+
     return () => {
+      cancelled = true;
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
