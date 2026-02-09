@@ -132,8 +132,7 @@ export function TokenManager() {
       setCreating(false);
     }
   };
-
-
+  const toggleToken = async (id: string, isActive: boolean) => {
     await supabase.from("tokens").update({ is_active: !isActive }).eq("id", id);
     fetchTokens();
   };
