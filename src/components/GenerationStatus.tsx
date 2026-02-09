@@ -13,10 +13,10 @@ import {
   PartyPopper,
   Ban,
   RefreshCw,
-  Zap,
   Bot,
   Info,
 } from "lucide-react";
+import lovableHeart from "@/assets/lovable-heart.png";
 import type { FarmState, FeedEntry } from "@/hooks/useFarmGeneration";
 import type { FarmStatus } from "@/lib/farm-api";
 
@@ -111,7 +111,7 @@ function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
         >
           {entry.kind === "credit" ? (
             <>
-              <Zap className="h-3 w-3 shrink-0" />
+              <img src={lovableHeart} alt="" className="h-3.5 w-3.5 shrink-0" />
               <span className="font-bold">+{entry.credits}</span>
               <span className="truncate">{entry.botName}</span>
             </>
