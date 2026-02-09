@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Copy,
   Check,
@@ -12,8 +13,11 @@ import {
   PartyPopper,
   Ban,
   RefreshCw,
+  Zap,
+  Bot,
+  Info,
 } from "lucide-react";
-import type { FarmState } from "@/hooks/useFarmGeneration";
+import type { FarmState, FeedEntry } from "@/hooks/useFarmGeneration";
 import type { FarmStatus } from "@/lib/farm-api";
 
 interface GenerationStatusProps {
@@ -26,6 +30,7 @@ interface GenerationStatusProps {
   result: FarmStatus["result"] | null;
   errorMessage: string | null;
   logs: string[];
+  feed: FeedEntry[];
   expiresAt: number | null;
   onCancel: () => void;
   onReset: () => void;
@@ -54,6 +59,74 @@ function CountdownTimer({ expiresAt }: { expiresAt: number }) {
   );
 }
 
+function AnimatedCounter({ value, className }: { value: number; className?: string }) {
+  const [display, setDisplay] = useState(value);
+  const prevValue = useRef(value);
+
+  useEffect(() => {
+    if (value === prevValue.current) return;
+    const start = prevValue.current;
+    const diff = value - start;
+    const duration = 400;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(start + diff * eased));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+
+    requestAnimationFrame(animate);
+    prevValue.current = value;
+  }, [value]);
+
+  return <span className={className}>{display}</span>;
+}
+
+function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [feed.length]);
+
+  // Show newest first
+  const reversed = [...feed].reverse();
+
+  return (
+    <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 pr-1">
+      {reversed.map((entry) => (
+        <div
+          key={entry.id}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-mono animate-fade-in ${
+            entry.kind === "credit"
+              ? "bg-success/10 text-success"
+              : "bg-muted/50 text-muted-foreground"
+          }`}
+        >
+          {entry.kind === "credit" ? (
+            <>
+              <Zap className="h-3 w-3 shrink-0" />
+              <span className="font-bold">+{entry.credits}</span>
+              <span className="truncate">{entry.botName}</span>
+            </>
+          ) : (
+            <>
+              <Info className="h-3 w-3 shrink-0" />
+              <span className="truncate">{entry.message}</span>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function GenerationStatus({
   state,
   masterEmail,
@@ -64,6 +137,7 @@ export function GenerationStatus({
   result,
   errorMessage,
   logs,
+  feed,
   expiresAt,
   onCancel,
   onReset,
@@ -155,33 +229,48 @@ export function GenerationStatus({
   // Running
   if (state === "running") {
     return (
-      <div className="flex flex-col gap-6 py-8">
+      <div className="flex flex-col gap-5 py-6">
         {workspaceName && (
-          <p className="text-center text-sm text-muted-foreground">
-            Workspace: <span className="font-semibold text-foreground">{workspaceName}</span>
-          </p>
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">
+              Workspace: <span className="font-semibold text-foreground">{workspaceName}</span>
+            </p>
+          </div>
         )}
 
+        {/* Animated credit counter */}
         <div className="text-center">
-          <p className="text-5xl font-bold text-success animate-count-up">
-            {creditsEarned}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <div className="relative inline-block">
+            <AnimatedCounter
+              value={creditsEarned}
+              className="text-6xl font-extrabold text-success tabular-nums"
+            />
+            <div className="absolute -inset-4 bg-success/5 rounded-full blur-2xl -z-10 animate-pulse-glow" />
+          </div>
+          <p className="text-sm text-muted-foreground mt-2">
             de {totalCreditsRequested} créditos
           </p>
         </div>
 
-        <Progress value={progressPercent} className="h-3" />
+        {/* Progress bar with label */}
+        <div className="space-y-1.5">
+          <Progress value={progressPercent} className="h-3 bg-muted" />
+          <p className="text-xs text-center text-muted-foreground font-mono">
+            {creditsEarned}/{totalCreditsRequested} créditos
+          </p>
+        </div>
 
-        <Card className="glass-card max-h-40 overflow-y-auto">
-          <CardContent className="p-4">
-            <div className="space-y-1 text-xs font-mono text-muted-foreground">
-              {logs.slice(-10).map((log, i) => (
-                <p key={i} className={log.startsWith("+5") ? "text-success font-semibold" : ""}>
-                  {log}
-                </p>
-              ))}
-            </div>
+        {/* Activity feed */}
+        <Card className="glass-card">
+          <CardContent className="p-3">
+            {feed.length === 0 ? (
+              <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Aguardando atividade...</span>
+              </div>
+            ) : (
+              <ActivityFeed feed={feed} />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -190,12 +279,16 @@ export function GenerationStatus({
 
   // Completed
   if (state === "completed") {
+    const finalCredits = result?.credits ?? creditsEarned;
     return (
       <div className="flex flex-col items-center gap-6 py-8">
-        <PartyPopper className="h-16 w-16 text-success" />
+        <div className="relative">
+          <PartyPopper className="h-16 w-16 text-success" />
+          <div className="absolute -inset-4 bg-success/10 rounded-full blur-2xl -z-10" />
+        </div>
         <div className="text-center">
-          <p className="text-4xl font-bold text-success">
-            {result?.credits ?? creditsEarned}
+          <p className="text-5xl font-extrabold text-success tabular-nums">
+            {finalCredits}
           </p>
           <p className="text-lg text-muted-foreground mt-1">créditos gerados com sucesso!</p>
         </div>
@@ -206,6 +299,8 @@ export function GenerationStatus({
             <span>Falhas: {result.failed}</span>
           </div>
         )}
+
+        <Progress value={100} className="h-3 w-full bg-muted" />
 
         <Button onClick={onReset} size="lg" className="gap-2 mt-4">
           <RefreshCw className="h-4 w-4" /> Gerar Novamente

@@ -195,6 +195,7 @@ const Generate = () => {
                 result={farm.result}
                 errorMessage={farm.errorMessage}
                 logs={farm.logs}
+                feed={farm.feed}
                 expiresAt={farm.expiresAt}
                 onCancel={farm.cancelGeneration}
                 onReset={farm.reset}
