@@ -220,6 +220,18 @@ serve(async (req) => {
         .update(updateData)
         .eq("farm_id", farmId);
 
+      // Also update token_usages table
+      const usageUpdate: Record<string, unknown> = { status: status || "active" };
+      if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
+      if (status === "completed" || status === "error" || status === "cancelled" || status === "expired") {
+        usageUpdate.completed_at = new Date().toISOString();
+      }
+      await supabase
+        .from("token_usages")
+        .update(usageUpdate)
+        .eq("farm_id", farmId)
+        .eq("token_id", tokenData.id);
+
       return new Response(
         JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
