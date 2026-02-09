@@ -173,12 +173,13 @@ export function useFarmGeneration() {
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
           } else if (status.status === "running" || status.status === "invite_detected") {
-            // Running state - try SSE for real-time updates, keep polling as fallback
+            // Running state - update credits from polling too
             setGen((prev) => ({
               ...prev,
               state: "running",
               workspaceName: status.workspaceName || prev.workspaceName,
               masterEmail: status.masterEmail || prev.masterEmail,
+              creditsEarned: status.credits > prev.creditsEarned ? status.credits : prev.creditsEarned,
             }));
             
             // Try SSE if not already connected
