@@ -256,7 +256,7 @@ export function useFarmGeneration() {
                 state: "running",
                 workspaceName: status.workspaceName || prev.workspaceName,
                 masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: Math.max(newCredits, status.credits > prev.creditsEarned ? status.credits : prev.creditsEarned),
+                creditsEarned: newCredits,
                 feed: mergedFeed,
               };
             });
