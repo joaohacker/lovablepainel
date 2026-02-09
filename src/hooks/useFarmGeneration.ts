@@ -62,6 +62,9 @@ export function useFarmGeneration() {
     expiresAt: null,
   });
 
+  // Track which log messages we've already processed (by message+timestamp)
+  const processedLogsRef = useRef<Set<string>>(new Set());
+
   const disconnectSSE = useRef<(() => void) | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -203,13 +206,60 @@ export function useFarmGeneration() {
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
           } else if (status.status === "running" || status.status === "invite_detected") {
-            setGen((prev) => ({
-              ...prev,
-              state: "running",
-              workspaceName: status.workspaceName || prev.workspaceName,
-              masterEmail: status.masterEmail || prev.masterEmail,
-              creditsEarned: status.credits > prev.creditsEarned ? status.credits : prev.creditsEarned,
-            }));
+            // Process logs from polling response into feed
+            const newFeedEntries: FeedEntry[] = [];
+            let pollingCredits = 0;
+            
+            if (status.logs && status.logs.length > 0) {
+              for (const log of status.logs) {
+                const logKey = `${log.message}|${log.timestamp}`;
+                if (processedLogsRef.current.has(logKey)) continue;
+                processedLogsRef.current.add(logKey);
+                
+                const creditMatch = log.message.match(/^\+(\d+)\s/);
+                if (creditMatch && (log.type === "credit" || log.message.includes("crédito") || log.message.includes("credit"))) {
+                  const amount = parseInt(creditMatch[1], 10);
+                  pollingCredits += amount;
+                  const nameMatch = log.message.match(/\((.+)\)/);
+                  const botName = nameMatch ? nameMatch[1] : "Bot";
+                  newFeedEntries.push({
+                    id: ++feedIdCounter,
+                    kind: "credit",
+                    botName,
+                    credits: amount,
+                    message: log.message,
+                    timestamp: log.timestamp,
+                  });
+                } else {
+                  newFeedEntries.push({
+                    id: ++feedIdCounter,
+                    kind: "info",
+                    message: log.message,
+                    timestamp: log.timestamp,
+                  });
+                }
+              }
+            }
+
+            setGen((prev) => {
+              // Calculate total credits from all processed credit logs
+              const totalFromLogs = newFeedEntries
+                .filter(e => e.kind === "credit")
+                .reduce((sum, e) => sum + (e.credits || 0), 0);
+              const newCredits = Math.max(prev.creditsEarned, prev.creditsEarned + totalFromLogs);
+              
+              // Merge feed, avoiding duplicates
+              const mergedFeed = [...prev.feed, ...newFeedEntries].slice(-50);
+              
+              return {
+                ...prev,
+                state: "running",
+                workspaceName: status.workspaceName || prev.workspaceName,
+                masterEmail: status.masterEmail || prev.masterEmail,
+                creditsEarned: Math.max(newCredits, status.credits > prev.creditsEarned ? status.credits : prev.creditsEarned),
+                feed: mergedFeed,
+              };
+            });
             
             if (!disconnectSSE.current) {
               disconnectSSE.current = connectSSE(
@@ -249,6 +299,7 @@ export function useFarmGeneration() {
     async (credits: number) => {
       cleanup();
       feedIdCounter = 0;
+      processedLogsRef.current.clear();
       setGen({
         state: "creating",
         farmId: null,
@@ -307,6 +358,7 @@ export function useFarmGeneration() {
     (farmId: string, credits: number, queued = false, queuePosition?: number, masterEmail?: string) => {
       cleanup();
       feedIdCounter = 0;
+      processedLogsRef.current.clear();
 
       if (queued) {
         setGen({
@@ -374,6 +426,7 @@ export function useFarmGeneration() {
   const reset = useCallback(() => {
     cleanup();
     feedIdCounter = 0;
+    processedLogsRef.current.clear();
     setGen({
       state: "idle",
       farmId: null,
