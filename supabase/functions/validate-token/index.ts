@@ -61,39 +61,41 @@ serve(async (req) => {
       );
     }
 
-    // Check total limit
+    // Check total limit (by credits, not by number of uses)
     let remainingTotal: number | null = null;
     if (tokenData.total_limit) {
-      const { count } = await supabase
+      const { data: totalData } = await supabase
         .from("token_usages")
-        .select("*", { count: "exact", head: true })
+        .select("credits_requested")
         .eq("token_id", tokenData.id);
       
-      remainingTotal = tokenData.total_limit - (count || 0);
+      const totalUsed = (totalData || []).reduce((sum, r) => sum + (r.credits_requested || 0), 0);
+      remainingTotal = tokenData.total_limit - totalUsed;
       if (remainingTotal <= 0) {
         return new Response(
-          JSON.stringify({ valid: false, error: "Limite total de usos atingido" }),
+          JSON.stringify({ valid: false, error: "Limite total de créditos atingido" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
 
-    // Check daily limit
+    // Check daily limit (by credits, not by number of uses)
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       
-      const { count } = await supabase
+      const { data: dailyData } = await supabase
         .from("token_usages")
-        .select("*", { count: "exact", head: true })
+        .select("credits_requested")
         .eq("token_id", tokenData.id)
         .gte("created_at", todayStart.toISOString());
       
-      remainingDaily = tokenData.daily_limit - (count || 0);
+      const dailyUsed = (dailyData || []).reduce((sum, r) => sum + (r.credits_requested || 0), 0);
+      remainingDaily = tokenData.daily_limit - dailyUsed;
       if (remainingDaily <= 0) {
         return new Response(
-          JSON.stringify({ valid: false, error: "Limite diário de usos atingido" }),
+          JSON.stringify({ valid: false, error: "Limite diário de créditos atingido" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
