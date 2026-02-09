@@ -9,47 +9,60 @@ export function useAuth() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    let resolved = false;
+    const resolve = () => { resolved = true; setLoading(false); };
+
+    // Safety timeout - never stay loading forever
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        console.warn("useAuth: timeout reached, forcing loading=false");
+        resolve();
+      }
+    }, 5000);
+
+    const checkAdmin = async (userId: string) => {
+      try {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle();
+        setIsAdmin(!!data);
+      } catch (err) {
+        console.error("useAuth: admin check failed", err);
+        setIsAdmin(false);
+      }
+    };
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await checkAdmin(session.user.id);
+      }
+      if (!resolved) resolve();
+    }).catch(() => {
+      if (!resolved) resolve();
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-
         if (session?.user) {
-          // Check admin role
-          const { data } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", session.user.id)
-            .eq("role", "admin")
-            .maybeSingle();
-          setIsAdmin(!!data);
+          await checkAdmin(session.user.id);
         } else {
           setIsAdmin(false);
         }
-        setLoading(false);
+        if (!resolved) resolve();
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", session.user.id)
-          .eq("role", "admin")
-          .maybeSingle()
-          .then(({ data }) => {
-            setIsAdmin(!!data);
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
