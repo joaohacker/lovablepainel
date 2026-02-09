@@ -115,6 +115,7 @@ export function TokenManager() {
         .insert({
           client_name: "guilherme",
           daily_limit: 5000,
+          credits_per_use: 1000,
           created_by: user.id,
         })
         .select()
