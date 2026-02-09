@@ -224,6 +224,60 @@ export function useFarmGeneration() {
     [cleanup, handleSSEEvent, startPolling]
   );
 
+  // Start generation with an already-created farmId (from validate-token edge function)
+  const startGenerationWithFarmId = useCallback(
+    (farmId: string, credits: number, queued = false, queuePosition?: number, masterEmail?: string) => {
+      cleanup();
+
+      if (queued) {
+        setGen({
+          state: "queued",
+          farmId,
+          masterEmail: null,
+          queuePosition: queuePosition || null,
+          workspaceName: null,
+          creditsEarned: 0,
+          totalCreditsRequested: credits,
+          result: null,
+          errorMessage: null,
+          logs: [],
+          expiresAt: null,
+        });
+        startPolling(farmId);
+      } else {
+        const expiresAt = Date.now() + 10 * 60 * 1000;
+        setGen({
+          state: "waiting_invite",
+          farmId,
+          masterEmail: masterEmail || null,
+          queuePosition: null,
+          workspaceName: null,
+          creditsEarned: 0,
+          totalCreditsRequested: credits,
+          result: null,
+          errorMessage: null,
+          logs: [],
+          expiresAt,
+        });
+
+        disconnectSSE.current = connectSSE(
+          farmId,
+          handleSSEEvent,
+          () => startPolling(farmId)
+        );
+      }
+    },
+    [cleanup, handleSSEEvent, startPolling]
+  );
+
+  const setError = useCallback((message: string) => {
+    setGen((prev) => ({
+      ...prev,
+      state: "error",
+      errorMessage: message,
+    }));
+  }, []);
+
   const cancelGeneration = useCallback(async () => {
     if (!gen.farmId) return;
     try {
@@ -255,6 +309,8 @@ export function useFarmGeneration() {
   return {
     ...gen,
     startGeneration,
+    startGenerationWithFarmId,
+    setError,
     cancelGeneration,
     reset,
   };

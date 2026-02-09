@@ -1,0 +1,203 @@
+import { useEffect, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
+import { CreditSelector } from "@/components/CreditSelector";
+import { GenerationStatus } from "@/components/GenerationStatus";
+import { useFarmGeneration } from "@/hooks/useFarmGeneration";
+import { supabase } from "@/integrations/supabase/client";
+import { Zap, Loader2, ShieldX, Clock, Ban } from "lucide-react";
+
+interface TokenInfo {
+  id: string;
+  client_name: string;
+  credits_per_use: number;
+  total_limit: number | null;
+  daily_limit: number | null;
+  expires_at: string | null;
+  is_active: boolean;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  token?: TokenInfo;
+  remaining_total?: number | null;
+  remaining_daily?: number | null;
+  error?: string;
+}
+
+const Generate = () => {
+  const { token } = useParams<{ token: string }>();
+  const [validating, setValidating] = useState(true);
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const farm = useFarmGeneration();
+
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    validateToken();
+  }, [token]);
+
+  const validateToken = async () => {
+    setValidating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("validate-token", {
+        body: { token, action: "validate" },
+      });
+      if (error) throw error;
+      setValidation(data);
+    } catch (err) {
+      setValidation({ valid: false, error: "Erro ao validar token" });
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  // Wrap startGeneration to track in generations table via edge function
+  const handleGenerate = useCallback(
+    async (credits: number) => {
+      if (!token || !validation?.token) return;
+
+      try {
+        const { data, error } = await supabase.functions.invoke("validate-token", {
+          body: { token, action: "create", credits },
+        });
+
+        if (error || !data?.success) {
+          throw new Error(data?.error || "Falha ao iniciar geração");
+        }
+
+        farm.startGenerationWithFarmId(
+          data.farmId,
+          credits,
+          data.queued,
+          data.queuePosition,
+          data.masterEmail
+        );
+      } catch (err: any) {
+        farm.setError(err.message || "Erro ao iniciar geração");
+      }
+    },
+    [token, validation, farm]
+  );
+
+  // Update generation status in DB when farm state changes
+  useEffect(() => {
+    if (!farm.farmId || !validation?.token) return;
+
+    const updateGeneration = async () => {
+      await supabase
+        .from("generations")
+        .update({
+          status: farm.state,
+          credits_earned: farm.creditsEarned,
+          master_email: farm.masterEmail,
+          workspace_name: farm.workspaceName,
+          error_message: farm.errorMessage,
+        })
+        .eq("farm_id", farm.farmId);
+    };
+
+    updateGeneration();
+  }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId]);
+
+  if (validating) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-muted-foreground">Validando acesso...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!validation?.valid || !validation.token) {
+    const icon = validation?.error?.includes("expirado") ? (
+      <Clock className="h-16 w-16 text-destructive" />
+    ) : validation?.error?.includes("desativado") ? (
+      <Ban className="h-16 w-16 text-destructive" />
+    ) : (
+      <ShieldX className="h-16 w-16 text-destructive" />
+    );
+
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="glass-card max-w-md w-full">
+          <CardContent className="p-8 flex flex-col items-center gap-4 text-center">
+            {icon}
+            <h2 className="text-xl font-bold text-foreground">Acesso Negado</h2>
+            <p className="text-muted-foreground">{validation?.error || "Token inválido ou expirado."}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const tokenInfo = validation.token;
+  const isIdle = farm.state === "idle";
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-success/5 blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 mb-3">
+            <div className="p-2 rounded-xl bg-primary/10">
+              <Zap className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">Gerador de Créditos</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Olá, <span className="text-foreground font-medium">{tokenInfo.client_name}</span>
+          </p>
+
+          {/* Usage info */}
+          <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
+            {validation.remaining_total !== null && validation.remaining_total !== undefined && (
+              <span>Usos restantes: <span className="text-foreground font-medium">{validation.remaining_total}</span></span>
+            )}
+            {validation.remaining_daily !== null && validation.remaining_daily !== undefined && (
+              <span>Hoje: <span className="text-foreground font-medium">{validation.remaining_daily}</span></span>
+            )}
+          </div>
+        </div>
+
+        <Card className="glass-card">
+          <CardContent className="p-6 md:p-8">
+            {isIdle ? (
+              <CreditSelector
+                onGenerate={handleGenerate}
+                disabled={farm.state !== "idle"}
+                maxCredits={tokenInfo.credits_per_use}
+              />
+            ) : (
+              <GenerationStatus
+                state={farm.state}
+                masterEmail={farm.masterEmail}
+                queuePosition={farm.queuePosition}
+                workspaceName={farm.workspaceName}
+                creditsEarned={farm.creditsEarned}
+                totalCreditsRequested={farm.totalCreditsRequested}
+                result={farm.result}
+                errorMessage={farm.errorMessage}
+                logs={farm.logs}
+                expiresAt={farm.expiresAt}
+                onCancel={farm.cancelGeneration}
+                onReset={farm.reset}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default Generate;

@@ -2,3 +2,6 @@ project_id = "lhdrgrsugdahfhfovnjr"
 
 [functions.farm-proxy]
 verify_jwt = false
+
+[functions.validate-token]
+verify_jwt = false
