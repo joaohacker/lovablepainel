@@ -5,7 +5,8 @@ import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
-import { Zap, Loader2, ShieldX, Clock, Ban } from "lucide-react";
+import { Loader2, ShieldX, Clock, Ban } from "lucide-react";
+import lovableHeart from "@/assets/lovable-heart.png";
 
 interface TokenInfo {
   id: string;
@@ -156,9 +157,7 @@ const Generate = () => {
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Zap className="h-6 w-6 text-primary" />
-            </div>
+            <img src={lovableHeart} alt="Lovable" className="h-10 w-10" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Gerador de Créditos</h1>
           <p className="text-sm text-muted-foreground mt-1">

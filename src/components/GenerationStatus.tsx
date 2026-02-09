@@ -300,7 +300,7 @@ export function GenerationStatus({
           </div>
         )}
 
-        <Progress value={100} className="h-3 w-full bg-muted" />
+        <Progress value={100} className="h-3 w-full bg-muted [&>div]:bg-success" />
 
         <Button onClick={onReset} size="lg" className="gap-2 mt-4">
           <RefreshCw className="h-4 w-4" /> Gerar Novamente
