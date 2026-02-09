@@ -21,7 +21,8 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { token, action, credits } = await req.json();
+    const body = await req.json();
+    const { token, action, credits, farmId: bodyFarmId, status: bodyStatus, credits_earned, master_email, workspace_name, error_message } = body;
 
     if (!token) {
       return new Response(
@@ -177,6 +178,50 @@ serve(async (req) => {
           masterEmail: farmData.masterEmail,
           message: farmData.message,
         }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Update generation status
+    if (action === "update-status") {
+      const farmId = bodyFarmId;
+      const status = bodyStatus;
+
+      if (!farmId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "farmId required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify this farm belongs to this token
+      const { data: gen } = await supabase
+        .from("generations")
+        .select("id")
+        .eq("farm_id", farmId)
+        .eq("token_id", tokenData.id)
+        .maybeSingle();
+
+      if (!gen) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Generation not found for this token" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const updateData: Record<string, unknown> = { status };
+      if (credits_earned !== undefined) updateData.credits_earned = credits_earned;
+      if (master_email !== undefined) updateData.master_email = master_email;
+      if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
+      if (error_message !== undefined) updateData.error_message = error_message;
+
+      await supabase
+        .from("generations")
+        .update(updateData)
+        .eq("farm_id", farmId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

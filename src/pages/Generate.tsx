@@ -83,25 +83,27 @@ const Generate = () => {
     [token, validation, farm]
   );
 
-  // Update generation status in DB when farm state changes
+  // Update generation status in DB via edge function
   useEffect(() => {
-    if (!farm.farmId || !validation?.token) return;
+    if (!farm.farmId || !token || !validation?.token) return;
 
     const updateGeneration = async () => {
-      await supabase
-        .from("generations")
-        .update({
+      await supabase.functions.invoke("validate-token", {
+        body: {
+          token,
+          action: "update-status",
+          farmId: farm.farmId,
           status: farm.state,
           credits_earned: farm.creditsEarned,
           master_email: farm.masterEmail,
           workspace_name: farm.workspaceName,
           error_message: farm.errorMessage,
-        })
-        .eq("farm_id", farm.farmId);
+        },
+      });
     };
 
     updateGeneration();
-  }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId]);
+  }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId, token]);
 
   if (validating) {
     return (
