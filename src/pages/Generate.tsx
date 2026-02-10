@@ -104,7 +104,15 @@ const Generate = () => {
           body: { token, action: "create", credits },
         });
 
-        if (error || !data?.success) {
+        if (error) throw new Error("Falha ao iniciar geração");
+
+        // If there's an existing running session, resume it instead
+        if (!data?.success && data?.existingFarmId) {
+          farm.startGenerationWithFarmId(data.existingFarmId, credits);
+          return;
+        }
+
+        if (!data?.success) {
           throw new Error(data?.error || "Falha ao iniciar geração");
         }
 
