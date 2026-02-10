@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       generations: {
         Row: {
+          client_ip: string | null
           client_name: string
           created_at: string
           credits_earned: number | null
@@ -30,6 +31,7 @@ export type Database = {
           workspace_name: string | null
         }
         Insert: {
+          client_ip?: string | null
           client_name: string
           created_at?: string
           credits_earned?: number | null
@@ -44,6 +46,7 @@ export type Database = {
           workspace_name?: string | null
         }
         Update: {
+          client_ip?: string | null
           client_name?: string
           created_at?: string
           credits_earned?: number | null
@@ -93,6 +96,7 @@ export type Database = {
       }
       token_usages: {
         Row: {
+          client_ip: string | null
           completed_at: string | null
           created_at: string
           credits_earned: number | null
@@ -103,6 +107,7 @@ export type Database = {
           token_id: string
         }
         Insert: {
+          client_ip?: string | null
           completed_at?: string | null
           created_at?: string
           credits_earned?: number | null
@@ -113,6 +118,7 @@ export type Database = {
           token_id: string
         }
         Update: {
+          client_ip?: string | null
           completed_at?: string | null
           created_at?: string
           credits_earned?: number | null
