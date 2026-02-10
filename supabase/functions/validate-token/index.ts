@@ -27,6 +27,12 @@ serve(async (req) => {
     const MAINTENANCE_MSG = "Repondo estoque. Aguardem 2 horas para gerar novamente.";
     // ============================
 
+    // Capture client IP from request headers
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || req.headers.get("x-real-ip")
+      || req.headers.get("cf-connecting-ip")
+      || "unknown";
+
     const body = await req.json();
     const { token, action, credits, farmId: bodyFarmId, status: bodyStatus, credits_earned, master_email, workspace_name, error_message } = body;
 
@@ -270,6 +276,7 @@ serve(async (req) => {
         farm_id: farmData.farmId,
         credits_requested: requestedCredits,
         status: "active",
+        client_ip: clientIp,
       });
 
       // Record generation for live dashboard
@@ -280,6 +287,7 @@ serve(async (req) => {
         credits_requested: requestedCredits,
         status: farmData.queued ? "queued" : "waiting_invite",
         master_email: farmData.masterEmail || null,
+        client_ip: clientIp,
       });
 
       return new Response(
