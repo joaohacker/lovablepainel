@@ -61,8 +61,8 @@ serve(async (req) => {
       );
     }
 
-    // Auto-close stale sessions (running/active > 30 min) so their credits count
-    const staleThreshold = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // Auto-close stale sessions (running/active > 10 min) so their credits don't block
+    const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const { data: staleSessions } = await supabase
       .from("token_usages")
       .select("id, credits_earned, farm_id")
@@ -175,6 +175,29 @@ serve(async (req) => {
           JSON.stringify({ success: false, error: "FARM_API_KEY not configured" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Auto-cancel any previous active/running/pending sessions for this token
+      // so abandoned sessions don't silently block credits
+      const { data: activeSessions } = await supabase
+        .from("token_usages")
+        .select("id, farm_id")
+        .eq("token_id", tokenData.id)
+        .in("status", ["active", "running", "pending"]);
+
+      if (activeSessions && activeSessions.length > 0) {
+        for (const s of activeSessions) {
+          await supabase
+            .from("token_usages")
+            .update({ status: "cancelled", credits_earned: 0, completed_at: new Date().toISOString() })
+            .eq("id", s.id);
+          if (s.farm_id) {
+            await supabase
+              .from("generations")
+              .update({ status: "cancelled", credits_earned: 0 })
+              .eq("farm_id", s.farm_id);
+          }
+        }
       }
 
       const requestedCredits = Math.min(credits || tokenData.credits_per_use, tokenData.credits_per_use);

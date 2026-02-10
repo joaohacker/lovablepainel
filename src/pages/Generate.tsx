@@ -26,6 +26,14 @@ interface ValidationResult {
   error?: string;
 }
 
+const SESSION_KEY = "lovable_active_session";
+
+interface SavedSession {
+  farmId: string;
+  credits: number;
+  token: string;
+}
+
 const Generate = () => {
   const { token } = useParams<{ token: string }>();
   const [validating, setValidating] = useState(true);
@@ -40,6 +48,36 @@ const Generate = () => {
     if (!token) return;
     validateToken();
   }, [token]);
+
+  // Resume session after page refresh
+  useEffect(() => {
+    if (!token || validating || !validation?.valid) return;
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if (!saved) return;
+    try {
+      const session: SavedSession = JSON.parse(saved);
+      if (session.token === token && session.farmId && farm.state === "idle") {
+        farm.startGenerationWithFarmId(session.farmId, session.credits);
+      }
+    } catch {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+  }, [token, validating, validation]);
+
+  // Save/clear session in sessionStorage
+  useEffect(() => {
+    if (!token || !farm.farmId) return;
+    const isActive = ["creating", "queued", "waiting_invite", "running"].includes(farm.state);
+    if (isActive) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+        farmId: farm.farmId,
+        credits: farm.totalCreditsRequested,
+        token,
+      }));
+    } else {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+  }, [farm.state, farm.farmId, token]);
 
   const validateToken = async () => {
     setValidating(true);
