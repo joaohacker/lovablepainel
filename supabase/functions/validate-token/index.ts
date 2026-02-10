@@ -86,23 +86,23 @@ serve(async (req) => {
       }
     }
 
-    // Check total limit: completed credits_earned + in-progress credits_requested (reserved)
+    // Check total limit using generations table (has accurate credits_earned)
     let remainingTotal: number | null = null;
     if (tokenData.total_limit) {
-      // Sum credits_earned from completed sessions
-      const { data: completedTotal } = await supabase
-        .from("token_usages")
+      // Sum credits_earned from completed/running generations (actual earned credits)
+      const { data: earnedTotal } = await supabase
+        .from("generations")
         .select("credits_earned")
         .eq("token_id", tokenData.id)
-        .eq("status", "completed");
-      const usedTotal = (completedTotal || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
+        .in("status", ["completed", "running"]);
+      const usedTotal = (earnedTotal || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
 
-      // Sum credits_requested from in-progress sessions (reserved)
+      // Sum credits_requested from in-progress generations (reserved)
       const { data: activeTotal } = await supabase
-        .from("token_usages")
+        .from("generations")
         .select("credits_requested")
         .eq("token_id", tokenData.id)
-        .in("status", ["active", "running", "pending"]);
+        .in("status", ["active", "waiting_invite", "queued", "pending"]);
       const reservedTotal = (activeTotal || []).reduce((sum, r) => sum + (r.credits_requested || 0), 0);
 
       remainingTotal = tokenData.total_limit - usedTotal - reservedTotal;
@@ -114,27 +114,27 @@ serve(async (req) => {
       }
     }
 
-    // Check daily limit: completed credits_earned + in-progress credits_requested (reserved)
+    // Check daily limit using generations table (has accurate credits_earned)
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
-      // Sum credits_earned from completed sessions today
-      const { data: completedDaily } = await supabase
-        .from("token_usages")
+      // Sum credits_earned from completed/running generations today
+      const { data: earnedDaily } = await supabase
+        .from("generations")
         .select("credits_earned")
         .eq("token_id", tokenData.id)
-        .eq("status", "completed")
+        .in("status", ["completed", "running"])
         .gte("created_at", todayStart.toISOString());
-      const usedDaily = (completedDaily || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
+      const usedDaily = (earnedDaily || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
 
-      // Sum credits_requested from in-progress sessions today (reserved)
+      // Sum credits_requested from in-progress generations today (reserved)
       const { data: activeDaily } = await supabase
-        .from("token_usages")
+        .from("generations")
         .select("credits_requested")
         .eq("token_id", tokenData.id)
-        .in("status", ["active", "running", "pending"])
+        .in("status", ["active", "waiting_invite", "queued", "pending"])
         .gte("created_at", todayStart.toISOString());
       const reservedDaily = (activeDaily || []).reduce((sum, r) => sum + (r.credits_requested || 0), 0);
 
