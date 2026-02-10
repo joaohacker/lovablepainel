@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,13 +18,17 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: Cred
   const [stock, setStock] = useState<StockResponse | null>(null);
   const [stockLoading, setStockLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const handleGenerate = async () => {
-    if (submitting) return;
+    // Synchronous ref guard prevents double-tap on mobile
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       await onGenerate(credits);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
