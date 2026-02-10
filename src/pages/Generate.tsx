@@ -23,6 +23,7 @@ interface ValidationResult {
   token?: TokenInfo;
   remaining_total?: number | null;
   remaining_daily?: number | null;
+  maintenance?: { until: string; message: string } | null;
   error?: string;
 }
 
@@ -231,7 +232,15 @@ const Generate = () => {
 
         <Card className="glass-card">
           <CardContent className="p-6 md:p-8">
-            {isIdle ? (
+            {validation?.maintenance ? (
+              <div className="flex flex-col items-center gap-4 py-8 text-center">
+                <Clock className="h-12 w-12 text-yellow-500" />
+                <p className="text-lg font-semibold text-foreground">{validation.maintenance.message}</p>
+                <p className="text-xs text-muted-foreground">
+                  Previsão de retorno: {new Date(validation.maintenance.until).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            ) : isIdle ? (
               <CreditSelector
                 onGenerate={handleGenerate}
                 disabled={farm.state !== "idle"}

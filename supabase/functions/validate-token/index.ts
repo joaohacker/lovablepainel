@@ -21,6 +21,12 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // ===== MAINTENANCE MODE =====
+    // Block all generation until this time (UTC). Remove or set to past date to disable.
+    const MAINTENANCE_UNTIL = "2026-02-10T20:00:00Z"; // 2 hours from now
+    const MAINTENANCE_MSG = "Repondo estoque. Aguardem 2 horas para gerar novamente.";
+    // ============================
+
     const body = await req.json();
     const { token, action, credits, farmId: bodyFarmId, status: bodyStatus, credits_earned, master_email, workspace_name, error_message } = body;
 
@@ -147,7 +153,10 @@ serve(async (req) => {
       }
     }
 
-    // If just validating, return token info
+    // Check maintenance mode
+    const maintenanceActive = new Date(MAINTENANCE_UNTIL) > new Date();
+
+    // If just validating, return token info (include maintenance info)
     if (action === "validate") {
       return new Response(
         JSON.stringify({
@@ -163,6 +172,7 @@ serve(async (req) => {
           },
           remaining_total: remainingTotal,
           remaining_daily: remainingDaily,
+          maintenance: maintenanceActive ? { until: MAINTENANCE_UNTIL, message: MAINTENANCE_MSG } : null,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -170,6 +180,13 @@ serve(async (req) => {
 
     // If creating a farm
     if (action === "create") {
+      // Block creation during maintenance
+      if (maintenanceActive) {
+        return new Response(
+          JSON.stringify({ success: false, error: MAINTENANCE_MSG }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       if (!farmApiKey) {
         return new Response(
           JSON.stringify({ success: false, error: "FARM_API_KEY not configured" }),
