@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditSelector } from "@/components/CreditSelector";
@@ -49,9 +49,12 @@ const Generate = () => {
     validateToken();
   }, [token]);
 
-  // Resume session after page refresh
+  // Resume session after page refresh (only on initial load)
+  const hasResumedRef = useRef(false);
   useEffect(() => {
     if (!token || validating || !validation?.valid) return;
+    if (hasResumedRef.current) return; // Only attempt resume once
+    hasResumedRef.current = true;
     const saved = sessionStorage.getItem(SESSION_KEY);
     if (!saved) return;
     try {
@@ -66,7 +69,12 @@ const Generate = () => {
 
   // Save/clear session in sessionStorage
   useEffect(() => {
-    if (!token || !farm.farmId) return;
+    if (!token) return;
+    // When farmId is null (after reset), clear session
+    if (!farm.farmId) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return;
+    }
     const isActive = ["creating", "queued", "waiting_invite", "running"].includes(farm.state);
     if (isActive) {
       sessionStorage.setItem(SESSION_KEY, JSON.stringify({
