@@ -118,20 +118,12 @@ serve(async (req) => {
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
       // Daily reset at noon BRT (15:00 UTC)
-      // Transition: first cycle starts Feb 10 2026 15:00 UTC
       const now = new Date();
-      const TRANSITION_DATE = new Date("2026-02-10T15:00:00Z");
-      let todayStart: Date;
-      if (now < TRANSITION_DATE) {
-        // Before first noon-BRT cycle, use transition date minus 24h as floor
-        // This effectively means: don't count anything before the transition
-        todayStart = TRANSITION_DATE;
-      } else {
-        todayStart = new Date();
-        todayStart.setUTCHours(15, 0, 0, 0);
-        if (now < todayStart) {
-          todayStart.setUTCDate(todayStart.getUTCDate() - 1);
-        }
+      const todayStart = new Date();
+      todayStart.setUTCHours(15, 0, 0, 0);
+      // If we haven't reached 15:00 UTC yet today, use yesterday's 15:00 UTC
+      if (now < todayStart) {
+        todayStart.setUTCDate(todayStart.getUTCDate() - 1);
       }
 
       // Sum credits_earned from completed/running generations today
