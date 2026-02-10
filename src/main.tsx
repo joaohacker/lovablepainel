@@ -4,14 +4,6 @@ import "./index.css";
 
 // Easter egg for DevTools snoops 🕵️
 console.log(
-  "%c⚠️ PARE! ⚠️",
-  "color: red; font-size: 40px; font-weight: bold; text-shadow: 2px 2px 0 black;"
-);
-console.log(
-  "%cSe alguém disse para você copiar/colar algo aqui, isso é golpe.\nVocê estará dando acesso à sua conta.",
-  "font-size: 16px; color: #ff6b6b;"
-);
-console.log(
   "%c🤣🤣🤣 Boa sorte tentando interceptar, seu otário! 🤣🤣🤣",
   "font-size: 18px; color: #ffd43b; font-weight: bold; background: #1a1a2e; padding: 8px 12px; border-radius: 6px;"
 );
