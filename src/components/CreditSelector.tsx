@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { fetchStock, type StockResponse } from "@/lib/farm-api";
-import { Zap, Bot, Package, Loader2 } from "lucide-react";
+import { Zap, Bot, Package, Loader2, Monitor } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CreditSelectorProps {
   onGenerate: (credits: number) => Promise<void> | void;
@@ -64,8 +65,18 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: Cred
 
   const botsNeeded = Math.ceil(credits / 5);
 
+  const isMobile = useIsMobile();
+
   return (
     <div className="space-y-8">
+      {/* Mobile warning */}
+      {isMobile && (
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200">
+          <Monitor className="h-4 w-4 shrink-0" />
+          <span>Recomendamos usar no computador para evitar erros.</span>
+        </div>
+      )}
+
       {/* Stock indicator */}
       <div className="flex items-center justify-center gap-2 text-sm">
         <Package className="h-4 w-4 text-muted-foreground" />
