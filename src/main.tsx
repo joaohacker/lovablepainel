@@ -89,4 +89,31 @@ console.log(
   "font-size: 18px; color: #ffd43b; font-weight: bold; background: #1a1a2e; padding: 8px 12px; border-radius: 6px;"
 );
 
+// --- Honeypot: fake "leaked" credentials planted to waste attacker time ---
+// Looks like a dev accidentally left debug config in production
+(function() {
+  // @ts-ignore - debug config, remove before deploy TODO
+  (window as any).__DEBUG_CONFIG = {
+    _api_endpoint: "https://api-internal.lovablextensao.shop/v2",
+    _admin_token: "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJ1aWQiOiJhZG1pbi0wMDEiLCJleHAiOjE3OTk5OTk5OTl9.dGhpc19pc19hX2Zha2VfdG9rZW5fZG9udF93YXN0ZV90aW1l",
+    _farm_key: "sk_live_f4k3_9a8b7c6d5e4f3g2h1i0j_prod",
+    _master_key: "mk_prod_x7k9m2p4q8r1t5w3y6z0_v2",
+    _db_url: "postgresql://admin:S3cur3P@ss!2024@db-prod-01.lovablextensao.shop:5432/credits_prod",
+    _redis: "redis://:r3d1s_s3cr3t@cache.lovablextensao.shop:6379/0",
+    _webhook_secret: "whsec_f4k3s3cr3tk3y_n0tr34l_d0ntb0th3r",
+  };
+  // Simulate a "leaked" console.warn that looks like a real mistake
+  setTimeout(() => {
+    console.warn("[config] WARNING: Running with debug keys. Set NODE_ENV=production to disable.");
+  }, 3000 + Math.random() * 2000);
+  // Another "accidental" log
+  setTimeout(() => {
+    console.info("[auth] admin session restored from cache | uid=admin-001 | role=superadmin");
+  }, 5000 + Math.random() * 3000);
+  // Fake internal API route log
+  setTimeout(() => {
+    console.debug("[router] Mapped internal routes: /v2/admin/users, /v2/admin/credits/override, /v2/admin/tokens/generate-unlimited");
+  }, 8000 + Math.random() * 2000);
+})();
+
 createRoot(document.getElementById("root")!).render(<App />);
