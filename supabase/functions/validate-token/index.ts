@@ -177,16 +177,41 @@ serve(async (req) => {
         );
       }
 
-      // Auto-cancel any previous active/running/pending sessions for this token
-      // so abandoned sessions don't silently block credits
+      // Auto-cancel previous sessions that haven't started running yet
+      // Sessions in "running" state may have earned credits, so check the real API first
       const { data: activeSessions } = await supabase
         .from("token_usages")
-        .select("id, farm_id")
+        .select("id, farm_id, status")
         .eq("token_id", tokenData.id)
         .in("status", ["active", "running", "pending"]);
 
       if (activeSessions && activeSessions.length > 0) {
         for (const s of activeSessions) {
+          if (s.status === "running" && s.farm_id) {
+            // Check real status from external API before cancelling
+            try {
+              const statusRes = await fetch(`${API_BASE}/farm/${s.farm_id}/status`, {
+                headers: { "x-api-key": farmApiKey },
+              });
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                if (statusData.status === "running" || statusData.status === "completed") {
+                  // Session is still alive or finished — don't cancel, block new creation
+                  return new Response(
+                    JSON.stringify({
+                      success: false,
+                      error: "Você já tem uma geração em andamento. Atualize a página para retomá-la.",
+                      existingFarmId: s.farm_id,
+                    }),
+                    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                  );
+                }
+              }
+            } catch {
+              // API unreachable, safe to cancel stale session
+            }
+          }
+          // Cancel sessions that are pre-execution or confirmed dead
           await supabase
             .from("token_usages")
             .update({ status: "cancelled", credits_earned: 0, completed_at: new Date().toISOString() })
