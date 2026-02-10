@@ -86,17 +86,26 @@ serve(async (req) => {
       }
     }
 
-    // Check total limit (only count completed sessions with result.credits)
+    // Check total limit: completed credits_earned + in-progress credits_requested (reserved)
     let remainingTotal: number | null = null;
     if (tokenData.total_limit) {
-      const { data: totalData } = await supabase
+      // Sum credits_earned from completed sessions
+      const { data: completedTotal } = await supabase
         .from("token_usages")
         .select("credits_earned")
         .eq("token_id", tokenData.id)
         .eq("status", "completed");
-      
-      const totalUsed = (totalData || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
-      remainingTotal = tokenData.total_limit - totalUsed;
+      const usedTotal = (completedTotal || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
+
+      // Sum credits_requested from in-progress sessions (reserved)
+      const { data: activeTotal } = await supabase
+        .from("token_usages")
+        .select("credits_requested")
+        .eq("token_id", tokenData.id)
+        .in("status", ["active", "running", "pending"]);
+      const reservedTotal = (activeTotal || []).reduce((sum, r) => sum + (r.credits_requested || 0), 0);
+
+      remainingTotal = tokenData.total_limit - usedTotal - reservedTotal;
       if (remainingTotal <= 0) {
         return new Response(
           JSON.stringify({ valid: false, error: "Limite total de créditos atingido" }),
@@ -105,21 +114,31 @@ serve(async (req) => {
       }
     }
 
-    // Check daily limit (only count completed sessions)
+    // Check daily limit: completed credits_earned + in-progress credits_requested (reserved)
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      
-      const { data: dailyData } = await supabase
+
+      // Sum credits_earned from completed sessions today
+      const { data: completedDaily } = await supabase
         .from("token_usages")
         .select("credits_earned")
         .eq("token_id", tokenData.id)
         .eq("status", "completed")
         .gte("created_at", todayStart.toISOString());
-      
-      const dailyUsed = (dailyData || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
-      remainingDaily = tokenData.daily_limit - dailyUsed;
+      const usedDaily = (completedDaily || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
+
+      // Sum credits_requested from in-progress sessions today (reserved)
+      const { data: activeDaily } = await supabase
+        .from("token_usages")
+        .select("credits_requested")
+        .eq("token_id", tokenData.id)
+        .in("status", ["active", "running", "pending"])
+        .gte("created_at", todayStart.toISOString());
+      const reservedDaily = (activeDaily || []).reduce((sum, r) => sum + (r.credits_requested || 0), 0);
+
+      remainingDaily = tokenData.daily_limit - usedDaily - reservedDaily;
       if (remainingDaily <= 0) {
         return new Response(
           JSON.stringify({ valid: false, error: "Limite diário de créditos atingido" }),
