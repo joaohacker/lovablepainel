@@ -61,14 +61,14 @@ serve(async (req) => {
       );
     }
 
-    // Check total limit (only count credits_earned from completed generations)
+    // Check total limit (count credits_earned from ALL sessions, not just completed)
     let remainingTotal: number | null = null;
     if (tokenData.total_limit) {
       const { data: totalData } = await supabase
         .from("token_usages")
-        .select("credits_earned, status")
+        .select("credits_earned")
         .eq("token_id", tokenData.id)
-        .eq("status", "completed");
+        .gt("credits_earned", 0);
       
       const totalUsed = (totalData || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
       remainingTotal = tokenData.total_limit - totalUsed;
@@ -80,7 +80,7 @@ serve(async (req) => {
       }
     }
 
-    // Check daily limit (only count credits_earned from completed generations)
+    // Check daily limit (count credits_earned from ALL sessions, not just completed)
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
       const todayStart = new Date();
@@ -88,9 +88,9 @@ serve(async (req) => {
       
       const { data: dailyData } = await supabase
         .from("token_usages")
-        .select("credits_earned, status")
+        .select("credits_earned")
         .eq("token_id", tokenData.id)
-        .eq("status", "completed")
+        .gt("credits_earned", 0)
         .gte("created_at", todayStart.toISOString());
       
       const dailyUsed = (dailyData || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
