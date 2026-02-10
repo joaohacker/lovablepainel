@@ -7,6 +7,7 @@ import {
   Copy,
   Check,
   Clock,
+  AlertCircle,
   Loader2,
   XCircle,
   AlertTriangle,
@@ -142,6 +143,17 @@ export function GenerationStatus({
   onCancel,
   onReset,
 }: GenerationStatusProps) {
+  // Prevent closing page during active generation
+  const isActive = ["creating", "queued", "waiting_invite", "running"].includes(state);
+  useEffect(() => {
+    if (!isActive) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isActive]);
   const [copied, setCopied] = useState(false);
 
   const copyEmail = useCallback(async () => {
@@ -219,6 +231,11 @@ export function GenerationStatus({
           Vá até o Lovable, abra seu workspace e convide o email acima como membro. O sistema detectará automaticamente.
         </p>
 
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-xs text-yellow-200">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Não feche esta página até a geração finalizar.</span>
+        </div>
+
         <Button variant="outline" onClick={onCancel} className="mt-2">
           <XCircle className="h-4 w-4 mr-2" /> Cancelar
         </Button>
@@ -273,6 +290,11 @@ export function GenerationStatus({
             )}
           </CardContent>
         </Card>
+
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-xs text-yellow-200">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Não feche esta página até a geração finalizar.</span>
+        </div>
       </div>
     );
   }
