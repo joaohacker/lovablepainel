@@ -69,7 +69,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: Cred
           <span className="text-muted-foreground">Verificando estoque...</span>
         ) : stock ? (
           <span className="text-muted-foreground">
-            <span className="font-semibold text-success">{stock.active.toLocaleString()}</span> bots disponíveis
+            <span className="font-semibold text-success">{stock.activeWithBonus.toLocaleString()}</span> bots disponíveis
           </span>
         ) : (
           <span className="text-muted-foreground">Estoque indisponível</span>

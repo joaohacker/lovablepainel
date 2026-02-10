@@ -61,14 +61,39 @@ serve(async (req) => {
       );
     }
 
-    // Check total limit (count credits_earned from ALL sessions, not just completed)
+    // Auto-close stale sessions (running/active > 30 min) so their credits count
+    const staleThreshold = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: staleSessions } = await supabase
+      .from("token_usages")
+      .select("id, credits_earned, farm_id")
+      .eq("token_id", tokenData.id)
+      .in("status", ["active", "running"])
+      .lt("created_at", staleThreshold);
+
+    if (staleSessions && staleSessions.length > 0) {
+      for (const s of staleSessions) {
+        await supabase
+          .from("token_usages")
+          .update({ status: "completed", completed_at: new Date().toISOString() })
+          .eq("id", s.id);
+        // Also update generations table
+        if (s.farm_id) {
+          await supabase
+            .from("generations")
+            .update({ status: "completed" })
+            .eq("farm_id", s.farm_id);
+        }
+      }
+    }
+
+    // Check total limit (only count completed sessions with result.credits)
     let remainingTotal: number | null = null;
     if (tokenData.total_limit) {
       const { data: totalData } = await supabase
         .from("token_usages")
         .select("credits_earned")
         .eq("token_id", tokenData.id)
-        .gt("credits_earned", 0);
+        .eq("status", "completed");
       
       const totalUsed = (totalData || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
       remainingTotal = tokenData.total_limit - totalUsed;
@@ -80,7 +105,7 @@ serve(async (req) => {
       }
     }
 
-    // Check daily limit (count credits_earned from ALL sessions, not just completed)
+    // Check daily limit (only count completed sessions)
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
       const todayStart = new Date();
@@ -90,7 +115,7 @@ serve(async (req) => {
         .from("token_usages")
         .select("credits_earned")
         .eq("token_id", tokenData.id)
-        .gt("credits_earned", 0)
+        .eq("status", "completed")
         .gte("created_at", todayStart.toISOString());
       
       const dailyUsed = (dailyData || []).reduce((sum, r) => sum + (r.credits_earned || 0), 0);
@@ -226,8 +251,12 @@ serve(async (req) => {
 
       // Also update token_usages table
       const usageUpdate: Record<string, unknown> = { status: status || "active" };
-      if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
-      if (status === "completed" || status === "error" || status === "cancelled" || status === "expired") {
+      // Only save credits_earned on completed; force 0 on error/cancelled/expired
+      if (status === "completed") {
+        if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
+        usageUpdate.completed_at = new Date().toISOString();
+      } else if (status === "error" || status === "cancelled" || status === "expired") {
+        usageUpdate.credits_earned = 0;
         usageUpdate.completed_at = new Date().toISOString();
       }
       await supabase
