@@ -272,7 +272,7 @@ serve(async (req) => {
           if (s.status === "running" && s.farm_id) {
             // Check real status from external API before cancelling
             try {
-              const statusRes = await fetch(`${API_BASE}/farm/${s.farm_id}/status`, {
+              const statusRes = await fetch(`${API_BASE}/farm/status/${s.farm_id}`, {
                 headers: { "x-api-key": farmApiKey },
               });
               if (statusRes.ok) {
