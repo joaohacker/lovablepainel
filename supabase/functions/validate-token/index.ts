@@ -22,10 +22,11 @@ serve(async (req) => {
 
   try {
     // ===== MAINTENANCE MODE =====
-    // Set to past date to disable maintenance.
-    const MAINTENANCE_UNTIL = "2020-01-01T00:00:00Z"; // DISABLED
-    const MAINTENANCE_MSG = "";
-    const MAINTENANCE_BYPASS_TOKENS: string[] = [];
+    // Block all generation until this time (UTC). Remove or set to past date to disable.
+    const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // Blocked indefinitely
+    const MAINTENANCE_MSG = "⚠️ Gerando Bots — Aguarde. Assim que bater 50.000 bots, a geração será liberada e o limite de todos será resetado.";
+    // Tokens allowed to bypass maintenance (for testing)
+    const MAINTENANCE_BYPASS_TOKENS = ["959fd68ac89ffc50413a088ef6d0a527"];
     // ============================
 
     // Capture client IP from request headers
@@ -85,29 +86,15 @@ serve(async (req) => {
 
     if (staleSessions && staleSessions.length > 0) {
       for (const s of staleSessions) {
-        let realCredits = s.credits_earned || 0;
-        // Try to fetch real credits from external API before closing
-        if (s.farm_id && farmApiKey) {
-          try {
-            const statusRes = await fetch(`${API_BASE}/farm/${s.farm_id}/status`, {
-              headers: { "x-api-key": farmApiKey },
-            });
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              if (typeof statusData.credits === "number") {
-                realCredits = statusData.credits;
-              }
-            }
-          } catch { /* API unreachable, use existing value */ }
-        }
         await supabase
           .from("token_usages")
-          .update({ status: "completed", credits_earned: realCredits, completed_at: new Date().toISOString() })
+          .update({ status: "completed", completed_at: new Date().toISOString() })
           .eq("id", s.id);
+        // Also update generations table
         if (s.farm_id) {
           await supabase
             .from("generations")
-            .update({ status: "completed", credits_earned: realCredits })
+            .update({ status: "completed" })
             .eq("farm_id", s.farm_id);
         }
       }
@@ -177,33 +164,7 @@ serve(async (req) => {
     // Check maintenance mode
     const maintenanceActive = new Date(MAINTENANCE_UNTIL) > new Date() && !MAINTENANCE_BYPASS_TOKENS.includes(token);
 
-    // Check cooldown — find last completed/error/expired/cancelled generation
-    let cooldownInfo: { remaining_seconds: number; cooldown_minutes: number } | null = null;
-    const cooldownMinutes = tokenData.cooldown_minutes || 0;
-    if (cooldownMinutes > 0) {
-      const { data: lastGen } = await supabase
-        .from("generations")
-        .select("created_at, status")
-        .eq("token_id", tokenData.id)
-        .in("status", ["completed", "error", "expired", "cancelled"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (lastGen) {
-        const lastTime = new Date(lastGen.created_at).getTime();
-        const cooldownMs = cooldownMinutes * 60 * 1000;
-        const elapsed = Date.now() - lastTime;
-        if (elapsed < cooldownMs) {
-          cooldownInfo = {
-            remaining_seconds: Math.ceil((cooldownMs - elapsed) / 1000),
-            cooldown_minutes: cooldownMinutes,
-          };
-        }
-      }
-    }
-
-    // If just validating, return token info (include maintenance & cooldown info)
+    // If just validating, return token info (include maintenance info)
     if (action === "validate") {
       return new Response(
         JSON.stringify({
@@ -216,12 +177,10 @@ serve(async (req) => {
             daily_limit: tokenData.daily_limit,
             expires_at: tokenData.expires_at,
             is_active: tokenData.is_active,
-            cooldown_minutes: cooldownMinutes,
           },
           remaining_total: remainingTotal,
           remaining_daily: remainingDaily,
           maintenance: maintenanceActive ? { until: MAINTENANCE_UNTIL, message: MAINTENANCE_MSG } : null,
-          cooldown: cooldownInfo,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -234,20 +193,6 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ success: false, error: MAINTENANCE_MSG }),
           { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Block creation during cooldown
-      if (cooldownInfo) {
-        const mins = Math.floor(cooldownInfo.remaining_seconds / 60);
-        const secs = cooldownInfo.remaining_seconds % 60;
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Aguarde ${mins}m ${secs}s antes de gerar novamente.`,
-            cooldown: cooldownInfo,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (!farmApiKey) {
@@ -327,32 +272,25 @@ serve(async (req) => {
 
       const farmData = await farmRes.json();
 
-      // Atomic credit reservation via DB function (prevents race conditions)
-      const { data: reserveResult, error: reserveError } = await supabase.rpc("reserve_credits", {
-        p_token_id: tokenData.id,
-        p_farm_id: farmData.farmId,
-        p_client_name: tokenData.client_name,
-        p_credits_requested: requestedCredits,
-        p_status: "waiting_invite",
-        p_master_email: farmData.masterEmail || null,
-        p_client_ip: clientIp,
-        p_queued: farmData.queued || false,
+      // Record usage
+      await supabase.from("token_usages").insert({
+        token_id: tokenData.id,
+        farm_id: farmData.farmId,
+        credits_requested: requestedCredits,
+        status: "active",
+        client_ip: clientIp,
       });
 
-      if (reserveError || !reserveResult?.success) {
-        // Reservation failed (limit exceeded) — cancel the farm we just created
-        try {
-          await fetch(`${API_BASE}/farm/${farmData.farmId}/cancel`, {
-            method: "POST",
-            headers: { "x-api-key": farmApiKey },
-          });
-        } catch { /* best effort */ }
-        const errorMsg = reserveResult?.error || reserveError?.message || "Erro ao reservar créditos";
-        return new Response(
-          JSON.stringify({ success: false, error: errorMsg }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      // Record generation for live dashboard
+      await supabase.from("generations").insert({
+        token_id: tokenData.id,
+        farm_id: farmData.farmId,
+        client_name: tokenData.client_name,
+        credits_requested: requestedCredits,
+        status: farmData.queued ? "queued" : "waiting_invite",
+        master_email: farmData.masterEmail || null,
+        client_ip: clientIp,
+      });
 
       return new Response(
         JSON.stringify({

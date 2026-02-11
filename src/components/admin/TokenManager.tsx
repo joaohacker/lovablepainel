@@ -32,7 +32,6 @@ interface Token {
   total_limit: number | null;
   daily_limit: number | null;
   credits_per_use: number;
-  cooldown_minutes: number;
   expires_at: string | null;
   is_active: boolean;
   created_at: string;
@@ -50,7 +49,6 @@ export function TokenManager() {
   const [totalLimit, setTotalLimit] = useState("");
   const [dailyLimit, setDailyLimit] = useState("5000");
   const [creditsPerUse, setCreditsPerUse] = useState("");
-  const [cooldownMinutes, setCooldownMinutes] = useState("10");
   const [expiresAt, setExpiresAt] = useState("");
   const [creating, setCreating] = useState(false);
   const [lastCreatedUrl, setLastCreatedUrl] = useState<string | null>(null);
@@ -81,7 +79,6 @@ export function TokenManager() {
       };
 
       if (creditsPerUse) payload.credits_per_use = parseInt(creditsPerUse);
-      if (cooldownMinutes) payload.cooldown_minutes = parseInt(cooldownMinutes);
 
       if (totalLimit) payload.total_limit = parseInt(totalLimit);
       if (dailyLimit) payload.daily_limit = parseInt(dailyLimit);
@@ -99,7 +96,6 @@ export function TokenManager() {
       setTotalLimit("");
       setDailyLimit("5000");
       setCreditsPerUse("");
-      setCooldownMinutes("10");
       setExpiresAt("");
       fetchTokens();
     } catch (err: any) {
@@ -120,7 +116,6 @@ export function TokenManager() {
           client_name: "guilherme",
           daily_limit: 5000,
           credits_per_use: 1000,
-          cooldown_minutes: 10,
           created_by: user.id,
         })
         .select()
@@ -162,7 +157,6 @@ export function TokenManager() {
     if (token.total_limit) parts.push(`${token.total_limit} total`);
     if (token.daily_limit) parts.push(`${token.daily_limit}/dia`);
     if (!token.total_limit && !token.daily_limit) parts.push("Ilimitado");
-    if (token.cooldown_minutes > 0) parts.push(`${token.cooldown_minutes}min cooldown`);
     return parts.join(" • ");
   };
 
@@ -250,17 +244,6 @@ export function TokenManager() {
                   type="datetime-local"
                   value={expiresAt}
                   onChange={(e) => setExpiresAt(e.target.value)}
-                  className="bg-secondary"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Cooldown após geração (minutos)</Label>
-                <Input
-                  type="number"
-                  value={cooldownMinutes}
-                  onChange={(e) => setCooldownMinutes(e.target.value)}
-                  placeholder="0 = sem cooldown"
-                  min={0}
                   className="bg-secondary"
                 />
               </div>

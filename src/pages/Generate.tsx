@@ -17,7 +17,6 @@ interface TokenInfo {
   daily_limit: number | null;
   expires_at: string | null;
   is_active: boolean;
-  cooldown_minutes: number;
 }
 
 interface ValidationResult {
@@ -26,7 +25,6 @@ interface ValidationResult {
   remaining_total?: number | null;
   remaining_daily?: number | null;
   maintenance?: { until: string; message: string } | null;
-  cooldown?: { remaining_seconds: number; cooldown_minutes: number } | null;
   error?: string;
 }
 
@@ -78,7 +76,6 @@ const Generate = () => {
   const { token } = useParams<{ token: string }>();
   const [validating, setValidating] = useState(true);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
-  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
   const farm = useFarmGeneration();
 
   useEffect(() => {
@@ -136,33 +133,12 @@ const Generate = () => {
       });
       if (error) throw error;
       setValidation(data);
-      // Set cooldown timer if present
-      if (data?.cooldown?.remaining_seconds > 0) {
-        setCooldownSeconds(data.cooldown.remaining_seconds);
-      } else {
-        setCooldownSeconds(0);
-      }
     } catch (err) {
       setValidation({ valid: false, error: "Erro ao validar token" });
     } finally {
       setValidating(false);
     }
   };
-
-  // Countdown timer for cooldown
-  useEffect(() => {
-    if (cooldownSeconds <= 0) return;
-    const interval = setInterval(() => {
-      setCooldownSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [cooldownSeconds > 0]);
 
   // Wrap startGeneration to track in generations table via edge function
   const handleGenerate = useCallback(
@@ -295,22 +271,6 @@ const Generate = () => {
           <CardContent className="p-6 md:p-8">
             {validation?.maintenance ? (
               <MaintenanceBanner message={validation.maintenance.message} until={validation.maintenance.until} />
-            ) : isIdle && cooldownSeconds > 0 ? (
-              <div className="flex flex-col items-center gap-5 py-8 text-center">
-                <Clock className="h-16 w-16 text-amber-500" />
-                <h2 className="text-xl font-bold text-foreground">Cooldown Ativo</h2>
-                <p className="text-sm text-muted-foreground">
-                  Aguarde antes de iniciar uma nova geração
-                </p>
-                <div className="rounded-lg border border-border bg-muted/50 px-6 py-4">
-                  <p className="text-4xl font-bold tabular-nums text-foreground">
-                    {Math.floor(cooldownSeconds / 60)}:{String(cooldownSeconds % 60).padStart(2, "0")}
-                  </p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Tempo de espera entre gerações: {tokenInfo.cooldown_minutes || validation.cooldown?.cooldown_minutes} minutos
-                </p>
-              </div>
             ) : isIdle ? (
               <CreditSelector
                 onGenerate={handleGenerate}
