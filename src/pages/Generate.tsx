@@ -24,6 +24,8 @@ interface ValidationResult {
   token?: TokenInfo;
   remaining_total?: number | null;
   remaining_daily?: number | null;
+  cooldown_minutes?: number;
+  cooldown_remaining_ms?: number;
   maintenance?: { until: string; message: string } | null;
   error?: string;
 }
@@ -77,6 +79,10 @@ const Generate = () => {
   const [validating, setValidating] = useState(true);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const farm = useFarmGeneration();
+
+  // Cooldown timer state (must be before early returns)
+  const [cooldownMs, setCooldownMs] = useState(0);
+  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
@@ -203,6 +209,52 @@ const Generate = () => {
     updateGeneration();
   }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId, token]);
 
+  // Initialize cooldown from validation response
+  useEffect(() => {
+    if (validation?.cooldown_remaining_ms && validation.cooldown_remaining_ms > 0) {
+      setCooldownMs(validation.cooldown_remaining_ms);
+    }
+  }, [validation?.cooldown_remaining_ms]);
+
+  // Start cooldown after generation completes
+  useEffect(() => {
+    if (farm.state === "completed" && validation?.cooldown_minutes) {
+      setCooldownMs(validation.cooldown_minutes * 60 * 1000);
+    }
+  }, [farm.state, validation?.cooldown_minutes]);
+
+  // Tick down the cooldown
+  useEffect(() => {
+    if (cooldownMs <= 0) {
+      if (cooldownIntervalRef.current) {
+        clearInterval(cooldownIntervalRef.current);
+        cooldownIntervalRef.current = null;
+      }
+      return;
+    }
+    cooldownIntervalRef.current = setInterval(() => {
+      setCooldownMs((prev) => {
+        const next = prev - 1000;
+        if (next <= 0) {
+          if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+          cooldownIntervalRef.current = null;
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+    return () => {
+      if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+    };
+  }, [cooldownMs > 0]);
+
+  const formatCooldown = (ms: number) => {
+    const totalSec = Math.ceil(ms / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${sec.toString().padStart(2, "0")}`;
+  };
+
   if (validating) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -238,6 +290,7 @@ const Generate = () => {
 
   const tokenInfo = validation.token;
   const isIdle = farm.state === "idle";
+  const isCooldownActive = cooldownMs > 0 && isIdle;
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -271,6 +324,23 @@ const Generate = () => {
           <CardContent className="p-6 md:p-8">
             {validation?.maintenance ? (
               <MaintenanceBanner message={validation.maintenance.message} until={validation.maintenance.until} />
+            ) : isCooldownActive ? (
+              <div className="flex flex-col items-center gap-5 py-8 text-center">
+                <div className="relative">
+                  <div className="absolute inset-0 animate-pulse rounded-full bg-primary/20" />
+                  <Clock className="relative h-16 w-16 text-primary" />
+                </div>
+                <h2 className="text-xl font-bold text-foreground">Cooldown Ativo</h2>
+                <p className="text-sm text-muted-foreground">
+                  Aguarde o tempo de espera para clicar no botão de gerar novamente.
+                </p>
+                <div className="rounded-lg border border-border bg-muted/50 px-8 py-4">
+                  <p className="text-4xl font-bold tabular-nums text-foreground">{formatCooldown(cooldownMs)}</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cooldown de {validation?.cooldown_minutes || 10} minutos entre cliques no botão
+                </p>
+              </div>
             ) : isIdle ? (
               <CreditSelector
                 onGenerate={handleGenerate}

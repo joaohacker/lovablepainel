@@ -32,6 +32,7 @@ interface Token {
   total_limit: number | null;
   daily_limit: number | null;
   credits_per_use: number;
+  cooldown_minutes: number | null;
   expires_at: string | null;
   is_active: boolean;
   created_at: string;
@@ -49,6 +50,7 @@ export function TokenManager() {
   const [totalLimit, setTotalLimit] = useState("");
   const [dailyLimit, setDailyLimit] = useState("5000");
   const [creditsPerUse, setCreditsPerUse] = useState("");
+  const [cooldownMinutes, setCooldownMinutes] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [creating, setCreating] = useState(false);
   const [lastCreatedUrl, setLastCreatedUrl] = useState<string | null>(null);
@@ -79,6 +81,7 @@ export function TokenManager() {
       };
 
       if (creditsPerUse) payload.credits_per_use = parseInt(creditsPerUse);
+      if (cooldownMinutes) payload.cooldown_minutes = parseInt(cooldownMinutes);
 
       if (totalLimit) payload.total_limit = parseInt(totalLimit);
       if (dailyLimit) payload.daily_limit = parseInt(dailyLimit);
@@ -96,6 +99,7 @@ export function TokenManager() {
       setTotalLimit("");
       setDailyLimit("5000");
       setCreditsPerUse("");
+      setCooldownMinutes("");
       setExpiresAt("");
       fetchTokens();
     } catch (err: any) {
@@ -238,14 +242,28 @@ export function TokenManager() {
                   className="bg-secondary"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Data de Expiração</Label>
-                <Input
-                  type="datetime-local"
-                  value={expiresAt}
-                  onChange={(e) => setExpiresAt(e.target.value)}
-                  className="bg-secondary"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Cooldown (minutos)</Label>
+                  <Input
+                    type="number"
+                    value={cooldownMinutes}
+                    onChange={(e) => setCooldownMinutes(e.target.value)}
+                    placeholder="Auto (10 ou 5)"
+                    min={0}
+                    className="bg-secondary"
+                  />
+                  <p className="text-xs text-muted-foreground">Vazio = auto (10min &lt;9999, 5min ≥9999)</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Data de Expiração</Label>
+                  <Input
+                    type="datetime-local"
+                    value={expiresAt}
+                    onChange={(e) => setExpiresAt(e.target.value)}
+                    className="bg-secondary"
+                  />
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={creating}>
                 {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -273,6 +291,7 @@ export function TokenManager() {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Limites</TableHead>
                   <TableHead>Créditos/Uso</TableHead>
+                  <TableHead>Cooldown</TableHead>
                   <TableHead>Expira</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -291,6 +310,11 @@ export function TokenManager() {
                       {getUsageInfo(token)}
                     </TableCell>
                     <TableCell>{token.credits_per_use}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {token.cooldown_minutes && token.cooldown_minutes > 0
+                        ? `${token.cooldown_minutes}min`
+                        : token.credits_per_use >= 9999 ? "5min (auto)" : "10min (auto)"}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {token.expires_at
                         ? format(new Date(token.expires_at), "dd/MM/yyyy HH:mm")
