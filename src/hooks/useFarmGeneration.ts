@@ -98,7 +98,7 @@ export function useFarmGeneration() {
             state: (event.status as FarmState) || prev.state,
           };
           if (event.workspaceName) newState.workspaceName = event.workspaceName;
-          if (event.status === "running" || event.status === "invite_detected") {
+          if (event.status === "running" || event.status === "workspace_detected") {
             newState.state = "running";
           }
           return { ...prev, ...newState };
@@ -206,7 +206,7 @@ export function useFarmGeneration() {
               state: status.status as FarmState,
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
-          } else if (status.status === "running" || status.status === "invite_detected") {
+          } else if (status.status === "running" || status.status === "workspace_detected") {
             // Process logs from polling response into feed
             const newFeedEntries: FeedEntry[] = [];
             let pollingCredits = 0;
