@@ -24,7 +24,7 @@ serve(async (req) => {
     // ===== MAINTENANCE MODE =====
     // Block all generation until this time (UTC). Remove or set to past date to disable.
     const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // Blocked indefinitely
-    const MAINTENANCE_MSG = "Sistema temporariamente indisponível. Aguarde liberação.";
+    const MAINTENANCE_MSG = "⚠️ Gerando Bots — Aguarde. Assim que bater 50.000 bots, a geração será liberada e o limite de todos será resetado.";
     // Tokens allowed to bypass maintenance (for testing)
     const MAINTENANCE_BYPASS_TOKENS = ["959fd68ac89ffc50413a088ef6d0a527"];
     // ============================
