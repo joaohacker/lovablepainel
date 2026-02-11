@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditSelector } from "@/components/CreditSelector";
@@ -176,18 +176,12 @@ const Generate = () => {
     [token, validation, farm]
   );
 
-  // Throttled update-status: max 1 call every 10s for credit updates,
-  // but immediate for state changes and terminal states.
-  const lastUpdateRef = useRef<number>(0);
-  const pendingUpdateRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSentStateRef = useRef<{ state: string; credits: number }>({ state: "", credits: 0 });
-
-  const sendUpdate = useCallback(async () => {
+  // Send update-status to backend (fast path - lightweight)
+  useEffect(() => {
     if (!farm.farmId || !token || !validation?.token) return;
-    lastUpdateRef.current = Date.now();
-    lastSentStateRef.current = { state: farm.state, credits: farm.creditsEarned };
+    if (farm.state === "idle") return;
 
-    await supabase.functions.invoke("validate-token", {
+    supabase.functions.invoke("validate-token", {
       body: {
         token,
         action: "update-status",
@@ -198,50 +192,12 @@ const Generate = () => {
         workspace_name: farm.workspaceName,
         error_message: farm.errorMessage,
       },
+    }).then(() => {
+      if (["completed", "error", "cancelled", "expired"].includes(farm.state)) {
+        validateToken();
+      }
     });
-
-    if (["completed", "error", "cancelled", "expired"].includes(farm.state)) {
-      validateToken();
-    }
   }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId, token, validation?.token]);
-
-  useEffect(() => {
-    if (!farm.farmId || !token || !validation?.token) return;
-
-    const isTerminal = ["completed", "error", "cancelled", "expired"].includes(farm.state);
-    const stateChanged = farm.state !== lastSentStateRef.current.state;
-    const onlyCreditsChanged = !stateChanged && farm.creditsEarned !== lastSentStateRef.current.credits;
-
-    // Terminal states and state transitions: send immediately
-    if (isTerminal || stateChanged) {
-      if (pendingUpdateRef.current) {
-        clearTimeout(pendingUpdateRef.current);
-        pendingUpdateRef.current = null;
-      }
-      sendUpdate();
-      return;
-    }
-
-    // Credits-only changes: throttle to max 1 per 10s
-    if (onlyCreditsChanged) {
-      const elapsed = Date.now() - lastUpdateRef.current;
-      if (elapsed >= 10000) {
-        sendUpdate();
-      } else if (!pendingUpdateRef.current) {
-        pendingUpdateRef.current = setTimeout(() => {
-          pendingUpdateRef.current = null;
-          sendUpdate();
-        }, 10000 - elapsed);
-      }
-    }
-
-    return () => {
-      if (pendingUpdateRef.current) {
-        clearTimeout(pendingUpdateRef.current);
-        pendingUpdateRef.current = null;
-      }
-    };
-  }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId, token, sendUpdate, validation?.token]);
 
   if (validating) {
     return (
