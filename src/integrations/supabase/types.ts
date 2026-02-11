@@ -141,7 +141,6 @@ export type Database = {
       tokens: {
         Row: {
           client_name: string
-          cooldown_minutes: number | null
           created_at: string
           created_by: string
           credits_per_use: number
@@ -155,7 +154,6 @@ export type Database = {
         }
         Insert: {
           client_name: string
-          cooldown_minutes?: number | null
           created_at?: string
           created_by: string
           credits_per_use?: number
@@ -169,7 +167,6 @@ export type Database = {
         }
         Update: {
           client_name?: string
-          cooldown_minutes?: number | null
           created_at?: string
           created_by?: string
           credits_per_use?: number
@@ -212,19 +209,6 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
-      }
-      reserve_credits: {
-        Args: {
-          p_client_ip?: string
-          p_client_name: string
-          p_credits_requested: number
-          p_farm_id: string
-          p_master_email?: string
-          p_queued?: boolean
-          p_status?: string
-          p_token_id: string
-        }
-        Returns: Json
       }
     }
     Enums: {

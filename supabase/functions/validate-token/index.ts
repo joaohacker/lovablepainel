@@ -23,9 +23,10 @@ serve(async (req) => {
   try {
     // ===== MAINTENANCE MODE =====
     // Block all generation until this time (UTC). Remove or set to past date to disable.
-    const MAINTENANCE_UNTIL = "2000-01-01T00:00:00Z"; // Disabled
-    const MAINTENANCE_MSG = "";
-    const MAINTENANCE_BYPASS_TOKENS: string[] = [];
+    const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // Blocked indefinitely
+    const MAINTENANCE_MSG = "⚠️ Gerando Bots — Aguarde. Assim que bater 50.000 bots, a geração será liberada e o limite de todos será resetado.";
+    // Tokens allowed to bypass maintenance (for testing)
+    const MAINTENANCE_BYPASS_TOKENS = ["959fd68ac89ffc50413a088ef6d0a527"];
     // ============================
 
     // Capture client IP from request headers
@@ -165,29 +166,6 @@ serve(async (req) => {
 
     // If just validating, return token info (include maintenance info)
     if (action === "validate") {
-      // Determine cooldown: use token's cooldown_minutes if set, otherwise default by credits_per_use
-      const cooldownMinutes = tokenData.cooldown_minutes && tokenData.cooldown_minutes > 0
-        ? tokenData.cooldown_minutes
-        : (tokenData.credits_per_use >= 9999 ? 5 : 10);
-
-      // Find last completed generation to calculate cooldown remaining
-      const { data: lastGen } = await supabase
-        .from("generations")
-        .select("updated_at")
-        .eq("token_id", tokenData.id)
-        .eq("status", "completed")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      let cooldownRemaining = 0;
-      if (lastGen) {
-        const lastTime = new Date(lastGen.updated_at).getTime();
-        const elapsed = Date.now() - lastTime;
-        const cooldownMs = cooldownMinutes * 60 * 1000;
-        cooldownRemaining = Math.max(0, cooldownMs - elapsed);
-      }
-
       return new Response(
         JSON.stringify({
           valid: true,
@@ -202,8 +180,6 @@ serve(async (req) => {
           },
           remaining_total: remainingTotal,
           remaining_daily: remainingDaily,
-          cooldown_minutes: cooldownMinutes,
-          cooldown_remaining_ms: cooldownRemaining,
           maintenance: maintenanceActive ? { until: MAINTENANCE_UNTIL, message: MAINTENANCE_MSG } : null,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
