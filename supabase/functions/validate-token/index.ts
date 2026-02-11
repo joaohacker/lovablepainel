@@ -86,15 +86,29 @@ serve(async (req) => {
 
     if (staleSessions && staleSessions.length > 0) {
       for (const s of staleSessions) {
+        let realCredits = s.credits_earned || 0;
+        // Try to fetch real credits from external API before closing
+        if (s.farm_id && farmApiKey) {
+          try {
+            const statusRes = await fetch(`${API_BASE}/farm/${s.farm_id}/status`, {
+              headers: { "x-api-key": farmApiKey },
+            });
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              if (typeof statusData.credits === "number") {
+                realCredits = statusData.credits;
+              }
+            }
+          } catch { /* API unreachable, use existing value */ }
+        }
         await supabase
           .from("token_usages")
-          .update({ status: "completed", completed_at: new Date().toISOString() })
+          .update({ status: "completed", credits_earned: realCredits, completed_at: new Date().toISOString() })
           .eq("id", s.id);
-        // Also update generations table
         if (s.farm_id) {
           await supabase
             .from("generations")
-            .update({ status: "completed" })
+            .update({ status: "completed", credits_earned: realCredits })
             .eq("farm_id", s.farm_id);
         }
       }
@@ -272,25 +286,32 @@ serve(async (req) => {
 
       const farmData = await farmRes.json();
 
-      // Record usage
-      await supabase.from("token_usages").insert({
-        token_id: tokenData.id,
-        farm_id: farmData.farmId,
-        credits_requested: requestedCredits,
-        status: "active",
-        client_ip: clientIp,
+      // Atomic credit reservation via DB function (prevents race conditions)
+      const { data: reserveResult, error: reserveError } = await supabase.rpc("reserve_credits", {
+        p_token_id: tokenData.id,
+        p_farm_id: farmData.farmId,
+        p_client_name: tokenData.client_name,
+        p_credits_requested: requestedCredits,
+        p_status: "waiting_invite",
+        p_master_email: farmData.masterEmail || null,
+        p_client_ip: clientIp,
+        p_queued: farmData.queued || false,
       });
 
-      // Record generation for live dashboard
-      await supabase.from("generations").insert({
-        token_id: tokenData.id,
-        farm_id: farmData.farmId,
-        client_name: tokenData.client_name,
-        credits_requested: requestedCredits,
-        status: farmData.queued ? "queued" : "waiting_invite",
-        master_email: farmData.masterEmail || null,
-        client_ip: clientIp,
-      });
+      if (reserveError || !reserveResult?.success) {
+        // Reservation failed (limit exceeded) — cancel the farm we just created
+        try {
+          await fetch(`${API_BASE}/farm/${farmData.farmId}/cancel`, {
+            method: "POST",
+            headers: { "x-api-key": farmApiKey },
+          });
+        } catch { /* best effort */ }
+        const errorMsg = reserveResult?.error || reserveError?.message || "Erro ao reservar créditos";
+        return new Response(
+          JSON.stringify({ success: false, error: errorMsg }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       return new Response(
         JSON.stringify({
