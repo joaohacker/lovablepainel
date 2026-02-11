@@ -141,6 +141,7 @@ export type Database = {
       tokens: {
         Row: {
           client_name: string
+          cooldown_minutes: number | null
           created_at: string
           created_by: string
           credits_per_use: number
@@ -154,6 +155,7 @@ export type Database = {
         }
         Insert: {
           client_name: string
+          cooldown_minutes?: number | null
           created_at?: string
           created_by: string
           credits_per_use?: number
@@ -167,6 +169,7 @@ export type Database = {
         }
         Update: {
           client_name?: string
+          cooldown_minutes?: number | null
           created_at?: string
           created_by?: string
           credits_per_use?: number
