@@ -59,6 +59,63 @@ serve(async (req) => {
       );
     }
 
+    // === FAST PATH: update-status skips heavy validation ===
+    if (action === "update-status") {
+      const farmId = bodyFarmId;
+      const status = bodyStatus;
+
+      if (!farmId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "farmId required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: gen } = await supabase
+        .from("generations")
+        .select("id")
+        .eq("farm_id", farmId)
+        .eq("token_id", tokenData.id)
+        .maybeSingle();
+
+      if (!gen) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Generation not found for this token" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const updateData: Record<string, unknown> = { status };
+      if (credits_earned !== undefined) updateData.credits_earned = credits_earned;
+      if (master_email !== undefined) updateData.master_email = master_email;
+      if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
+      if (error_message !== undefined) updateData.error_message = error_message;
+
+      await supabase
+        .from("generations")
+        .update(updateData)
+        .eq("farm_id", farmId);
+
+      const usageUpdate: Record<string, unknown> = { status: status || "active" };
+      if (status === "completed") {
+        if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
+        usageUpdate.completed_at = new Date().toISOString();
+      } else if (status === "error" || status === "cancelled" || status === "expired") {
+        usageUpdate.credits_earned = 0;
+        usageUpdate.completed_at = new Date().toISOString();
+      }
+      await supabase
+        .from("token_usages")
+        .update(usageUpdate)
+        .eq("farm_id", farmId)
+        .eq("token_id", tokenData.id);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Check if active
     if (!tokenData.is_active) {
       return new Response(
@@ -305,65 +362,6 @@ serve(async (req) => {
       );
     }
 
-    // Update generation status
-    if (action === "update-status") {
-      const farmId = bodyFarmId;
-      const status = bodyStatus;
-
-      if (!farmId) {
-        return new Response(
-          JSON.stringify({ success: false, error: "farmId required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Verify this farm belongs to this token
-      const { data: gen } = await supabase
-        .from("generations")
-        .select("id")
-        .eq("farm_id", farmId)
-        .eq("token_id", tokenData.id)
-        .maybeSingle();
-
-      if (!gen) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Generation not found for this token" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const updateData: Record<string, unknown> = { status };
-      if (credits_earned !== undefined) updateData.credits_earned = credits_earned;
-      if (master_email !== undefined) updateData.master_email = master_email;
-      if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
-      if (error_message !== undefined) updateData.error_message = error_message;
-
-      await supabase
-        .from("generations")
-        .update(updateData)
-        .eq("farm_id", farmId);
-
-      // Also update token_usages table
-      const usageUpdate: Record<string, unknown> = { status: status || "active" };
-      // Only save credits_earned on completed; force 0 on error/cancelled/expired
-      if (status === "completed") {
-        if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
-        usageUpdate.completed_at = new Date().toISOString();
-      } else if (status === "error" || status === "cancelled" || status === "expired") {
-        usageUpdate.credits_earned = 0;
-        usageUpdate.completed_at = new Date().toISOString();
-      }
-      await supabase
-        .from("token_usages")
-        .update(usageUpdate)
-        .eq("farm_id", farmId)
-        .eq("token_id", tokenData.id);
-
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
