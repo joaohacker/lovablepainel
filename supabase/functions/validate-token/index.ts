@@ -25,6 +25,8 @@ serve(async (req) => {
     // Block all generation until this time (UTC). Remove or set to past date to disable.
     const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // Blocked indefinitely
     const MAINTENANCE_MSG = "Sistema temporariamente indisponível. Aguarde liberação.";
+    // Tokens allowed to bypass maintenance (for testing)
+    const MAINTENANCE_BYPASS_TOKENS = ["959fd68ac89ffc50413a088ef6d0a527"];
     // ============================
 
     // Capture client IP from request headers
@@ -160,7 +162,7 @@ serve(async (req) => {
     }
 
     // Check maintenance mode
-    const maintenanceActive = new Date(MAINTENANCE_UNTIL) > new Date();
+    const maintenanceActive = new Date(MAINTENANCE_UNTIL) > new Date() && !MAINTENANCE_BYPASS_TOKENS.includes(token);
 
     // If just validating, return token info (include maintenance info)
     if (action === "validate") {
