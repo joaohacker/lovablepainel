@@ -23,8 +23,8 @@ serve(async (req) => {
   try {
     // ===== MAINTENANCE MODE =====
     // Block all generation until this time (UTC). Remove or set to past date to disable.
-    const MAINTENANCE_UNTIL = "2026-02-11T00:00:00Z"; // 21:00 BRT (UTC-3)
-    const MAINTENANCE_MSG = "Repondo estoque. Previsão de retorno: 21h (horário de Brasília).";
+    const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // Blocked indefinitely
+    const MAINTENANCE_MSG = "Sistema temporariamente indisponível. Aguarde liberação.";
     // ============================
 
     // Capture client IP from request headers
