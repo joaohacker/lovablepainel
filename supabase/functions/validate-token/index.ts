@@ -22,11 +22,10 @@ serve(async (req) => {
 
   try {
     // ===== MAINTENANCE MODE =====
-    // Block all generation until this time (UTC). Remove or set to past date to disable.
-    const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // Blocked indefinitely
-    const MAINTENANCE_MSG = "⚠️ Gerando Bots — Aguarde. Assim que bater 50.000 bots, a geração será liberada e o limite de todos será resetado.";
-    // Tokens allowed to bypass maintenance (for testing)
-    const MAINTENANCE_BYPASS_TOKENS = ["959fd68ac89ffc50413a088ef6d0a527"];
+    // Set to past date to disable maintenance.
+    const MAINTENANCE_UNTIL = "2020-01-01T00:00:00Z"; // DISABLED
+    const MAINTENANCE_MSG = "";
+    const MAINTENANCE_BYPASS_TOKENS: string[] = [];
     // ============================
 
     // Capture client IP from request headers
@@ -178,7 +177,33 @@ serve(async (req) => {
     // Check maintenance mode
     const maintenanceActive = new Date(MAINTENANCE_UNTIL) > new Date() && !MAINTENANCE_BYPASS_TOKENS.includes(token);
 
-    // If just validating, return token info (include maintenance info)
+    // Check cooldown — find last completed/error/expired/cancelled generation
+    let cooldownInfo: { remaining_seconds: number; cooldown_minutes: number } | null = null;
+    const cooldownMinutes = tokenData.cooldown_minutes || 0;
+    if (cooldownMinutes > 0) {
+      const { data: lastGen } = await supabase
+        .from("generations")
+        .select("created_at, status")
+        .eq("token_id", tokenData.id)
+        .in("status", ["completed", "error", "expired", "cancelled"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastGen) {
+        const lastTime = new Date(lastGen.created_at).getTime();
+        const cooldownMs = cooldownMinutes * 60 * 1000;
+        const elapsed = Date.now() - lastTime;
+        if (elapsed < cooldownMs) {
+          cooldownInfo = {
+            remaining_seconds: Math.ceil((cooldownMs - elapsed) / 1000),
+            cooldown_minutes: cooldownMinutes,
+          };
+        }
+      }
+    }
+
+    // If just validating, return token info (include maintenance & cooldown info)
     if (action === "validate") {
       return new Response(
         JSON.stringify({
@@ -191,10 +216,12 @@ serve(async (req) => {
             daily_limit: tokenData.daily_limit,
             expires_at: tokenData.expires_at,
             is_active: tokenData.is_active,
+            cooldown_minutes: cooldownMinutes,
           },
           remaining_total: remainingTotal,
           remaining_daily: remainingDaily,
           maintenance: maintenanceActive ? { until: MAINTENANCE_UNTIL, message: MAINTENANCE_MSG } : null,
+          cooldown: cooldownInfo,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -207,6 +234,20 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ success: false, error: MAINTENANCE_MSG }),
           { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Block creation during cooldown
+      if (cooldownInfo) {
+        const mins = Math.floor(cooldownInfo.remaining_seconds / 60);
+        const secs = cooldownInfo.remaining_seconds % 60;
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Aguarde ${mins}m ${secs}s antes de gerar novamente.`,
+            cooldown: cooldownInfo,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (!farmApiKey) {
