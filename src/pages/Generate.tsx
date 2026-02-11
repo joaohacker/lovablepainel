@@ -5,7 +5,8 @@ import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ShieldX, Clock, Ban } from "lucide-react";
+import { fetchStock } from "@/lib/farm-api";
+import { Loader2, ShieldX, Clock, Ban, Bot } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
 
 interface TokenInfo {
@@ -34,6 +35,42 @@ interface SavedSession {
   credits: number;
   token: string;
 }
+
+const MaintenanceBanner = ({ message, until }: { message: string; until: string }) => {
+  const [botCount, setBotCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const stock = await fetchStock();
+        setBotCount(stock.activeWithBonus ?? stock.active ?? 0);
+      } catch {
+        setBotCount(null);
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-5 py-8 text-center">
+      <div className="relative">
+        <div className="absolute inset-0 animate-ping rounded-full bg-amber-500/20" />
+        <Bot className="relative h-16 w-16 text-amber-500" />
+      </div>
+      <h2 className="text-xl font-bold text-foreground">⚠️ Gerando Bots — Aguarde</h2>
+      <p className="text-base text-muted-foreground">{message}</p>
+      <div className="rounded-lg border border-border bg-muted/50 px-6 py-4 w-full">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Bots disponíveis agora</p>
+        <p className="text-4xl font-bold tabular-nums text-foreground">
+          {botCount !== null ? botCount : <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />}
+        </p>
+      </div>
+      <p className="text-xs text-muted-foreground">Atualizando a cada 5 segundos</p>
+    </div>
+  );
+};
 
 const Generate = () => {
   const { token } = useParams<{ token: string }>();
@@ -233,13 +270,7 @@ const Generate = () => {
         <Card className="glass-card">
           <CardContent className="p-6 md:p-8">
             {validation?.maintenance ? (
-              <div className="flex flex-col items-center gap-4 py-8 text-center">
-                <Clock className="h-12 w-12 text-yellow-500" />
-                <p className="text-lg font-semibold text-foreground">{validation.maintenance.message}</p>
-                <p className="text-xs text-muted-foreground">
-                  Previsão de retorno: {new Date(validation.maintenance.until).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
+              <MaintenanceBanner message={validation.maintenance.message} until={validation.maintenance.until} />
             ) : isIdle ? (
               <CreditSelector
                 onGenerate={handleGenerate}
