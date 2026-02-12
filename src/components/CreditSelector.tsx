@@ -13,8 +13,10 @@ interface CreditSelectorProps {
   maxCredits?: number;
 }
 
+const ABSOLUTE_MAX_PER_GENERATION = 950;
+
 export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: CreditSelectorProps) {
-  const max = Math.min(5005, maxCredits);
+  const max = Math.min(ABSOLUTE_MAX_PER_GENERATION, maxCredits);
   const [credits, setCredits] = useState(Math.min(100, max));
   const [stock, setStock] = useState<StockResponse | null>(null);
   const [stockLoading, setStockLoading] = useState(true);
