@@ -215,12 +215,36 @@ export function GenerationStatus({
     return () => window.removeEventListener("beforeunload", handler);
   }, [isActive]);
   const [copied, setCopied] = useState(false);
+  const [copiedMsg, setCopiedMsg] = useState(false);
 
   const copyEmail = useCallback(async () => {
     if (!masterEmail) return;
     await navigator.clipboard.writeText(masterEmail);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }, [masterEmail]);
+
+  const copyClientMessage = useCallback(async () => {
+    if (!masterEmail) return;
+    const msg = `✅ Obrigado pela compra!
+
+Para receber seus créditos na Lovable, convide o bot abaixo como EDITOR na sua workspace:
+
+📩 ${masterEmail}
+
+Faça o convite por aqui:
+🔗 https://lovable.dev/settings?tab=people
+
+Após enviar o convite, aguarde que os créditos serão depositados automaticamente.
+
+⚠️ Importante:
+• Convide em até 10 minutos (depois o bot expira).
+• Sua workspace não pode ter mais de 5 membros no momento do convite.
+
+Se tiver qualquer dúvida, me chama.`;
+    await navigator.clipboard.writeText(msg);
+    setCopiedMsg(true);
+    setTimeout(() => setCopiedMsg(false), 2000);
   }, [masterEmail]);
 
   const progressPercent =
@@ -267,21 +291,38 @@ export function GenerationStatus({
             <p className="text-xl md:text-2xl font-mono font-bold text-primary break-all text-center select-all">
               {masterEmail}
             </p>
-            <Button
-              onClick={copyEmail}
-              variant={copied ? "default" : "outline"}
-              className={`gap-2 transition-all ${copied ? "bg-success hover:bg-success/90 text-success-foreground" : ""}`}
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4" /> Copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" /> Copiar Email
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              <Button
+                onClick={copyEmail}
+                variant={copied ? "default" : "outline"}
+                className={`gap-2 transition-all flex-1 ${copied ? "bg-success hover:bg-success/90 text-success-foreground" : ""}`}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4" /> Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" /> Copiar Email
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={copyClientMessage}
+                variant={copiedMsg ? "default" : "outline"}
+                className={`gap-2 transition-all flex-1 ${copiedMsg ? "bg-success hover:bg-success/90 text-success-foreground" : ""}`}
+              >
+                {copiedMsg ? (
+                  <>
+                    <Check className="h-4 w-4" /> Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" /> Mensagem p/ Cliente
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
