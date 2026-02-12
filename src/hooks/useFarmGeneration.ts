@@ -26,6 +26,7 @@ export interface FeedEntry {
   credits?: number;
   message: string;
   timestamp: number;
+  arrivedAt?: number;
 }
 
 interface FarmGenerationState {
@@ -151,34 +152,46 @@ export function useFarmGeneration() {
             return;
           }
 
-          // Running — REPLACE logs entirely each poll (no append, no duplicates)
+          // Running — append only NEW entries to avoid batch appearance
           if (status.status === "running" || status.status === "workspace_detected") {
-            const newFeed: FeedEntry[] = [];
             let pollingCredits = 0;
-
-            processedEventIdsRef.current.clear();
+            const incomingEntries: FeedEntry[] = [];
 
             if (status.logs && status.logs.length > 0) {
               for (const log of status.logs) {
                 const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
-                processedEventIdsRef.current.add(eid);
-
                 const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
-                newFeed.push(entry);
+                incomingEntries.push(entry);
                 if (entry.kind === "credit" && entry.credits) {
                   pollingCredits += entry.credits;
                 }
               }
             }
 
-            setGen((prev) => ({
-              ...prev,
-              state: "running",
-              workspaceName: status.workspaceName || prev.workspaceName,
-              masterEmail: status.masterEmail || prev.masterEmail,
-              creditsEarned: pollingCredits,
-              feed: newFeed.slice(-50),
-            }));
+            setGen((prev) => {
+              // Find entries that are truly new (not in current feed)
+              const existingIds = new Set(prev.feed.map((f) => f.eventId));
+              const brandNew = incomingEntries.filter((e) => !existingIds.has(e.eventId));
+
+              // Stagger new entries by assigning incremental timestamps for animation
+              const now = Date.now();
+              const staggered = brandNew.map((entry, i) => ({
+                ...entry,
+                id: ++feedIdCounter,
+                arrivedAt: now + i * 350, // 350ms apart for smooth drip effect
+              }));
+
+              const merged = [...prev.feed, ...staggered].slice(-50);
+
+              return {
+                ...prev,
+                state: "running",
+                workspaceName: status.workspaceName || prev.workspaceName,
+                masterEmail: status.masterEmail || prev.masterEmail,
+                creditsEarned: pollingCredits,
+                feed: merged,
+              };
+            });
           }
         } catch (err) {
           if (err instanceof Error && err.message === "SESSION_LOST") {
