@@ -107,6 +107,10 @@ function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
           className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-mono animate-fade-in ${
             entry.kind === "credit"
               ? "bg-success/10 text-success"
+              : entry.kind === "warning"
+              ? "bg-destructive/10 text-destructive"
+              : entry.kind === "success"
+              ? "bg-success/15 text-success font-semibold"
               : "bg-muted/50 text-muted-foreground"
           }`}
         >
@@ -115,6 +119,11 @@ function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
               <img src={lovableHeart} alt="" className="h-3.5 w-3.5 shrink-0" />
               <span className="font-bold">+{entry.credits}</span>
               <span className="truncate">{entry.botName}</span>
+            </>
+          ) : entry.kind === "warning" ? (
+            <>
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              <span className="truncate">{entry.message}</span>
             </>
           ) : (
             <>
