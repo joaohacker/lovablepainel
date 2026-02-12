@@ -250,6 +250,14 @@ const Generate = () => {
             Olá, <span className="text-foreground font-medium">{tokenInfo.client_name}</span>
           </p>
 
+          {/* Compensation notice */}
+          <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-left">
+            <p className="text-xs font-semibold text-emerald-400 mb-1">🎁 +1000 créditos adicionados</p>
+            <p className="text-xs text-emerald-300/80 leading-relaxed">
+              1000 créditos foram adicionados ao limite diário de todos por compensação aos erros. Pedimos desculpas pelo inconveniente!
+            </p>
+          </div>
+
           {/* Workspace limit warning */}
           <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left">
             <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ Atenção — Limite de membros</p>
