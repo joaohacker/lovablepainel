@@ -1,0 +1,2 @@
+UPDATE public.generations SET status = 'cancelled', credits_earned = 0 WHERE status NOT IN ('completed', 'cancelled', 'error', 'expired');
+UPDATE public.token_usages SET status = 'cancelled', credits_earned = 0, completed_at = now() WHERE status NOT IN ('completed', 'cancelled', 'error', 'expired');
