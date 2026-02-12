@@ -134,6 +134,7 @@ export function connectSSE(
           if (line.startsWith("data: ")) {
             try {
               const data = JSON.parse(line.slice(6));
+              console.log(`[SSE-RAW] type=${data.type}`, data.type === "progress" ? `eventId=${data.eventId} logType=${data.logType} msg="${data.message}"` : data.type === "snapshot" ? `status=${data.status} logs=${data.logs?.length ?? 0}` : data.type === "completed" ? `result=${JSON.stringify(data.result)}` : JSON.stringify(data));
               onEvent(data);
             } catch {}
           }
