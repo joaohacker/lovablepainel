@@ -26,7 +26,7 @@ serve(async (req) => {
     const MAINTENANCE_UNTIL = "2026-02-12T01:28:00Z"; // 1h from now (00:28 UTC)
     const MAINTENANCE_MSG = "🔧 Corrigindo um bug — voltamos em breve. Acompanhe o timer abaixo.";
     // Tokens allowed to bypass maintenance (for testing)
-    const MAINTENANCE_BYPASS_TOKENS = ["636dcf007abea6268480a302f074616f"];
+    const MAINTENANCE_BYPASS_TOKENS = ["636dcf007abea6268480a302f074616f", "05c0def8c6a4e9f488eba136cdafca25"];
     // ============================
 
     // Capture client IP from request headers
