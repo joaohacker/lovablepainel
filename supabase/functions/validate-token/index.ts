@@ -23,8 +23,8 @@ serve(async (req) => {
   try {
     // ===== MAINTENANCE MODE =====
     // Block all generation until this time (UTC). Remove or set to past date to disable.
-    const MAINTENANCE_UNTIL = "2020-01-01T00:00:00Z"; // Maintenance disabled
-    const MAINTENANCE_MSG = "⚠️ Gerando Bots — Aguarde. Assim que bater 50.000 bots, a geração será liberada e o limite de todos será resetado.";
+    const MAINTENANCE_UNTIL = "2026-02-12T21:30:00Z"; // ~1h from now
+    const MAINTENANCE_MSG = "🔧 Corrigindo um bug — voltamos em breve. Acompanhe o timer abaixo.";
     // Tokens allowed to bypass maintenance (for testing)
     const MAINTENANCE_BYPASS_TOKENS = ["959fd68ac89ffc50413a088ef6d0a527"];
     // ============================
