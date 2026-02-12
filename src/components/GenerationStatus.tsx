@@ -314,7 +314,7 @@ Se tiver qualquer dúvida, me chama.`;
         <Button
           onClick={copyClientMessage}
           variant={copiedMsg ? "default" : "outline"}
-          className={`gap-2 transition-all w-full ${copiedMsg ? "bg-success hover:bg-success/90 text-success-foreground" : "border-yellow-500/50 bg-yellow-500/15 text-yellow-300 hover:bg-yellow-500/25"}`}
+          className={`gap-2 transition-all w-full ${copiedMsg ? "bg-success hover:bg-success/90 text-success-foreground" : "border-success/50 bg-success/15 text-success hover:bg-success/25"}`}
         >
           {copiedMsg ? (
             <>
@@ -322,10 +322,9 @@ Se tiver qualquer dúvida, me chama.`;
             </>
           ) : (
             <>
-              <Copy className="h-4 w-4" /> Mensagem p/ cliente pronta
+              <Copy className="h-4 w-4" /> Copiar Mensagem p/ cliente pronta
             </>
-          )
-          }
+          )}
         </Button>
 
         {expiresAt && <CountdownTimer expiresAt={expiresAt} />}
