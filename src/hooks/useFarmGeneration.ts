@@ -22,6 +22,7 @@ export type FarmState =
 
 export interface FeedEntry {
   id: number;
+  eventId?: string;
   kind: "credit" | "warning" | "info" | "success";
   botName?: string;
   credits?: number;
@@ -46,22 +47,23 @@ interface FarmGenerationState {
 
 let feedIdCounter = 0;
 
-function parseLogToFeedEntry(message: string, logType: string, timestamp: number): FeedEntry {
+function parseLogToFeedEntry(message: string, logType: string, timestamp: number, eventId?: string): FeedEntry {
   if (logType === "credit") {
     const creditMatch = message.match(/^\+(\d+)\s/);
     const amount = creditMatch ? parseInt(creditMatch[1], 10) : 5;
     const nameMatch = message.match(/\((.+?)\)/);
     const botName = nameMatch ? nameMatch[1] : "Bot";
-    return { id: ++feedIdCounter, kind: "credit", botName, credits: amount, message, timestamp };
+    return { id: ++feedIdCounter, eventId, kind: "credit", botName, credits: amount, message, timestamp };
   }
   if (logType === "warning") {
-    return { id: ++feedIdCounter, kind: "warning", message, timestamp };
+    return { id: ++feedIdCounter, eventId, kind: "warning", message, timestamp };
   }
   if (logType === "success") {
-    return { id: ++feedIdCounter, kind: "success", message, timestamp };
+    return { id: ++feedIdCounter, eventId, kind: "success", message, timestamp };
   }
-  return { id: ++feedIdCounter, kind: "info", message, timestamp };
+  return { id: ++feedIdCounter, eventId, kind: "info", message, timestamp };
 }
+
 export function useFarmGeneration() {
   const [gen, setGen] = useState<FarmGenerationState>({
     state: "idle",
@@ -78,11 +80,13 @@ export function useFarmGeneration() {
     expiresAt: null,
   });
 
-  // Track which log messages we've already processed (by message+timestamp)
-  const processedLogsRef = useRef<Set<string>>(new Set());
-  // Track consecutive 404 errors for retry logic before SESSION_LOST
+  // Track processed eventIds to prevent duplicates
+  const processedEventIdsRef = useRef<Set<string>>(new Set());
+  // Track consecutive 404 errors for retry logic
   const consecutive404Ref = useRef(0);
   const MAX_404_RETRIES = 3;
+  // Flag to stop processing after completed
+  const completedRef = useRef(false);
 
   const disconnectSSE = useRef<(() => void) | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -101,21 +105,26 @@ export function useFarmGeneration() {
   useEffect(() => cleanup, [cleanup]);
 
   const handleSSEEvent = useCallback((event: SSEEvent) => {
+    // Stop processing if farm already completed
+    if (completedRef.current) return;
+
     setGen((prev) => {
       switch (event.type) {
         case "snapshot": {
-          // Populate existing logs from snapshot
-          const snapshotData = event as SSEEvent & { logs?: Array<{ message: string; logType: string; timestamp: number }> };
-          const newFeed: FeedEntry[] = [...prev.feed];
-          let snapshotCredits = prev.creditsEarned;
+          // REPLACE logs entirely from snapshot (not append)
+          const snapshotData = event as SSEEvent & { logs?: Array<{ message: string; logType: string; timestamp: number; eventId?: string }> };
+          const newFeed: FeedEntry[] = [];
+          let snapshotCredits = 0;
+
+          // Clear processed set and rebuild from snapshot
+          processedEventIdsRef.current.clear();
 
           if (snapshotData.logs && snapshotData.logs.length > 0) {
             for (const log of snapshotData.logs) {
-              const logKey = `${log.message}|${log.timestamp}`;
-              if (processedLogsRef.current.has(logKey)) continue;
-              processedLogsRef.current.add(logKey);
+              const eid = log.eventId || `${log.message}|${log.timestamp}`;
+              processedEventIdsRef.current.add(eid);
 
-              const entry = parseLogToFeedEntry(log.message, log.logType, log.timestamp);
+              const entry = parseLogToFeedEntry(log.message, log.logType, log.timestamp, eid);
               newFeed.push(entry);
               if (entry.kind === "credit" && entry.credits) {
                 snapshotCredits += entry.credits;
@@ -144,13 +153,21 @@ export function useFarmGeneration() {
         }
 
         case "progress": {
-          const data = event as unknown as { message: string; logType?: string };
+          const data = event as unknown as { message: string; logType?: string; eventId?: string };
           const logType = data.logType || "info";
+          const eventId = data.eventId || `${data.message}|${Date.now()}`;
+
+          // Deduplicate by eventId
+          if (processedEventIdsRef.current.has(eventId)) {
+            return prev;
+          }
+          processedEventIdsRef.current.add(eventId);
+
           const newLogs = [...prev.logs, data.message].slice(-50);
           const newFeed = [...prev.feed];
           let newCredits = prev.creditsEarned;
 
-          const entry = parseLogToFeedEntry(data.message, logType, Date.now());
+          const entry = parseLogToFeedEntry(data.message, logType, Date.now(), eventId);
           newFeed.push(entry);
           if (entry.kind === "credit" && entry.credits) {
             newCredits += entry.credits;
@@ -160,6 +177,8 @@ export function useFarmGeneration() {
         }
 
         case "completed":
+          // Mark as completed to stop further processing
+          completedRef.current = true;
           return {
             ...prev,
             state: "completed",
@@ -168,24 +187,33 @@ export function useFarmGeneration() {
           };
 
         case "error":
+          completedRef.current = true;
           return { ...prev, state: "error", errorMessage: event.error };
 
         case "expired":
+          completedRef.current = true;
           return { ...prev, state: "expired", errorMessage: event.message };
 
         case "cancelled":
+          completedRef.current = true;
           return { ...prev, state: "cancelled" };
 
-        case "polling":
-          return prev;
-
         case "heartbeat":
+        case "polling":
           return prev;
 
         default:
           return prev;
       }
     });
+
+    // Close SSE immediately on terminal events
+    if (event.type === "completed" || event.type === "error" || event.type === "expired" || event.type === "cancelled") {
+      if (disconnectSSE.current) {
+        disconnectSSE.current();
+        disconnectSSE.current = null;
+      }
+    }
   }, []);
 
   const startPolling = useCallback(
@@ -193,15 +221,21 @@ export function useFarmGeneration() {
       if (pollingRef.current) clearInterval(pollingRef.current);
 
       pollingRef.current = setInterval(async () => {
+        if (completedRef.current) {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          return;
+        }
+
         try {
           const status = await getFarmStatus(farmId);
-          
-          // Reset 404 counter on any successful response
           consecutive404Ref.current = 0;
-          
+
           if (status.status === "completed") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
+            completedRef.current = true;
+            if (disconnectSSE.current) { disconnectSSE.current(); disconnectSSE.current = null; }
             setGen((prev) => ({
               ...prev,
               state: "completed",
@@ -212,10 +246,12 @@ export function useFarmGeneration() {
             }));
             return;
           }
-          
+
           if (status.status === "error" || status.status === "expired" || status.status === "cancelled") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
+            completedRef.current = true;
+            if (disconnectSSE.current) { disconnectSSE.current(); disconnectSSE.current = null; }
             setGen((prev) => ({
               ...prev,
               state: status.status as FarmState,
@@ -231,17 +267,17 @@ export function useFarmGeneration() {
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
           } else if (status.status === "running" || status.status === "workspace_detected") {
-            // Process logs from polling response into feed
+            // Process logs from polling only if not already processed
             const newFeedEntries: FeedEntry[] = [];
             let pollingCredits = 0;
-            
+
             if (status.logs && status.logs.length > 0) {
               for (const log of status.logs) {
-                const logKey = `${log.message}|${log.timestamp}`;
-                if (processedLogsRef.current.has(logKey)) continue;
-                processedLogsRef.current.add(logKey);
-                
-                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp);
+                const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
+                if (processedEventIdsRef.current.has(eid)) continue;
+                processedEventIdsRef.current.add(eid);
+
+                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
                 newFeedEntries.push(entry);
                 if (entry.kind === "credit" && entry.credits) {
                   pollingCredits += entry.credits;
@@ -249,57 +285,54 @@ export function useFarmGeneration() {
               }
             }
 
-            setGen((prev) => {
-              const totalFromLogs = newFeedEntries
-                .filter(e => e.kind === "credit")
-                .reduce((sum, e) => sum + (e.credits || 0), 0);
-              const newCredits = Math.max(prev.creditsEarned, prev.creditsEarned + totalFromLogs);
-              const mergedFeed = [...prev.feed, ...newFeedEntries].slice(-50);
-              
-              return {
+            if (newFeedEntries.length > 0) {
+              setGen((prev) => ({
                 ...prev,
                 state: "running",
                 workspaceName: status.workspaceName || prev.workspaceName,
                 masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: newCredits,
-                feed: mergedFeed,
-              };
-            });
-            
+                creditsEarned: prev.creditsEarned + pollingCredits,
+                feed: [...prev.feed, ...newFeedEntries].slice(-50),
+              }));
+            } else {
+              setGen((prev) => ({
+                ...prev,
+                state: "running",
+                workspaceName: status.workspaceName || prev.workspaceName,
+                masterEmail: status.masterEmail || prev.masterEmail,
+              }));
+            }
+
+            // Only open SSE if not already connected
             if (!disconnectSSE.current) {
               disconnectSSE.current = connectSSE(
                 farmId,
                 handleSSEEvent,
-                () => {
-                  disconnectSSE.current = null;
-                }
+                () => { disconnectSSE.current = null; }
               );
             }
           } else if (status.status !== "queued") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
 
-            disconnectSSE.current = connectSSE(
-              farmId,
-              handleSSEEvent,
-              () => startPolling(farmId)
-            );
+            if (!disconnectSSE.current) {
+              disconnectSSE.current = connectSSE(
+                farmId,
+                handleSSEEvent,
+                () => startPolling(farmId)
+              );
+            }
           }
         } catch (err) {
           if (err instanceof Error && err.message === "SESSION_LOST") {
             consecutive404Ref.current += 1;
             console.warn(`[polling] 404 received (${consecutive404Ref.current}/${MAX_404_RETRIES})`);
 
-            // Check if we already completed via SSE before the 404
-            if (consecutive404Ref.current < MAX_404_RETRIES) {
-              // Don't mark as error yet — wait for next poll cycle to retry
-              return;
-            }
+            if (consecutive404Ref.current < MAX_404_RETRIES) return;
 
-            // All retries exhausted — now mark as SESSION_LOST
             cleanup();
+            completedRef.current = true;
             setGen((prev) => {
-              // If credits were earned, show as completed instead of error
               if (prev.creditsEarned > 0 && prev.creditsEarned >= prev.totalCreditsRequested) {
                 return {
                   ...prev,
@@ -331,8 +364,9 @@ export function useFarmGeneration() {
     async (credits: number) => {
       cleanup();
       feedIdCounter = 0;
-      processedLogsRef.current.clear();
+      processedEventIdsRef.current.clear();
       consecutive404Ref.current = 0;
+      completedRef.current = false;
       setGen({
         state: "creating",
         farmId: null,
@@ -391,8 +425,9 @@ export function useFarmGeneration() {
     (farmId: string, credits: number, queued = false, queuePosition?: number, masterEmail?: string) => {
       cleanup();
       feedIdCounter = 0;
-      processedLogsRef.current.clear();
+      processedEventIdsRef.current.clear();
       consecutive404Ref.current = 0;
+      completedRef.current = false;
 
       if (queued) {
         setGen({
@@ -439,11 +474,7 @@ export function useFarmGeneration() {
   );
 
   const setError = useCallback((message: string) => {
-    setGen((prev) => ({
-      ...prev,
-      state: "error",
-      errorMessage: message,
-    }));
+    setGen((prev) => ({ ...prev, state: "error", errorMessage: message }));
   }, []);
 
   const cancelGeneration = useCallback(async () => {
@@ -451,6 +482,7 @@ export function useFarmGeneration() {
     try {
       await cancelFarm(gen.farmId);
       cleanup();
+      completedRef.current = true;
       setGen((prev) => ({ ...prev, state: "cancelled" }));
     } catch {
       // Ignore cancel errors
@@ -460,8 +492,9 @@ export function useFarmGeneration() {
   const reset = useCallback(() => {
     cleanup();
     feedIdCounter = 0;
-    processedLogsRef.current.clear();
+    processedEventIdsRef.current.clear();
     consecutive404Ref.current = 0;
+    completedRef.current = false;
     setGen({
       state: "idle",
       farmId: null,
