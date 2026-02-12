@@ -87,8 +87,56 @@ function AnimatedCounter({ value, className }: { value: number; className?: stri
   return <span className={className}>{display}</span>;
 }
 
+function RunningCreditsDisplay({ feed, totalCreditsRequested }: { feed: FeedEntry[]; totalCreditsRequested: number }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(id);
+  }, []);
+
+  // Count credits only from visible (arrived) entries
+  const visibleCredits = feed
+    .filter((e) => e.kind === "credit" && (!e.arrivedAt || e.arrivedAt <= now))
+    .reduce((sum, e) => sum + (e.credits || 0), 0);
+
+  const progressPercent = totalCreditsRequested > 0
+    ? Math.min(100, (visibleCredits / totalCreditsRequested) * 100)
+    : 0;
+
+  return (
+    <>
+      <div className="text-center">
+        <div className="relative inline-block">
+          <AnimatedCounter
+            value={visibleCredits}
+            className="text-6xl font-extrabold text-success tabular-nums"
+          />
+          <div className="absolute -inset-4 bg-success/5 rounded-full blur-2xl -z-10 animate-pulse-glow" />
+        </div>
+        <p className="text-sm text-muted-foreground mt-2">
+          de {totalCreditsRequested} créditos
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Progress value={progressPercent} className="h-3 bg-muted" />
+        <p className="text-xs text-center text-muted-foreground font-mono">
+          {visibleCredits}/{totalCreditsRequested} créditos
+        </p>
+      </div>
+    </>
+  );
+}
+
 function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [now, setNow] = useState(Date.now());
+
+  // Tick every 100ms to reveal staggered entries smoothly
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -96,8 +144,11 @@ function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
     }
   }, [feed.length]);
 
+  // Only show entries whose arrivedAt has passed (drip effect)
+  const visible = feed.filter((e) => !e.arrivedAt || e.arrivedAt <= now);
+
   // Show newest first
-  const reversed = [...feed].reverse();
+  const reversed = [...visible].reverse();
 
   return (
     <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 pr-1">
@@ -269,27 +320,11 @@ export function GenerationStatus({
           </div>
         )}
 
-        {/* Animated credit counter */}
-        <div className="text-center">
-          <div className="relative inline-block">
-            <AnimatedCounter
-              value={creditsEarned}
-              className="text-6xl font-extrabold text-success tabular-nums"
-            />
-            <div className="absolute -inset-4 bg-success/5 rounded-full blur-2xl -z-10 animate-pulse-glow" />
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            de {totalCreditsRequested} créditos
-          </p>
-        </div>
-
-        {/* Progress bar with label */}
-        <div className="space-y-1.5">
-          <Progress value={progressPercent} className="h-3 bg-muted" />
-          <p className="text-xs text-center text-muted-foreground font-mono">
-            {creditsEarned}/{totalCreditsRequested} créditos
-          </p>
-        </div>
+        {/* Animated credit counter — driven by visible feed entries */}
+        <RunningCreditsDisplay
+          feed={feed}
+          totalCreditsRequested={totalCreditsRequested}
+        />
 
         {/* Activity feed */}
         <Card className="glass-card">
