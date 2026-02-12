@@ -5,8 +5,7 @@ import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchStock } from "@/lib/farm-api";
-import { Loader2, ShieldX, Clock, Ban, Bot } from "lucide-react";
+import { Loader2, ShieldX, Clock, Ban } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
 
 interface TokenInfo {
@@ -37,37 +36,36 @@ interface SavedSession {
 }
 
 const MaintenanceBanner = ({ message, until }: { message: string; until: string }) => {
-  const [botCount, setBotCount] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const stock = await fetchStock();
-        setBotCount(stock.activeWithBonus ?? stock.active ?? 0);
-      } catch {
-        setBotCount(null);
-      }
+    const target = new Date(until).getTime();
+    const update = () => {
+      const diff = Math.max(0, target - Date.now());
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
     };
-    poll();
-    const interval = setInterval(poll, 5000);
+    update();
+    const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [until]);
 
   return (
     <div className="flex flex-col items-center gap-5 py-8 text-center">
       <div className="relative">
         <div className="absolute inset-0 animate-ping rounded-full bg-amber-500/20" />
-        <Bot className="relative h-16 w-16 text-amber-500" />
+        <Clock className="relative h-16 w-16 text-amber-500" />
       </div>
-      <h2 className="text-xl font-bold text-foreground">⚠️ Gerando Bots — Aguarde</h2>
+      <h2 className="text-xl font-bold text-foreground">🔧 Manutenção em Andamento</h2>
       <p className="text-base text-muted-foreground">{message}</p>
       <div className="rounded-lg border border-border bg-muted/50 px-6 py-4 w-full">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Bots disponíveis agora</p>
-        <p className="text-4xl font-bold tabular-nums text-foreground">
-          {botCount !== null ? botCount : <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />}
+        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Voltamos em</p>
+        <p className="text-5xl font-bold tabular-nums font-mono text-foreground">
+          {timeLeft}
         </p>
       </div>
-      <p className="text-xs text-muted-foreground">Atualizando a cada 5 segundos</p>
     </div>
   );
 };
