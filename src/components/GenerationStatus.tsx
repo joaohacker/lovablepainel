@@ -330,9 +330,16 @@ export function GenerationStatus({
         </div>
 
         {result && (
-          <div className="flex gap-6 text-sm text-muted-foreground">
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
             <span>Tentados: {result.attempted}</span>
-            <span>Falhas: {result.failed}</span>
+            <span className="text-success">Sucesso: {result.claimSuccess ?? "—"}</span>
+            <span className="text-destructive">Falhas claim: {result.claimFailed ?? result.failed ?? 0}</span>
+            {(result.inviteFailed ?? 0) > 0 && (
+              <span className="text-destructive">Falhas convite: {result.inviteFailed}</span>
+            )}
+            {(result.removed ?? 0) > 0 && (
+              <span>Removidos: {result.removed}</span>
+            )}
           </div>
         )}
 
