@@ -250,12 +250,22 @@ const Generate = () => {
             Olá, <span className="text-foreground font-medium">{tokenInfo.client_name}</span>
           </p>
 
-          {/* Compensation notice */}
-          <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-left">
-            <p className="text-xs font-semibold text-emerald-400 mb-1">🎁 +1000 créditos adicionados</p>
-            <p className="text-xs text-emerald-300/80 leading-relaxed">
-              1000 créditos foram adicionados ao limite diário de todos por compensação aos erros. Pedimos desculpas pelo inconveniente!
-            </p>
+          {/* Update 2.0 flyer */}
+          <div className="mt-4 rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 via-emerald-600/10 to-teal-500/15 px-5 py-4 text-left relative overflow-hidden">
+            <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-emerald-500/10 blur-2xl" />
+            <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-teal-500/10 blur-xl" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">🚀</span>
+                <p className="text-sm font-bold text-emerald-400">Painel 2.0 — Atualização!</p>
+              </div>
+              <p className="text-sm font-semibold text-emerald-300 leading-relaxed mb-1.5">
+                Agora <span className="text-emerald-200 font-extrabold">3x mais rápido</span> e com muito menos erros!
+              </p>
+              <p className="text-xs text-emerald-300/70 leading-relaxed">
+                O painel foi lançado há 2 dias e estamos trabalhando intensamente para melhorá-lo. Pedimos desculpas por qualquer inconveniência — cada atualização nos deixa mais perto da experiência perfeita. 💚
+              </p>
+            </div>
           </div>
 
           {/* Workspace limit warning */}
