@@ -318,7 +318,7 @@ Se tiver qualquer dúvida, me chama.`;
                   </>
                 ) : (
                   <>
-                    <Copy className="h-4 w-4" /> Mensagem p/ Cliente
+                    <Copy className="h-4 w-4" /> Mensagem p/ cliente pronta
                   </>
                 )}
               </Button>
