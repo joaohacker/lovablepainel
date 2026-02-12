@@ -64,7 +64,6 @@ export type SSEEvent =
   | { type: "error"; error: string }
   | { type: "expired"; message: string }
   | { type: "cancelled"; message: string }
-  | { type: "polling"; message: string; elapsed: number }
   | { type: "heartbeat"; timestamp: number };
 
 export async function fetchStock(): Promise<StockResponse> {
@@ -103,79 +102,4 @@ export async function cancelFarm(farmId: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to cancel");
 }
 
-// Cache the API key so we only fetch it once per session
-let cachedApiKey: string | null = null;
-
-async function getUpstreamApiKey(): Promise<string> {
-  if (cachedApiKey) return cachedApiKey;
-  const res = await fetch(`${getFunctionUrl()}?action=apikey`, { headers: getHeaders() });
-  if (!res.ok) throw new Error("Failed to get API key");
-  const data = await res.json();
-  cachedApiKey = data.apiKey;
-  return data.apiKey;
-}
-
-const UPSTREAM_SSE_BASE = "https://api.lovablextensao.shop";
-
-export function connectSSE(
-  farmId: string,
-  onEvent: (event: SSEEvent) => void,
-  onError: (err: Error) => void
-): () => void {
-  let aborted = false;
-
-  const connect = async () => {
-    try {
-      const apiKey = await getUpstreamApiKey();
-      // Connect DIRECTLY to upstream — no edge function timeout
-      const url = `${UPSTREAM_SSE_BASE}/farm/events/${farmId}?apiKey=${apiKey}`;
-      console.log(`[SSE] Connecting directly to upstream: ${farmId}`);
-
-      const res = await fetch(url);
-      if (!res.ok || !res.body) {
-        throw new Error(`SSE connection failed: ${res.status}`);
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (!aborted) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              console.log(`[SSE-RAW] type=${data.type}`, data.type === "progress" ? `eventId=${data.eventId} logType=${data.logType} msg="${data.message}"` : data.type === "snapshot" ? `status=${data.status} logs=${data.logs?.length ?? 0}` : data.type === "completed" ? `result=${JSON.stringify(data.result)}` : JSON.stringify(data));
-              onEvent(data);
-            } catch {}
-          }
-        }
-      }
-
-      // If stream ended naturally and not aborted, reconnect
-      if (!aborted) {
-        console.log(`[SSE] Stream ended, reconnecting in 2s...`);
-        setTimeout(connect, 2000);
-      }
-    } catch (err) {
-      if (!aborted) {
-        console.warn(`[SSE] Error, retrying in 5s:`, err);
-        onError(err instanceof Error ? err : new Error("SSE error"));
-        setTimeout(connect, 5000);
-      }
-    }
-  };
-
-  connect();
-
-  return () => {
-    aborted = true;
-  };
-}
+// SSE removed — using polling only for security (no API key exposure)

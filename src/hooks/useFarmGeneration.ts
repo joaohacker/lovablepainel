@@ -3,10 +3,8 @@ import {
   createFarm,
   cancelFarm,
   getFarmStatus,
-  connectSSE,
   type CreateResponse,
   type FarmStatus,
-  type SSEEvent,
 } from "@/lib/farm-api";
 
 export type FarmState =
@@ -87,14 +85,9 @@ export function useFarmGeneration() {
   // Flag to stop processing after completed
   const completedRef = useRef(false);
 
-  const disconnectSSE = useRef<(() => void) | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const cleanup = useCallback(() => {
-    if (disconnectSSE.current) {
-      disconnectSSE.current();
-      disconnectSSE.current = null;
-    }
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
@@ -103,128 +96,7 @@ export function useFarmGeneration() {
 
   useEffect(() => cleanup, [cleanup]);
 
-  const handleSSEEvent = useCallback((event: SSEEvent) => {
-    // Stop processing if farm already completed
-    if (completedRef.current) {
-      console.log(`[SSE-SKIP] completedRef=true, ignoring event type=${event.type}`);
-      return;
-    }
-
-    console.log(`[SSE-HANDLE] type=${event.type}, sseConnected=${!!disconnectSSE.current}, processedIds=${processedEventIdsRef.current.size}`);
-
-    setGen((prev) => {
-      switch (event.type) {
-        case "snapshot": {
-          // REPLACE logs entirely from snapshot (not append)
-          const snapshotData = event as SSEEvent & { logs?: Array<{ message: string; type?: string; logType?: string; timestamp: number; eventId?: string }> };
-          const newFeed: FeedEntry[] = [];
-          let snapshotCredits = 0;
-
-          // Clear processed set and rebuild from snapshot
-          processedEventIdsRef.current.clear();
-
-          if (snapshotData.logs && snapshotData.logs.length > 0) {
-            for (const log of snapshotData.logs) {
-              const eid = log.eventId || `${log.message}|${log.timestamp}`;
-              processedEventIdsRef.current.add(eid);
-
-              // API sends "type", SSE sends "logType" — handle both
-              const logType = log.logType || log.type || "info";
-              const entry = parseLogToFeedEntry(log.message, logType, log.timestamp, eid);
-              newFeed.push(entry);
-              if (entry.kind === "credit" && entry.credits) {
-                snapshotCredits += entry.credits;
-              }
-            }
-          }
-
-          console.log(`[SSE-SNAPSHOT] logs=${newFeed.length}, credits=${snapshotCredits}, prevCredits=${prev.creditsEarned}, prevFeed=${prev.feed.length}`);
-          return {
-            ...prev,
-            state: (event.status as FarmState) || prev.state,
-            masterEmail: event.masterEmail || prev.masterEmail,
-            creditsEarned: snapshotCredits,
-            feed: newFeed.slice(-50),
-          };
-        }
-
-        case "status": {
-          const newState: Partial<FarmGenerationState> = {
-            state: (event.status as FarmState) || prev.state,
-          };
-          if (event.workspaceName) newState.workspaceName = event.workspaceName;
-          if (event.status === "running" || event.status === "workspace_detected") {
-            newState.state = "running";
-          }
-          return { ...prev, ...newState };
-        }
-
-        case "progress": {
-          const data = event as unknown as { message: string; logType?: string; eventId?: string };
-          const logType = data.logType || "info";
-          const eventId = data.eventId || `${data.message}|${Date.now()}`;
-
-          // Deduplicate by eventId
-          if (processedEventIdsRef.current.has(eventId)) {
-            console.log(`[SSE-DEDUP] SKIPPED eventId=${eventId}`);
-            return prev;
-          }
-          processedEventIdsRef.current.add(eventId);
-
-          const newLogs = [...prev.logs, data.message].slice(-50);
-          const newFeed = [...prev.feed];
-          let newCredits = prev.creditsEarned;
-
-          const entry = parseLogToFeedEntry(data.message, logType, Date.now(), eventId);
-          newFeed.push(entry);
-          if (entry.kind === "credit" && entry.credits) {
-            newCredits += entry.credits;
-          }
-
-          console.log(`[SSE-PROGRESS] logType=${logType} credits=${newCredits} feedSize=${newFeed.length} msg="${data.message}"`);
-          return { ...prev, logs: newLogs, feed: newFeed.slice(-50), creditsEarned: newCredits };
-        }
-
-        case "completed":
-          // Mark as completed to stop further processing
-          completedRef.current = true;
-          return {
-            ...prev,
-            state: "completed",
-            result: event.result,
-            creditsEarned: event.result?.credits || prev.creditsEarned,
-          };
-
-        case "error":
-          completedRef.current = true;
-          return { ...prev, state: "error", errorMessage: event.error };
-
-        case "expired":
-          completedRef.current = true;
-          return { ...prev, state: "expired", errorMessage: event.message };
-
-        case "cancelled":
-          completedRef.current = true;
-          return { ...prev, state: "cancelled" };
-
-        case "heartbeat":
-        case "polling":
-          return prev;
-
-        default:
-          return prev;
-      }
-    });
-
-    // Close SSE immediately on terminal events
-    if (event.type === "completed" || event.type === "error" || event.type === "expired" || event.type === "cancelled") {
-      if (disconnectSSE.current) {
-        disconnectSSE.current();
-        disconnectSSE.current = null;
-      }
-    }
-  }, []);
-
+  // Polling-only approach (no SSE — avoids API key exposure and edge function timeouts)
   const startPolling = useCallback(
     (farmId: string) => {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -239,13 +111,13 @@ export function useFarmGeneration() {
         try {
           const status = await getFarmStatus(farmId);
           consecutive404Ref.current = 0;
-          console.log(`[POLLING] status=${status.status}, logs=${status.logs?.length ?? 0}, sseConnected=${!!disconnectSSE.current}`);
+          console.log(`[POLLING] status=${status.status}, logs=${status.logs?.length ?? 0}`);
 
+          // Terminal states
           if (status.status === "completed") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
             completedRef.current = true;
-            if (disconnectSSE.current) { disconnectSSE.current(); disconnectSSE.current = null; }
             setGen((prev) => ({
               ...prev,
               state: "completed",
@@ -261,7 +133,6 @@ export function useFarmGeneration() {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
             completedRef.current = true;
-            if (disconnectSSE.current) { disconnectSSE.current(); disconnectSSE.current = null; }
             setGen((prev) => ({
               ...prev,
               state: status.status as FarmState,
@@ -270,70 +141,44 @@ export function useFarmGeneration() {
             return;
           }
 
+          // Waiting invite
           if (status.status === "waiting_invite" || status.status === "allocating") {
             setGen((prev) => ({
               ...prev,
               state: status.status as FarmState,
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
-          } else if (status.status === "running" || status.status === "workspace_detected") {
-            // Only process logs from polling if SSE is NOT connected
-            // SSE handles real-time logs; polling is just a fallback
-            if (!disconnectSSE.current) {
-              // Polling uses REPLACE strategy (same as snapshot) to avoid duplicates
-              const newFeed: FeedEntry[] = [];
-              let pollingCredits = 0;
+            return;
+          }
 
-              processedEventIdsRef.current.clear();
+          // Running — REPLACE logs entirely each poll (no append, no duplicates)
+          if (status.status === "running" || status.status === "workspace_detected") {
+            const newFeed: FeedEntry[] = [];
+            let pollingCredits = 0;
 
-              if (status.logs && status.logs.length > 0) {
-                for (const log of status.logs) {
-                  const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
-                  processedEventIdsRef.current.add(eid);
+            processedEventIdsRef.current.clear();
 
-                  const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
-                  newFeed.push(entry);
-                  if (entry.kind === "credit" && entry.credits) {
-                    pollingCredits += entry.credits;
-                  }
+            if (status.logs && status.logs.length > 0) {
+              for (const log of status.logs) {
+                const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
+                processedEventIdsRef.current.add(eid);
+
+                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
+                newFeed.push(entry);
+                if (entry.kind === "credit" && entry.credits) {
+                  pollingCredits += entry.credits;
                 }
               }
-
-              setGen((prev) => ({
-                ...prev,
-                state: "running",
-                workspaceName: status.workspaceName || prev.workspaceName,
-                masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: pollingCredits,
-                feed: newFeed.slice(-50),
-              }));
-
-              // Open SSE since it's not connected
-              disconnectSSE.current = connectSSE(
-                farmId,
-                handleSSEEvent,
-                () => { disconnectSSE.current = null; }
-              );
-            } else {
-              // SSE is connected, just update status metadata
-              setGen((prev) => ({
-                ...prev,
-                state: "running",
-                workspaceName: status.workspaceName || prev.workspaceName,
-                masterEmail: status.masterEmail || prev.masterEmail,
-              }));
             }
-          } else if (status.status !== "queued") {
-            if (pollingRef.current) clearInterval(pollingRef.current);
-            pollingRef.current = null;
 
-            if (!disconnectSSE.current) {
-              disconnectSSE.current = connectSSE(
-                farmId,
-                handleSSEEvent,
-                () => startPolling(farmId)
-              );
-            }
+            setGen((prev) => ({
+              ...prev,
+              state: "running",
+              workspaceName: status.workspaceName || prev.workspaceName,
+              masterEmail: status.masterEmail || prev.masterEmail,
+              creditsEarned: pollingCredits,
+              feed: newFeed.slice(-50),
+            }));
           }
         } catch (err) {
           if (err instanceof Error && err.message === "SESSION_LOST") {
@@ -370,9 +215,9 @@ export function useFarmGeneration() {
             });
           }
         }
-      }, 5000);
+      }, 2500);
     },
-    [handleSSEEvent, cleanup]
+    [cleanup]
   );
 
   const startGeneration = useCallback(
@@ -417,12 +262,6 @@ export function useFarmGeneration() {
             masterEmail: response.masterEmail || null,
             expiresAt,
           }));
-
-          disconnectSSE.current = connectSSE(
-            response.farmId,
-            handleSSEEvent,
-            () => { disconnectSSE.current = null; }
-          );
           startPolling(response.farmId);
         }
       } catch (err) {
@@ -433,7 +272,7 @@ export function useFarmGeneration() {
         }));
       }
     },
-    [cleanup, handleSSEEvent, startPolling]
+    [cleanup, startPolling]
   );
 
   const startGenerationWithFarmId = useCallback(
@@ -476,16 +315,10 @@ export function useFarmGeneration() {
           feed: [],
           expiresAt,
         });
-
-        disconnectSSE.current = connectSSE(
-          farmId,
-          handleSSEEvent,
-          () => { disconnectSSE.current = null; }
-        );
         startPolling(farmId);
       }
     },
-    [cleanup, handleSSEEvent, startPolling]
+    [cleanup, startPolling]
   );
 
   const setError = useCallback((message: string) => {
