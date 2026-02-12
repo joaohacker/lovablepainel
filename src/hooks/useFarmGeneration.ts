@@ -64,6 +64,9 @@ export function useFarmGeneration() {
 
   // Track which log messages we've already processed (by message+timestamp)
   const processedLogsRef = useRef<Set<string>>(new Set());
+  // Track consecutive 404 errors for retry logic before SESSION_LOST
+  const consecutive404Ref = useRef(0);
+  const MAX_404_RETRIES = 3;
 
   const disconnectSSE = useRef<(() => void) | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -175,6 +178,9 @@ export function useFarmGeneration() {
         try {
           const status = await getFarmStatus(farmId);
           
+          // Reset 404 counter on any successful response
+          consecutive404Ref.current = 0;
+          
           if (status.status === "completed") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
@@ -243,13 +249,10 @@ export function useFarmGeneration() {
             }
 
             setGen((prev) => {
-              // Calculate total credits from all processed credit logs
               const totalFromLogs = newFeedEntries
                 .filter(e => e.kind === "credit")
                 .reduce((sum, e) => sum + (e.credits || 0), 0);
               const newCredits = Math.max(prev.creditsEarned, prev.creditsEarned + totalFromLogs);
-              
-              // Merge feed, avoiding duplicates
               const mergedFeed = [...prev.feed, ...newFeedEntries].slice(-50);
               
               return {
@@ -283,12 +286,39 @@ export function useFarmGeneration() {
           }
         } catch (err) {
           if (err instanceof Error && err.message === "SESSION_LOST") {
+            consecutive404Ref.current += 1;
+            console.warn(`[polling] 404 received (${consecutive404Ref.current}/${MAX_404_RETRIES})`);
+
+            // Check if we already completed via SSE before the 404
+            if (consecutive404Ref.current < MAX_404_RETRIES) {
+              // Don't mark as error yet — wait for next poll cycle to retry
+              return;
+            }
+
+            // All retries exhausted — now mark as SESSION_LOST
             cleanup();
-            setGen((prev) => ({
-              ...prev,
-              state: "error",
-              errorMessage: "Sessão perdida. Por favor, tente novamente.",
-            }));
+            setGen((prev) => {
+              // If credits were earned, show as completed instead of error
+              if (prev.creditsEarned > 0 && prev.creditsEarned >= prev.totalCreditsRequested) {
+                return {
+                  ...prev,
+                  state: "completed",
+                  result: {
+                    success: true,
+                    credits: prev.creditsEarned,
+                    attempted: prev.totalCreditsRequested,
+                    failed: prev.totalCreditsRequested - prev.creditsEarned,
+                    removed: 0,
+                    message: "Geração concluída",
+                  },
+                };
+              }
+              return {
+                ...prev,
+                state: "error",
+                errorMessage: "Sessão perdida. Por favor, tente novamente.",
+              };
+            });
           }
         }
       }, 5000);
@@ -301,6 +331,7 @@ export function useFarmGeneration() {
       cleanup();
       feedIdCounter = 0;
       processedLogsRef.current.clear();
+      consecutive404Ref.current = 0;
       setGen({
         state: "creating",
         farmId: null,
@@ -360,6 +391,7 @@ export function useFarmGeneration() {
       cleanup();
       feedIdCounter = 0;
       processedLogsRef.current.clear();
+      consecutive404Ref.current = 0;
 
       if (queued) {
         setGen({
@@ -428,6 +460,7 @@ export function useFarmGeneration() {
     cleanup();
     feedIdCounter = 0;
     processedLogsRef.current.clear();
+    consecutive404Ref.current = 0;
     setGen({
       state: "idle",
       farmId: null,
