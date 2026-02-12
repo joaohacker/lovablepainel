@@ -307,24 +307,26 @@ Se tiver qualquer dúvida, me chama.`;
                   </>
                 )}
               </Button>
-              <Button
-                onClick={copyClientMessage}
-                variant={copiedMsg ? "default" : "outline"}
-                className={`gap-2 transition-all flex-1 ${copiedMsg ? "bg-success hover:bg-success/90 text-success-foreground" : ""}`}
-              >
-                {copiedMsg ? (
-                  <>
-                    <Check className="h-4 w-4" /> Copiado!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" /> Mensagem p/ cliente pronta
-                  </>
-                )}
-              </Button>
             </div>
           </CardContent>
         </Card>
+
+        <Button
+          onClick={copyClientMessage}
+          variant={copiedMsg ? "default" : "outline"}
+          className={`gap-2 transition-all w-full ${copiedMsg ? "bg-success hover:bg-success/90 text-success-foreground" : "border-yellow-500/50 bg-yellow-500/15 text-yellow-300 hover:bg-yellow-500/25"}`}
+        >
+          {copiedMsg ? (
+            <>
+              <Check className="h-4 w-4" /> Copiado!
+            </>
+          ) : (
+            <>
+              <Copy className="h-4 w-4" /> Mensagem p/ cliente pronta
+            </>
+          )
+          }
+        </Button>
 
         {expiresAt && <CountdownTimer expiresAt={expiresAt} />}
 
