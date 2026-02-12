@@ -236,8 +236,7 @@ export function useFarmGeneration() {
             cleanup();
             completedRef.current = true;
             setGen((prev) => {
-              // If any credits were earned, treat as completed (even partial)
-              if (prev.creditsEarned > 0) {
+              if (prev.creditsEarned > 0 && prev.creditsEarned >= prev.totalCreditsRequested) {
                 return {
                   ...prev,
                   state: "completed" as const,

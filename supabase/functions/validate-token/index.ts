@@ -101,8 +101,7 @@ serve(async (req) => {
         if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
         usageUpdate.completed_at = new Date().toISOString();
       } else if (status === "error" || status === "cancelled" || status === "expired") {
-        // Preserve actual credits_earned if provided, otherwise default to 0
-        usageUpdate.credits_earned = credits_earned !== undefined ? credits_earned : 0;
+        usageUpdate.credits_earned = 0;
         usageUpdate.completed_at = new Date().toISOString();
       }
       await supabase
