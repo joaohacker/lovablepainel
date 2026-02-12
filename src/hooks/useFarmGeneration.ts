@@ -111,7 +111,7 @@ export function useFarmGeneration() {
       switch (event.type) {
         case "snapshot": {
           // REPLACE logs entirely from snapshot (not append)
-          const snapshotData = event as SSEEvent & { logs?: Array<{ message: string; logType: string; timestamp: number; eventId?: string }> };
+          const snapshotData = event as SSEEvent & { logs?: Array<{ message: string; type?: string; logType?: string; timestamp: number; eventId?: string }> };
           const newFeed: FeedEntry[] = [];
           let snapshotCredits = 0;
 
@@ -123,7 +123,9 @@ export function useFarmGeneration() {
               const eid = log.eventId || `${log.message}|${log.timestamp}`;
               processedEventIdsRef.current.add(eid);
 
-              const entry = parseLogToFeedEntry(log.message, log.logType, log.timestamp, eid);
+              // API sends "type", SSE sends "logType" — handle both
+              const logType = log.logType || log.type || "info";
+              const entry = parseLogToFeedEntry(log.message, logType, log.timestamp, eid);
               newFeed.push(entry);
               if (entry.kind === "credit" && entry.credits) {
                 snapshotCredits += entry.credits;
@@ -269,40 +271,33 @@ export function useFarmGeneration() {
             // Only process logs from polling if SSE is NOT connected
             // SSE handles real-time logs; polling is just a fallback
             if (!disconnectSSE.current) {
-              const newFeedEntries: FeedEntry[] = [];
+              // Polling uses REPLACE strategy (same as snapshot) to avoid duplicates
+              const newFeed: FeedEntry[] = [];
               let pollingCredits = 0;
+
+              processedEventIdsRef.current.clear();
 
               if (status.logs && status.logs.length > 0) {
                 for (const log of status.logs) {
                   const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
-                  if (processedEventIdsRef.current.has(eid)) continue;
                   processedEventIdsRef.current.add(eid);
 
                   const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
-                  newFeedEntries.push(entry);
+                  newFeed.push(entry);
                   if (entry.kind === "credit" && entry.credits) {
                     pollingCredits += entry.credits;
                   }
                 }
               }
 
-              if (newFeedEntries.length > 0) {
-                setGen((prev) => ({
-                  ...prev,
-                  state: "running",
-                  workspaceName: status.workspaceName || prev.workspaceName,
-                  masterEmail: status.masterEmail || prev.masterEmail,
-                  creditsEarned: prev.creditsEarned + pollingCredits,
-                  feed: [...prev.feed, ...newFeedEntries].slice(-50),
-                }));
-              } else {
-                setGen((prev) => ({
-                  ...prev,
-                  state: "running",
-                  workspaceName: status.workspaceName || prev.workspaceName,
-                  masterEmail: status.masterEmail || prev.masterEmail,
-                }));
-              }
+              setGen((prev) => ({
+                ...prev,
+                state: "running",
+                workspaceName: status.workspaceName || prev.workspaceName,
+                masterEmail: status.masterEmail || prev.masterEmail,
+                creditsEarned: pollingCredits,
+                feed: newFeed.slice(-50),
+              }));
 
               // Open SSE since it's not connected
               disconnectSSE.current = connectSSE(
@@ -344,11 +339,14 @@ export function useFarmGeneration() {
               if (prev.creditsEarned > 0 && prev.creditsEarned >= prev.totalCreditsRequested) {
                 return {
                   ...prev,
-                  state: "completed",
+                  state: "completed" as const,
                   result: {
                     success: true,
                     credits: prev.creditsEarned,
                     attempted: prev.totalCreditsRequested,
+                    claimSuccess: Math.floor(prev.creditsEarned / 5),
+                    claimFailed: 0,
+                    inviteFailed: 0,
                     failed: prev.totalCreditsRequested - prev.creditsEarned,
                     removed: 0,
                     message: "Geração concluída",

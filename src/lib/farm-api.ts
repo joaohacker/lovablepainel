@@ -41,9 +41,13 @@ export interface FarmStatus {
     success: boolean;
     credits: number;
     attempted: number;
-    failed: number;
+    claimSuccess: number;
+    claimFailed: number;
+    inviteFailed: number;
     removed: number;
     message: string;
+    /** @deprecated use claimFailed */
+    failed?: number;
   };
   logs?: Array<{ message: string; type: string; timestamp: number }>;
   createdAt?: number;
