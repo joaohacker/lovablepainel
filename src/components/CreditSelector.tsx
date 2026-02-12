@@ -13,7 +13,7 @@ interface CreditSelectorProps {
   maxCredits?: number;
 }
 
-const ABSOLUTE_MAX_PER_GENERATION = 950;
+const ABSOLUTE_MAX_PER_GENERATION = 900;
 
 export function CreditSelector({ onGenerate, disabled, maxCredits = 5005 }: CreditSelectorProps) {
   const max = Math.min(ABSOLUTE_MAX_PER_GENERATION, maxCredits);
