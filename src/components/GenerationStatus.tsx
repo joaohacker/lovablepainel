@@ -228,8 +228,13 @@ export function GenerationStatus({
         {expiresAt && <CountdownTimer expiresAt={expiresAt} />}
 
         <p className="text-sm text-muted-foreground text-center max-w-md">
-          Vá até o Lovable, abra seu workspace e convide o email acima como membro. O sistema detectará automaticamente.
+          Vá até o Lovable, abra seu workspace e convide o email acima. O sistema detectará automaticamente.
         </p>
+
+        <div className="flex items-center gap-2 rounded-lg border border-yellow-500/50 bg-yellow-500/15 px-4 py-2.5 text-sm font-semibold text-yellow-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Convide como <span className="underline underline-offset-2">EDITOR</span> no workspace!</span>
+        </div>
 
         <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-xs text-yellow-200">
           <AlertCircle className="h-4 w-4 shrink-0" />
