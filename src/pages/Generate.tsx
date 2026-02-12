@@ -262,8 +262,11 @@ const Generate = () => {
               <p className="text-sm font-semibold text-emerald-300 leading-relaxed mb-1.5">
                 Agora <span className="text-emerald-200 font-extrabold">3x mais rápido</span> e com muito menos erros!
               </p>
-              <p className="text-xs text-emerald-300/70 leading-relaxed">
-                O painel foi lançado há 2 dias e estamos trabalhando intensamente para melhorá-lo. Pedimos desculpas por qualquer inconveniência — cada atualização nos deixa mais perto da experiência perfeita. 💚
+              <p className="text-xs text-emerald-300/70 leading-relaxed mb-1.5">
+                O painel foi lançado há 2 dias e estamos trabalhando intensamente para melhorá-lo. Pedimos desculpas por qualquer inconveniência. 💚
+              </p>
+              <p className="text-xs font-semibold text-emerald-400/90 leading-relaxed">
+                🎁 Limite diário de todos foi resetado como compensação pelos bugs!
               </p>
             </div>
           </div>
