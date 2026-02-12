@@ -119,14 +119,47 @@ export function useFarmGeneration() {
             if (pollingRef.current) clearInterval(pollingRef.current);
             pollingRef.current = null;
             completedRef.current = true;
-            setGen((prev) => ({
-              ...prev,
-              state: "completed",
-              result: status.result || null,
-              creditsEarned: status.result?.credits || prev.creditsEarned,
-              workspaceName: status.workspaceName || prev.workspaceName,
-              masterEmail: status.masterEmail || prev.masterEmail,
-            }));
+
+            // Process any remaining logs before marking completed
+            const finalEntries: FeedEntry[] = [];
+            if (status.logs && status.logs.length > 0) {
+              for (const log of status.logs) {
+                const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
+                finalEntries.push(parseLogToFeedEntry(log.message, log.type, log.timestamp, eid));
+              }
+            }
+
+            setGen((prev) => {
+              const existingIds = new Set(prev.feed.map((f) => f.eventId));
+              const brandNew = finalEntries.filter((e) => !existingIds.has(e.eventId));
+              const now = Date.now();
+              const staggered = brandNew.map((entry, i) => ({
+                ...entry,
+                id: ++feedIdCounter,
+                arrivedAt: now + i * 350,
+              }));
+              const merged = [...prev.feed, ...staggered].slice(-200);
+
+              // Delay the completed state so drip animation can play out
+              const drainMs = staggered.length * 350 + 500;
+              setTimeout(() => {
+                setGen((p) => ({
+                  ...p,
+                  state: "completed",
+                  result: status.result || null,
+                  creditsEarned: status.result?.credits || p.creditsEarned,
+                }));
+              }, drainMs);
+
+              return {
+                ...prev,
+                state: "running",
+                workspaceName: status.workspaceName || prev.workspaceName,
+                masterEmail: status.masterEmail || prev.masterEmail,
+                creditsEarned: status.result?.credits || prev.creditsEarned,
+                feed: merged,
+              };
+            });
             return;
           }
 
@@ -181,7 +214,7 @@ export function useFarmGeneration() {
                 arrivedAt: now + i * 350, // 350ms apart for smooth drip effect
               }));
 
-              const merged = [...prev.feed, ...staggered].slice(-50);
+              const merged = [...prev.feed, ...staggered].slice(-200);
 
               return {
                 ...prev,
