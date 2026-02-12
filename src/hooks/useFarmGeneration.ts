@@ -105,7 +105,12 @@ export function useFarmGeneration() {
 
   const handleSSEEvent = useCallback((event: SSEEvent) => {
     // Stop processing if farm already completed
-    if (completedRef.current) return;
+    if (completedRef.current) {
+      console.log(`[SSE-SKIP] completedRef=true, ignoring event type=${event.type}`);
+      return;
+    }
+
+    console.log(`[SSE-HANDLE] type=${event.type}, sseConnected=${!!disconnectSSE.current}, processedIds=${processedEventIdsRef.current.size}`);
 
     setGen((prev) => {
       switch (event.type) {
@@ -133,6 +138,7 @@ export function useFarmGeneration() {
             }
           }
 
+          console.log(`[SSE-SNAPSHOT] logs=${newFeed.length}, credits=${snapshotCredits}, prevCredits=${prev.creditsEarned}, prevFeed=${prev.feed.length}`);
           return {
             ...prev,
             state: (event.status as FarmState) || prev.state,
@@ -160,6 +166,7 @@ export function useFarmGeneration() {
 
           // Deduplicate by eventId
           if (processedEventIdsRef.current.has(eventId)) {
+            console.log(`[SSE-DEDUP] SKIPPED eventId=${eventId}`);
             return prev;
           }
           processedEventIdsRef.current.add(eventId);
@@ -174,6 +181,7 @@ export function useFarmGeneration() {
             newCredits += entry.credits;
           }
 
+          console.log(`[SSE-PROGRESS] logType=${logType} credits=${newCredits} feedSize=${newFeed.length} msg="${data.message}"`);
           return { ...prev, logs: newLogs, feed: newFeed.slice(-50), creditsEarned: newCredits };
         }
 
@@ -231,6 +239,7 @@ export function useFarmGeneration() {
         try {
           const status = await getFarmStatus(farmId);
           consecutive404Ref.current = 0;
+          console.log(`[POLLING] status=${status.status}, logs=${status.logs?.length ?? 0}, sseConnected=${!!disconnectSSE.current}`);
 
           if (status.status === "completed") {
             if (pollingRef.current) clearInterval(pollingRef.current);
