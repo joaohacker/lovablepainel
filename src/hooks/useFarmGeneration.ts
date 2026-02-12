@@ -22,7 +22,7 @@ export type FarmState =
 
 export interface FeedEntry {
   id: number;
-  kind: "credit" | "info";
+  kind: "credit" | "warning" | "info" | "success";
   botName?: string;
   credits?: number;
   message: string;
@@ -46,6 +46,22 @@ interface FarmGenerationState {
 
 let feedIdCounter = 0;
 
+function parseLogToFeedEntry(message: string, logType: string, timestamp: number): FeedEntry {
+  if (logType === "credit") {
+    const creditMatch = message.match(/^\+(\d+)\s/);
+    const amount = creditMatch ? parseInt(creditMatch[1], 10) : 5;
+    const nameMatch = message.match(/\((.+?)\)/);
+    const botName = nameMatch ? nameMatch[1] : "Bot";
+    return { id: ++feedIdCounter, kind: "credit", botName, credits: amount, message, timestamp };
+  }
+  if (logType === "warning") {
+    return { id: ++feedIdCounter, kind: "warning", message, timestamp };
+  }
+  if (logType === "success") {
+    return { id: ++feedIdCounter, kind: "success", message, timestamp };
+  }
+  return { id: ++feedIdCounter, kind: "info", message, timestamp };
+}
 export function useFarmGeneration() {
   const [gen, setGen] = useState<FarmGenerationState>({
     state: "idle",
@@ -87,14 +103,34 @@ export function useFarmGeneration() {
   const handleSSEEvent = useCallback((event: SSEEvent) => {
     setGen((prev) => {
       switch (event.type) {
-        case "snapshot":
-          // NOTE: event.credits is the REQUESTED amount, NOT earned.
-          // Only update state/email from snapshot, never creditsEarned.
+        case "snapshot": {
+          // Populate existing logs from snapshot
+          const snapshotData = event as SSEEvent & { logs?: Array<{ message: string; logType: string; timestamp: number }> };
+          const newFeed: FeedEntry[] = [...prev.feed];
+          let snapshotCredits = prev.creditsEarned;
+
+          if (snapshotData.logs && snapshotData.logs.length > 0) {
+            for (const log of snapshotData.logs) {
+              const logKey = `${log.message}|${log.timestamp}`;
+              if (processedLogsRef.current.has(logKey)) continue;
+              processedLogsRef.current.add(logKey);
+
+              const entry = parseLogToFeedEntry(log.message, log.logType, log.timestamp);
+              newFeed.push(entry);
+              if (entry.kind === "credit" && entry.credits) {
+                snapshotCredits += entry.credits;
+              }
+            }
+          }
+
           return {
             ...prev,
             state: (event.status as FarmState) || prev.state,
             masterEmail: event.masterEmail || prev.masterEmail,
+            creditsEarned: snapshotCredits,
+            feed: newFeed.slice(-50),
           };
+        }
 
         case "status": {
           const newState: Partial<FarmGenerationState> = {
@@ -108,34 +144,16 @@ export function useFarmGeneration() {
         }
 
         case "progress": {
-          const data = event as unknown as { message: string; type: string };
+          const data = event as unknown as { message: string; logType?: string };
+          const logType = data.logType || "info";
           const newLogs = [...prev.logs, data.message].slice(-50);
-          let newCredits = prev.creditsEarned;
           const newFeed = [...prev.feed];
+          let newCredits = prev.creditsEarned;
 
-          // Parse credit events
-          const creditMatch = data.message.match(/^\+(\d+)\s/);
-          if (creditMatch && (data.type === "credit" || data.message.includes("crédito") || data.message.includes("credit"))) {
-            const amount = parseInt(creditMatch[1], 10);
-            newCredits += amount;
-            const nameMatch = data.message.match(/\((.+)\)/);
-            const botName = nameMatch ? nameMatch[1] : "Bot";
-            newFeed.push({
-              id: ++feedIdCounter,
-              kind: "credit",
-              botName,
-              credits: amount,
-              message: data.message,
-              timestamp: Date.now(),
-            });
-          } else {
-            // Info event
-            newFeed.push({
-              id: ++feedIdCounter,
-              kind: "info",
-              message: data.message,
-              timestamp: Date.now(),
-            });
+          const entry = parseLogToFeedEntry(data.message, logType, Date.now());
+          newFeed.push(entry);
+          if (entry.kind === "credit" && entry.credits) {
+            newCredits += entry.credits;
           }
 
           return { ...prev, logs: newLogs, feed: newFeed.slice(-50), creditsEarned: newCredits };
@@ -223,27 +241,10 @@ export function useFarmGeneration() {
                 if (processedLogsRef.current.has(logKey)) continue;
                 processedLogsRef.current.add(logKey);
                 
-                const creditMatch = log.message.match(/^\+(\d+)\s/);
-                if (creditMatch && (log.type === "credit" || log.message.includes("crédito") || log.message.includes("credit"))) {
-                  const amount = parseInt(creditMatch[1], 10);
-                  pollingCredits += amount;
-                  const nameMatch = log.message.match(/\((.+)\)/);
-                  const botName = nameMatch ? nameMatch[1] : "Bot";
-                  newFeedEntries.push({
-                    id: ++feedIdCounter,
-                    kind: "credit",
-                    botName,
-                    credits: amount,
-                    message: log.message,
-                    timestamp: log.timestamp,
-                  });
-                } else {
-                  newFeedEntries.push({
-                    id: ++feedIdCounter,
-                    kind: "info",
-                    message: log.message,
-                    timestamp: log.timestamp,
-                  });
+                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp);
+                newFeedEntries.push(entry);
+                if (entry.kind === "credit" && entry.credits) {
+                  pollingCredits += entry.credits;
                 }
               }
             }

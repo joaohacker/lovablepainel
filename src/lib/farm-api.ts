@@ -53,9 +53,9 @@ export interface FarmStatus {
 }
 
 export type SSEEvent =
-  | { type: "snapshot"; status: string; masterEmail?: string; credits: number; [key: string]: unknown }
+  | { type: "snapshot"; status: string; masterEmail?: string; credits: number; logs?: Array<{ message: string; logType: string; timestamp: number }>; [key: string]: unknown }
   | { type: "status"; status: string; workspaceId?: string; workspaceName?: string }
-  | { type: "progress"; message: string; type2?: string }
+  | { type: "progress"; message: string; logType?: string }
   | { type: "completed"; result: FarmStatus["result"] }
   | { type: "error"; error: string }
   | { type: "expired"; message: string }

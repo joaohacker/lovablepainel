@@ -28,10 +28,8 @@ serve(async (req) => {
 
     // SSE streaming endpoint
     if (action === "events" && farmId) {
-      const upstreamUrl = `${API_BASE}/farm/events/${farmId}`;
-      const upstreamRes = await fetch(upstreamUrl, {
-        headers: { "x-api-key": FARM_API_KEY },
-      });
+      const upstreamUrl = `${API_BASE}/farm/events/${farmId}?apiKey=${FARM_API_KEY}`;
+      const upstreamRes = await fetch(upstreamUrl);
 
       if (!upstreamRes.ok) {
         const errBody = await upstreamRes.text();
