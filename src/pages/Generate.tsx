@@ -123,8 +123,8 @@ const Generate = () => {
     }
   }, [farm.state, farm.farmId, token]);
 
-  const validateToken = async () => {
-    setValidating(true);
+  const validateToken = async (silent = false) => {
+    if (!silent) setValidating(true);
     try {
       const { data, error } = await supabase.functions.invoke("validate-token", {
         body: { token, action: "validate" },
@@ -132,9 +132,9 @@ const Generate = () => {
       if (error) throw error;
       setValidation(data);
     } catch (err) {
-      setValidation({ valid: false, error: "Erro ao validar token" });
+      if (!silent) setValidation({ valid: false, error: "Erro ao validar token" });
     } finally {
-      setValidating(false);
+      if (!silent) setValidating(false);
     }
   };
 
@@ -192,7 +192,7 @@ const Generate = () => {
       },
     }).then(() => {
       if (["completed", "error", "cancelled", "expired"].includes(farm.state)) {
-        validateToken();
+        validateToken(true);
       }
     });
   }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId, token, validation?.token]);
