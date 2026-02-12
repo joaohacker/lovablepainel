@@ -74,14 +74,6 @@ serve(async (req) => {
     let method = "GET";
     let body: string | undefined;
 
-    // Return API key for direct SSE connection
-    if (action === "apikey") {
-      return new Response(
-        JSON.stringify({ apiKey: FARM_API_KEY }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     switch (action) {
       case "stock":
         upstreamUrl = `${API_BASE}/farm/stock`;
