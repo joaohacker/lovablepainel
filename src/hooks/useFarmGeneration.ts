@@ -49,11 +49,10 @@ let feedIdCounter = 0;
 
 function parseLogToFeedEntry(message: string, logType: string, timestamp: number, eventId?: string): FeedEntry {
   if (logType === "credit") {
-    const creditMatch = message.match(/^\+(\d+)\s/);
-    const amount = creditMatch ? parseInt(creditMatch[1], 10) : 5;
     const nameMatch = message.match(/\((.+?)\)/);
     const botName = nameMatch ? nameMatch[1] : "Bot";
-    return { id: ++feedIdCounter, eventId, kind: "credit", botName, credits: amount, message, timestamp };
+    // Always 5 credits per credit event
+    return { id: ++feedIdCounter, eventId, kind: "credit", botName, credits: 5, message, timestamp };
   }
   if (logType === "warning") {
     return { id: ++feedIdCounter, eventId, kind: "warning", message, timestamp };
@@ -267,49 +266,58 @@ export function useFarmGeneration() {
               masterEmail: status.masterEmail || prev.masterEmail,
             }));
           } else if (status.status === "running" || status.status === "workspace_detected") {
-            // Process logs from polling only if not already processed
-            const newFeedEntries: FeedEntry[] = [];
-            let pollingCredits = 0;
+            // Only process logs from polling if SSE is NOT connected
+            // SSE handles real-time logs; polling is just a fallback
+            if (!disconnectSSE.current) {
+              const newFeedEntries: FeedEntry[] = [];
+              let pollingCredits = 0;
 
-            if (status.logs && status.logs.length > 0) {
-              for (const log of status.logs) {
-                const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
-                if (processedEventIdsRef.current.has(eid)) continue;
-                processedEventIdsRef.current.add(eid);
+              if (status.logs && status.logs.length > 0) {
+                for (const log of status.logs) {
+                  const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
+                  if (processedEventIdsRef.current.has(eid)) continue;
+                  processedEventIdsRef.current.add(eid);
 
-                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
-                newFeedEntries.push(entry);
-                if (entry.kind === "credit" && entry.credits) {
-                  pollingCredits += entry.credits;
+                  const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
+                  newFeedEntries.push(entry);
+                  if (entry.kind === "credit" && entry.credits) {
+                    pollingCredits += entry.credits;
+                  }
                 }
               }
-            }
 
-            if (newFeedEntries.length > 0) {
-              setGen((prev) => ({
-                ...prev,
-                state: "running",
-                workspaceName: status.workspaceName || prev.workspaceName,
-                masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: prev.creditsEarned + pollingCredits,
-                feed: [...prev.feed, ...newFeedEntries].slice(-50),
-              }));
-            } else {
-              setGen((prev) => ({
-                ...prev,
-                state: "running",
-                workspaceName: status.workspaceName || prev.workspaceName,
-                masterEmail: status.masterEmail || prev.masterEmail,
-              }));
-            }
+              if (newFeedEntries.length > 0) {
+                setGen((prev) => ({
+                  ...prev,
+                  state: "running",
+                  workspaceName: status.workspaceName || prev.workspaceName,
+                  masterEmail: status.masterEmail || prev.masterEmail,
+                  creditsEarned: prev.creditsEarned + pollingCredits,
+                  feed: [...prev.feed, ...newFeedEntries].slice(-50),
+                }));
+              } else {
+                setGen((prev) => ({
+                  ...prev,
+                  state: "running",
+                  workspaceName: status.workspaceName || prev.workspaceName,
+                  masterEmail: status.masterEmail || prev.masterEmail,
+                }));
+              }
 
-            // Only open SSE if not already connected
-            if (!disconnectSSE.current) {
+              // Open SSE since it's not connected
               disconnectSSE.current = connectSSE(
                 farmId,
                 handleSSEEvent,
                 () => { disconnectSSE.current = null; }
               );
+            } else {
+              // SSE is connected, just update status metadata
+              setGen((prev) => ({
+                ...prev,
+                state: "running",
+                workspaceName: status.workspaceName || prev.workspaceName,
+                masterEmail: status.masterEmail || prev.masterEmail,
+              }));
             }
           } else if (status.status !== "queued") {
             if (pollingRef.current) clearInterval(pollingRef.current);
