@@ -1,0 +1,1 @@
+UPDATE tokens SET daily_limit = 9000 WHERE id = 'd426ce97-22df-436c-b7e3-7adb9568f1af';
