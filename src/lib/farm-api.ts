@@ -103,17 +103,35 @@ export async function cancelFarm(farmId: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to cancel");
 }
 
+// Cache the API key so we only fetch it once per session
+let cachedApiKey: string | null = null;
+
+async function getUpstreamApiKey(): Promise<string> {
+  if (cachedApiKey) return cachedApiKey;
+  const res = await fetch(`${getFunctionUrl()}?action=apikey`, { headers: getHeaders() });
+  if (!res.ok) throw new Error("Failed to get API key");
+  const data = await res.json();
+  cachedApiKey = data.apiKey;
+  return data.apiKey;
+}
+
+const UPSTREAM_SSE_BASE = "https://api.lovablextensao.shop";
+
 export function connectSSE(
   farmId: string,
   onEvent: (event: SSEEvent) => void,
   onError: (err: Error) => void
 ): () => void {
-  const url = `${getFunctionUrl()}?action=events&farmId=${farmId}`;
   let aborted = false;
 
   const connect = async () => {
     try {
-      const res = await fetch(url, { headers: getHeaders() });
+      const apiKey = await getUpstreamApiKey();
+      // Connect DIRECTLY to upstream — no edge function timeout
+      const url = `${UPSTREAM_SSE_BASE}/farm/events/${farmId}?apiKey=${apiKey}`;
+      console.log(`[SSE] Connecting directly to upstream: ${farmId}`);
+
+      const res = await fetch(url);
       if (!res.ok || !res.body) {
         throw new Error(`SSE connection failed: ${res.status}`);
       }
@@ -141,14 +159,15 @@ export function connectSSE(
         }
       }
 
-      // If stream ended and not aborted, reconnect
+      // If stream ended naturally and not aborted, reconnect
       if (!aborted) {
+        console.log(`[SSE] Stream ended, reconnecting in 2s...`);
         setTimeout(connect, 2000);
       }
     } catch (err) {
       if (!aborted) {
+        console.warn(`[SSE] Error, retrying in 5s:`, err);
         onError(err instanceof Error ? err : new Error("SSE error"));
-        // Fallback: retry after delay
         setTimeout(connect, 5000);
       }
     }
