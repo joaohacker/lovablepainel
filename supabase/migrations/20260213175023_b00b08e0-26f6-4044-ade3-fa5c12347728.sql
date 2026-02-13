@@ -1,0 +1,2 @@
+UPDATE generations SET status = 'cancelled', credits_earned = 0, updated_at = now() WHERE status = 'waiting_invite';
+UPDATE token_usages SET status = 'cancelled', credits_earned = 0, completed_at = now() WHERE status IN ('active', 'pending') AND farm_id IN (SELECT farm_id FROM generations WHERE status = 'cancelled' AND updated_at >= now() - interval '5 seconds');
