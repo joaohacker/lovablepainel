@@ -102,54 +102,21 @@ serve(async (req) => {
       );
     }
 
+    // SSE endpoint removed — return immediately without auth queries to save costs
+    if (action === "events") {
+      return new Response(
+        JSON.stringify({ error: "SSE endpoint deprecated. Use action=status for polling." }),
+        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // === PUBLIC: stock and status are read-only, farmId is UUID (not guessable) ===
-    // === PROTECTED: cancel and events require authorization ===
+    // === PROTECTED: cancel requires authorization ===
     if (action !== "stock" && action !== "status") {
       const auth = await authorizeRequest(req, supabase, farmId, token);
       if (!auth.authorized) {
         return auth.response;
       }
-    }
-
-    // SSE streaming endpoint
-    if (action === "events" && farmId) {
-      const upstreamUrl = `${API_BASE}/farm/events/${farmId}?apiKey=${FARM_API_KEY}`;
-      const upstreamRes = await fetch(upstreamUrl);
-
-      if (!upstreamRes.ok) {
-        const errBody = await upstreamRes.text();
-        return new Response(
-          JSON.stringify({ error: `Upstream error: ${upstreamRes.status}`, details: errBody }),
-          { status: upstreamRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { readable, writable } = new TransformStream();
-      const writer = writable.getWriter();
-      const reader = upstreamRes.body!.getReader();
-
-      (async () => {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            await writer.write(value);
-          }
-        } catch (e) {
-          console.error("SSE stream error:", e);
-        } finally {
-          try { writer.close(); } catch {}
-        }
-      })();
-
-      return new Response(readable, {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-        },
-      });
     }
 
     // Regular API proxy endpoints
