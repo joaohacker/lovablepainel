@@ -1,0 +1,1 @@
+DELETE FROM public.tokens WHERE token = '7ada8538099d0938410aaa8d8aaaa70e';
