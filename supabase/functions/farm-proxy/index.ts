@@ -102,9 +102,9 @@ serve(async (req) => {
       );
     }
 
-    // === PUBLIC: stock is read-only, harmless ===
-    // === PROTECTED: status, cancel, events require authorization ===
-    if (action !== "stock") {
+    // === PUBLIC: stock and status are read-only, farmId is UUID (not guessable) ===
+    // === PROTECTED: cancel and events require authorization ===
+    if (action !== "stock" && action !== "status") {
       const auth = await authorizeRequest(req, supabase, farmId, token);
       if (!auth.authorized) {
         return auth.response;
