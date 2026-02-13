@@ -24,6 +24,7 @@ interface ValidationResult {
   remaining_total?: number | null;
   remaining_daily?: number | null;
   maintenance?: { until: string; message: string } | null;
+  warning_message?: string | null;
   error?: string;
 }
 
@@ -278,6 +279,13 @@ const Generate = () => {
               Sua workspace deve ter <span className="font-bold text-amber-300">no máximo 5 membros</span> no momento de convidar o bot. O fluxo agora remove membros extras automaticamente.
             </p>
           </div>
+
+          {/* Token-specific warning message */}
+          {validation.warning_message && (
+            <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-left">
+              <p className="text-xs text-red-300/90 leading-relaxed">{validation.warning_message}</p>
+            </div>
+          )}
 
           {/* Usage info */}
           <div className="flex flex-col items-center gap-1 mt-3">

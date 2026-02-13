@@ -305,6 +305,7 @@ serve(async (req) => {
           remaining_total: remainingTotal,
           remaining_daily: remainingDaily,
           maintenance: maintenanceActive ? { until: MAINTENANCE_UNTIL, message: MAINTENANCE_MSG } : null,
+          warning_message: tokenData.warning_message || null,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
