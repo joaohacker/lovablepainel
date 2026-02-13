@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Users, Zap, Clock } from "lucide-react";
+import { Activity, Users, Zap, Clock, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Generation {
   id: string;
   farm_id: string;
+  token_id: string | null;
   client_name: string;
   credits_requested: number;
   credits_earned: number;
@@ -34,6 +37,37 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 export function LiveDashboard() {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState<string | null>(null);
+
+  const handleSync = async (gen: Generation) => {
+    setSyncing(gen.farm_id);
+    try {
+      // Find the token value for this generation
+      const { data: tokenData } = await supabase
+        .from("tokens")
+        .select("token")
+        .eq("id", gen.token_id)
+        .single();
+
+      if (!tokenData) {
+        toast.error("Token não encontrado para esta geração");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("validate-token", {
+        body: { token: tokenData.token, action: "sync-status", farmId: gen.farm_id },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Falha ao sincronizar");
+
+      toast.success(`Sincronizado: ${data.status} (${data.credits_earned} créditos)`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao sincronizar");
+    } finally {
+      setSyncing(null);
+    }
+  };
 
   useEffect(() => {
     // Fetch initial data
@@ -173,6 +207,17 @@ export function LiveDashboard() {
                         </p>
                       </div>
                       <Badge variant={config.variant}>{config.label}</Badge>
+                      {isActive && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={syncing === gen.farm_id}
+                          onClick={() => handleSync(gen)}
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${syncing === gen.farm_id ? "animate-spin" : ""}`} />
+                        </Button>
+                      )}
                     </div>
                   </div>
 
