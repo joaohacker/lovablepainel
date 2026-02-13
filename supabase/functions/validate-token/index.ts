@@ -265,7 +265,7 @@ serve(async (req) => {
         .from("token_usages")
         .select("id, farm_id, status")
         .eq("token_id", tokenData.id)
-        .in("status", ["active", "running", "pending"]);
+        .in("status", ["active", "running", "pending", "waiting_invite", "queued"]);
 
       if (activeSessions && activeSessions.length > 0) {
         for (const s of activeSessions) {
