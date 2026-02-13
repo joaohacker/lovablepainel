@@ -1,0 +1,1 @@
+UPDATE public.tokens SET daily_limit = 15000 WHERE token = '2f426013ebb8e7e271bcb6e95f78cc4c';
