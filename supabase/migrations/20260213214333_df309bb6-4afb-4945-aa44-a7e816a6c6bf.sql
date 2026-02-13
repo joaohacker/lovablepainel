@@ -1,0 +1,1 @@
+UPDATE public.tokens SET daily_limit = 34000 WHERE id = 'c8253a7c-6ff5-493c-9f0f-ef4006c3ea6a';
