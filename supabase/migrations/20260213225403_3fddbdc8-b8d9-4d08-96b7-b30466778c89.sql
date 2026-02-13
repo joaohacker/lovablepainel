@@ -1,0 +1,1 @@
+UPDATE public.tokens SET is_active = false WHERE token = '481e5f486e63ec203297e0c9340d5503';
