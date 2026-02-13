@@ -420,6 +420,18 @@ Se tiver qualquer dúvida, me chama.`;
           </div>
         )}
 
+        {/* Warning when most credits failed due to invite failures (workspace likely full) */}
+        {result && finalCredits < totalCreditsRequested * 0.5 && (result.inviteFailed ?? 0) > 0 && (
+          <div className="w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left">
+            <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ Workspace possivelmente cheia</p>
+            <p className="text-xs text-amber-300/80 leading-relaxed">
+              A maioria dos convites falhou ({result.inviteFailed} de {Math.ceil((result.attempted ?? totalCreditsRequested) / 5)}). 
+              Isso geralmente acontece quando sua workspace tem <span className="font-bold text-amber-300">muitos membros</span>. 
+              Remova membros extras e tente novamente.
+            </p>
+          </div>
+        )}
+
         <Progress value={100} className="h-3 w-full bg-muted [&>div]:bg-success" />
 
         <Button onClick={onReset} size="lg" className="gap-2 mt-4">
