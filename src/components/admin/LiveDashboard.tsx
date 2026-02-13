@@ -178,6 +178,7 @@ export function LiveDashboard() {
           generations.map((gen) => {
             const config = statusConfig[gen.status] || { label: gen.status, variant: "secondary" as const };
             const isActive = ["creating", "queued", "waiting_invite", "running"].includes(gen.status);
+            const canSync = gen.token_id !== null;
 
             return (
               <Card key={gen.id} className={`glass-card transition-all ${isActive ? "ring-1 ring-primary/30" : ""}`}>
@@ -207,13 +208,14 @@ export function LiveDashboard() {
                         </p>
                       </div>
                       <Badge variant={config.variant}>{config.label}</Badge>
-                      {isActive && (
+                      {canSync && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7"
                           disabled={syncing === gen.farm_id}
                           onClick={() => handleSync(gen)}
+                          title="Sincronizar com API externa"
                         >
                           <RefreshCw className={`h-3.5 w-3.5 ${syncing === gen.farm_id ? "animate-spin" : ""}`} />
                         </Button>

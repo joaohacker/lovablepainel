@@ -216,12 +216,17 @@ export function useFarmGeneration(accessToken?: string) {
 
               const merged = [...prev.feed, ...staggered].slice(-200);
 
+              // Accumulate only NEW credit entries (not replace total)
+              const newCredits = brandNew
+                .filter((e) => e.kind === "credit" && e.credits)
+                .reduce((sum, e) => sum + (e.credits || 0), 0);
+
               return {
                 ...prev,
                 state: "running",
                 workspaceName: status.workspaceName || prev.workspaceName,
                 masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: pollingCredits,
+                creditsEarned: prev.creditsEarned + newCredits,
                 feed: merged,
               };
             });
