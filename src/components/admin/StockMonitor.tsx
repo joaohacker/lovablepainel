@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchStock, type StockResponse } from "@/lib/farm-api";
 import { Card, CardContent } from "@/components/ui/card";
-import { Bot, Cpu, RefreshCw, Wifi, WifiOff, Zap } from "lucide-react";
+import { Bot, RefreshCw, Wifi, WifiOff, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function StockMonitor() {
@@ -55,7 +55,7 @@ export function StockMonitor() {
     );
   }
 
-  const cap = stock.capacity;
+  
 
   return (
     <div className="space-y-4">
@@ -76,7 +76,7 @@ export function StockMonitor() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Card className="glass-card">
           <CardContent className="p-3 text-center">
             <Bot className="h-5 w-5 text-success mx-auto mb-1" />
@@ -98,14 +98,6 @@ export function StockMonitor() {
             <Bot className="h-5 w-5 text-primary mx-auto mb-1" />
             <p className="text-2xl font-bold">{stock.total.toLocaleString()}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Bots</p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardContent className="p-3 text-center">
-            <Cpu className="h-5 w-5 text-primary mx-auto mb-1" />
-            <p className="text-2xl font-bold">{cap.active}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Em Uso</p>
           </CardContent>
         </Card>
       </div>
