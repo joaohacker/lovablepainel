@@ -289,7 +289,7 @@ const Generate = () => {
               <span>Hoje: <span className="text-foreground font-medium">{validation.remaining_daily}</span></span>
             )}
             </div>
-            <p className="text-[10px] text-muted-foreground/60">Limite diário reseta às 12:00 (horário de Brasília)</p>
+            <p className="text-xs text-muted-foreground mt-1">🕐 Limite diário reseta às 12:00 (horário de Brasília)</p>
           </div>
         </div>
 
