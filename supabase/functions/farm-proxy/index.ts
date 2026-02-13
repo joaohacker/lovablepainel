@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +8,68 @@ const corsHeaders = {
 };
 
 const API_BASE = "https://api.lovablextensao.shop";
+
+/**
+ * Validates that the request has a valid token+farmId pair or is an authenticated admin.
+ * Returns { authorized: true } or a Response to send back.
+ */
+async function authorizeRequest(
+  req: Request,
+  supabase: ReturnType<typeof createClient>,
+  farmId: string | null,
+  token: string | null
+): Promise<{ authorized: true } | { authorized: false; response: Response }> {
+  // Path 1: Admin auth via JWT
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data, error } = await supabase.auth.getUser(jwt);
+    if (!error && data?.user) {
+      // Check if admin
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (roleData) {
+        return { authorized: true };
+      }
+    }
+  }
+
+  // Path 2: Token + farmId validation (client accessing their own session)
+  if (token && farmId) {
+    const { data: tokenData } = await supabase
+      .from("tokens")
+      .select("id, is_active")
+      .eq("token", token)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (tokenData) {
+      // Verify this farmId belongs to this token
+      const { data: gen } = await supabase
+        .from("generations")
+        .select("id")
+        .eq("farm_id", farmId)
+        .eq("token_id", tokenData.id)
+        .maybeSingle();
+
+      if (gen) {
+        return { authorized: true };
+      }
+    }
+  }
+
+  return {
+    authorized: false,
+    response: new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    ),
+  };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,10 +84,32 @@ serve(async (req) => {
     );
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
     const farmId = url.searchParams.get("farmId");
+    const token = url.searchParams.get("token");
+
+    // === BLOCKED: create must go through validate-token ===
+    if (action === "create") {
+      return new Response(
+        JSON.stringify({ error: "Use validate-token endpoint for farm creation" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // === PUBLIC: stock is read-only, harmless ===
+    // === PROTECTED: status, cancel, events require authorization ===
+    if (action !== "stock") {
+      const auth = await authorizeRequest(req, supabase, farmId, token);
+      if (!auth.authorized) {
+        return auth.response;
+      }
+    }
 
     // SSE streaming endpoint
     if (action === "events" && farmId) {
@@ -39,11 +124,9 @@ serve(async (req) => {
         );
       }
 
-      // Stream SSE back to client
       const { readable, writable } = new TransformStream();
       const writer = writable.getWriter();
       const reader = upstreamRes.body!.getReader();
-      const encoder = new TextEncoder();
 
       (async () => {
         try {
@@ -79,13 +162,6 @@ serve(async (req) => {
         upstreamUrl = `${API_BASE}/farm/stock`;
         break;
 
-      case "create": {
-        upstreamUrl = `${API_BASE}/farm/create`;
-        method = "POST";
-        body = await req.text();
-        break;
-      }
-
       case "status": {
         if (!farmId) {
           return new Response(
@@ -111,7 +187,7 @@ serve(async (req) => {
 
       default:
         return new Response(
-          JSON.stringify({ error: "Invalid action. Use: stock, create, status, cancel, events, apikey" }),
+          JSON.stringify({ error: "Invalid action. Use: stock, status, cancel, events" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }

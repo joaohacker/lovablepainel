@@ -85,8 +85,9 @@ export async function createFarm(credits: number): Promise<CreateResponse> {
   return res.json();
 }
 
-export async function getFarmStatus(farmId: string): Promise<FarmStatus> {
-  const res = await fetch(`${getFunctionUrl()}?action=status&farmId=${farmId}`, { headers: getHeaders() });
+export async function getFarmStatus(farmId: string, token?: string): Promise<FarmStatus> {
+  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
+  const res = await fetch(`${getFunctionUrl()}?action=status&farmId=${farmId}${tokenParam}`, { headers: getHeaders() });
   if (!res.ok) {
     if (res.status === 404) throw new Error("SESSION_LOST");
     throw new Error("Failed to get status");
@@ -94,8 +95,9 @@ export async function getFarmStatus(farmId: string): Promise<FarmStatus> {
   return res.json();
 }
 
-export async function cancelFarm(farmId: string): Promise<void> {
-  const res = await fetch(`${getFunctionUrl()}?action=cancel&farmId=${farmId}`, {
+export async function cancelFarm(farmId: string, token?: string): Promise<void> {
+  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
+  const res = await fetch(`${getFunctionUrl()}?action=cancel&farmId=${farmId}${tokenParam}`, {
     method: "POST",
     headers: getHeaders(),
   });

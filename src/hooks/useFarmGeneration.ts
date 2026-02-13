@@ -62,7 +62,7 @@ function parseLogToFeedEntry(message: string, logType: string, timestamp: number
   return { id: ++feedIdCounter, eventId, kind: "info", message, timestamp };
 }
 
-export function useFarmGeneration() {
+export function useFarmGeneration(accessToken?: string) {
   const [gen, setGen] = useState<FarmGenerationState>({
     state: "idle",
     farmId: null,
@@ -110,7 +110,7 @@ export function useFarmGeneration() {
         }
 
         try {
-          const status = await getFarmStatus(farmId);
+          const status = await getFarmStatus(farmId, accessToken);
           consecutive404Ref.current = 0;
           console.log(`[POLLING] status=${status.status}, logs=${status.logs?.length ?? 0}`);
 
@@ -374,7 +374,7 @@ export function useFarmGeneration() {
   const cancelGeneration = useCallback(async () => {
     if (!gen.farmId) return;
     try {
-      await cancelFarm(gen.farmId);
+      await cancelFarm(gen.farmId, accessToken);
       cleanup();
       completedRef.current = true;
       setGen((prev) => ({ ...prev, state: "cancelled" }));
