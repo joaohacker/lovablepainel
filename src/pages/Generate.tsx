@@ -74,7 +74,7 @@ const Generate = () => {
   const { token } = useParams<{ token: string }>();
   const [validating, setValidating] = useState(true);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
-  const farm = useFarmGeneration();
+  const farm = useFarmGeneration(token);
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
