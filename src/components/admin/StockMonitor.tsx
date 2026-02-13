@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchStock, type StockResponse } from "@/lib/farm-api";
 import { Card, CardContent } from "@/components/ui/card";
-import { Bot, Cpu, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { Bot, Cpu, RefreshCw, Wifi, WifiOff, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function StockMonitor() {
@@ -81,7 +81,15 @@ export function StockMonitor() {
           <CardContent className="p-3 text-center">
             <Bot className="h-5 w-5 text-success mx-auto mb-1" />
             <p className="text-2xl font-bold text-success">{stock.activeWithBonus.toLocaleString()}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Disponíveis</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Bots Disponíveis</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardContent className="p-3 text-center">
+            <Zap className="h-5 w-5 text-success mx-auto mb-1" />
+            <p className="text-2xl font-bold text-success">{(stock.activeWithBonus * 5).toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Créditos Disponíveis</p>
           </CardContent>
         </Card>
 
@@ -89,39 +97,17 @@ export function StockMonitor() {
           <CardContent className="p-3 text-center">
             <Bot className="h-5 w-5 text-primary mx-auto mb-1" />
             <p className="text-2xl font-bold">{stock.total.toLocaleString()}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Bots</p>
           </CardContent>
         </Card>
 
         <Card className="glass-card">
           <CardContent className="p-3 text-center">
-            <Cpu className="h-5 w-5 text-amber-400 mx-auto mb-1" />
-            <p className="text-2xl font-bold text-amber-400">{cap.active}</p>
+            <Cpu className="h-5 w-5 text-primary mx-auto mb-1" />
+            <p className="text-2xl font-bold">{cap.active}</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Em Uso</p>
           </CardContent>
         </Card>
-
-        <Card className="glass-card">
-          <CardContent className="p-3 text-center">
-            <Cpu className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
-            <p className="text-2xl font-bold">{cap.queued + cap.waiting}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Na Fila</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Capacity bar */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Capacidade</span>
-          <span>{cap.active}/{cap.maxConcurrent}</span>
-        </div>
-        <div className="h-2 rounded-full bg-secondary overflow-hidden">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-500"
-            style={{ width: `${Math.min(100, (cap.active / cap.maxConcurrent) * 100)}%` }}
-          />
-        </div>
       </div>
     </div>
   );
