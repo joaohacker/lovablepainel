@@ -152,6 +152,7 @@ export type Database = {
           token: string
           total_limit: number | null
           updated_at: string
+          warning_message: string | null
         }
         Insert: {
           client_name: string
@@ -166,6 +167,7 @@ export type Database = {
           token?: string
           total_limit?: number | null
           updated_at?: string
+          warning_message?: string | null
         }
         Update: {
           client_name?: string
@@ -180,6 +182,7 @@ export type Database = {
           token?: string
           total_limit?: number | null
           updated_at?: string
+          warning_message?: string | null
         }
         Relationships: []
       }
