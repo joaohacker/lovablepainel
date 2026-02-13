@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, LogOut, Key, Activity } from "lucide-react";
 import { TokenManager } from "@/components/admin/TokenManager";
 import { LiveDashboard } from "@/components/admin/LiveDashboard";
+import { StockMonitor } from "@/components/admin/StockMonitor";
 
 const Admin = () => {
   const { user, loading, isAdmin, signOut } = useAuth();
@@ -54,6 +55,8 @@ const Admin = () => {
       </header>
 
       <main className="relative container mx-auto px-4 py-8">
+        <StockMonitor />
+
         <Tabs defaultValue="tokens" className="space-y-6">
           <TabsList className="bg-secondary">
             <TabsTrigger value="tokens" className="gap-2">
