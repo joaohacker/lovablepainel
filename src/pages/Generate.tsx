@@ -280,13 +280,16 @@ const Generate = () => {
           </div>
 
           {/* Usage info */}
-          <div className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground">
+          <div className="flex flex-col items-center gap-1 mt-3">
+            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
             {validation.remaining_total !== null && validation.remaining_total !== undefined && (
               <span>Usos restantes: <span className="text-foreground font-medium">{validation.remaining_total}</span></span>
             )}
             {validation.remaining_daily !== null && validation.remaining_daily !== undefined && (
               <span>Hoje: <span className="text-foreground font-medium">{validation.remaining_daily}</span></span>
             )}
+            </div>
+            <p className="text-[10px] text-muted-foreground/60">Limite diário reseta às 12:00 (horário de Brasília)</p>
           </div>
         </div>
 

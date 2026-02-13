@@ -253,8 +253,10 @@ serve(async (req) => {
     // Check daily limit using generations table (has accurate credits_earned)
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      // Daily boundary: 12:00 BRT = 15:00 UTC
+      const now = new Date();
+      const todayAt15UTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 15, 0, 0));
+      const todayStart = now >= todayAt15UTC ? todayAt15UTC : new Date(todayAt15UTC.getTime() - 24 * 3600000);
 
       // Sum credits_earned from completed/running generations today
       const { data: earnedDaily } = await supabase
