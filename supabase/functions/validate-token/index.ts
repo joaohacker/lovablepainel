@@ -59,6 +59,71 @@ serve(async (req) => {
       );
     }
 
+    // === ADMIN: sync-status checks real API and updates DB ===
+    if (action === "sync-status") {
+      const farmId = bodyFarmId;
+      if (!farmId || !farmApiKey) {
+        return new Response(
+          JSON.stringify({ success: false, error: "farmId and FARM_API_KEY required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check admin auth
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) {
+        return new Response(JSON.stringify({ success: false, error: "Auth required" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ success: false, error: "Invalid user" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+      if (!roleData) {
+        return new Response(JSON.stringify({ success: false, error: "Admin only" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Fetch real status from external API
+      try {
+        const statusRes = await fetch(`${API_BASE}/farm/status/${farmId}`, {
+          headers: { "x-api-key": farmApiKey },
+        });
+        if (!statusRes.ok) {
+          return new Response(JSON.stringify({ success: false, error: `API returned ${statusRes.status}` }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const real = await statusRes.json();
+        const realCredits = real.creditsEarned ?? real.result?.credits ?? 0;
+        const realStatus = real.status === "completed" ? "completed" : real.status === "error" ? "error" : real.status;
+
+        await supabase.from("generations").update({
+          status: realStatus,
+          credits_earned: realCredits,
+          master_email: real.masterEmail || undefined,
+          workspace_name: real.workspaceName || undefined,
+        }).eq("farm_id", farmId);
+
+        await supabase.from("token_usages").update({
+          status: realStatus,
+          credits_earned: realCredits,
+          completed_at: ["completed", "error", "expired", "cancelled"].includes(realStatus) ? new Date().toISOString() : undefined,
+        }).eq("farm_id", farmId);
+
+        return new Response(JSON.stringify({ success: true, status: realStatus, credits_earned: realCredits }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: "Failed to reach external API" }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     // === FAST PATH: update-status skips heavy validation ===
     if (action === "update-status") {
       const farmId = bodyFarmId;
