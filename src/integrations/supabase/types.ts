@@ -70,6 +70,111 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          amount: number
+          created_at: string
+          customer_document: string
+          customer_email: string
+          customer_name: string
+          id: string
+          paid_at: string | null
+          pix_code: string | null
+          pix_expires_at: string | null
+          product_id: string
+          status: string
+          token_id: string | null
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          customer_document: string
+          customer_email: string
+          customer_name: string
+          id?: string
+          paid_at?: string | null
+          pix_code?: string | null
+          pix_expires_at?: string | null
+          product_id: string
+          status?: string
+          token_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          customer_document?: string
+          customer_email?: string
+          customer_name?: string
+          id?: string
+          paid_at?: string | null
+          pix_code?: string | null
+          pix_expires_at?: string | null
+          product_id?: string
+          status?: string
+          token_id?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          created_at: string
+          credits_per_use: number
+          daily_limit: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          total_limit: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credits_per_use?: number
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price: number
+          total_limit?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credits_per_use?: number
+          daily_limit?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          total_limit?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
