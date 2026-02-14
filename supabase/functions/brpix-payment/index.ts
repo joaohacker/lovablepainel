@@ -91,7 +91,7 @@ serve(async (req) => {
         customer_document: customer.document.replace(/\D/g, ""),
         transaction_id: pixData.transaction_id,
         pix_code: pixData.pix?.qr_code || null,
-        pix_expires_at: pixData.pix?.expiration_date || pixData.expires_at || null,
+        pix_expires_at: pixData.expires_at || null,
         status: "pending",
       })
       .select()
