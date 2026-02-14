@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Zap } from "lucide-react";
+import lovableLogo from "@/assets/lovable-logo-icon.png";
 
 interface CreditsBoxProps {
   remainingDaily: number | null | undefined;
@@ -28,29 +28,24 @@ export function CreditsBox({ remainingDaily, dailyLimit, remainingTotal, totalLi
   useEffect(() => {
     if (!demo) return;
     const maxVal = limit || 1000;
-    const cycleDuration = 3000; // ms for one fill or drain
+    const cycleDuration = 4000;
     let start: number | null = null;
-    let filling = true;
 
     const tick = (timestamp: number) => {
       if (start === null) start = timestamp;
-      const elapsed = timestamp - start;
-      const progress = Math.min(elapsed / cycleDuration, 1);
+      const elapsed = (timestamp - start) % cycleDuration;
+      const progress = elapsed / cycleDuration;
       // easeInOut
       const eased = progress < 0.5
         ? 2 * progress * progress
         : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 
-      const pct = filling ? eased * 100 : (1 - eased) * 100;
+      const pct = eased * 100;
       const val = Math.round((pct / 100) * maxVal);
 
       setDemoPercentage(pct);
       setDemoValue(val);
 
-      if (progress >= 1) {
-        filling = !filling;
-        start = timestamp;
-      }
       rafRef.current = requestAnimationFrame(tick);
     };
 
@@ -94,7 +89,7 @@ export function CreditsBox({ remainingDaily, dailyLimit, remainingTotal, totalLi
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
+            <img src={lovableLogo} alt="Logo" className="h-4 w-4" />
             <span className="text-sm font-semibold text-foreground">{displayLabel}</span>
           </div>
           <div className="flex items-baseline gap-1">
