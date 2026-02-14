@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Anti-debug: debugger + infinite console spam + tab title trolling
+// Anti-debug protection (mobile-safe — no debugger statement)
 (function antiDebug() {
   const msgs = [
     "🤣🤣🤣 Boa sorte tentando interceptar, seu otário! 🤣🤣🤣",
@@ -18,52 +18,47 @@ import "./index.css";
   ];
 
   let msgIdx = 0;
-  let trollTitle = false;
   const originalTitle = document.title;
 
-  setInterval(() => {
-    const start = performance.now();
-    // eslint-disable-next-line no-debugger
-    debugger;
-    if (performance.now() - start > 100) {
-      // DevTools is open - go crazy
-      console.clear();
-      const msg = msgs[msgIdx % msgs.length];
-      msgIdx++;
-      
-      // Styled message
-      console.log(
-        `%c${msg}`,
-        "font-size: 22px; color: #ffd43b; font-weight: bold; background: #1a1a2e; padding: 10px; border-radius: 8px;"
-      );
-      
-      // Flood with fake "errors" to confuse
-      for (let i = 0; i < 20; i++) {
-        console.log(
-          "%c" + btoa(Math.random().toString()).repeat(3),
-          "color: #333; font-size: 8px;"
-        );
-      }
+  // Detect DevTools via console timing (safe for all browsers, no debugger)
+  const detectDevTools = () => {
+    const el = new Image();
+    let devToolsOpen = false;
+    Object.defineProperty(el, "id", {
+      get: () => { devToolsOpen = true; return ""; },
+    });
+    console.debug("%c", el as any);
+    return devToolsOpen;
+  };
 
-      // Troll the tab title
-      trollTitle = !trollTitle;
-      document.title = trollTitle ? "🤡 HACKER DETECTADO 🤡" : "😂 DESISTE 😂";
-    } else {
-      // DevTools closed - restore title
-      if (document.title !== originalTitle && !document.title.includes("🤡") === false) {
-        document.title = originalTitle;
+  setInterval(() => {
+    try {
+      if (detectDevTools()) {
+        console.clear();
+        const msg = msgs[msgIdx % msgs.length];
+        msgIdx++;
+        console.log(
+          `%c${msg}`,
+          "font-size: 22px; color: #ffd43b; font-weight: bold; background: #1a1a2e; padding: 10px; border-radius: 8px;"
+        );
+        for (let i = 0; i < 20; i++) {
+          console.log(
+            "%c" + btoa(Math.random().toString()).repeat(3),
+            "color: #333; font-size: 8px;"
+          );
+        }
+        document.title = msgIdx % 2 === 0 ? "🤡 HACKER DETECTADO 🤡" : "😂 DESISTE 😂";
+      } else {
+        if (document.title !== originalTitle) {
+          document.title = originalTitle;
+        }
       }
-    }
-  }, 1500);
+    } catch {}
+  }, 2000);
 
   // Disable right-click context menu
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    console.clear();
-    console.log(
-      "%c🤣 Botão direito? Sério? 🤣",
-      "font-size: 20px; color: #ff6b6b; font-weight: bold;"
-    );
   });
 
   // Detect F12 / Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+U
@@ -74,11 +69,6 @@ import "./index.css";
       (e.ctrlKey && e.key === "u")
     ) {
       e.preventDefault();
-      console.clear();
-      console.log(
-        "%c🫵😂 Atalho bloqueado! Tenta outro kkkk 🫵😂",
-        "font-size: 20px; color: #ffd43b; font-weight: bold; background: #1a1a2e; padding: 8px;"
-      );
     }
   });
 })();
