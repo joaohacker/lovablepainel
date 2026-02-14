@@ -49,7 +49,7 @@ const Landing = () => {
           <div className="flex items-center gap-2">
             <img src={lovableHeart} alt="Logo" className="h-7 w-7" />
             <span className="text-lg font-bold tracking-tight">
-              Lovable<span className="text-primary">Infinite</span>
+              Lovable<span className="text-primary">Credits</span>
             </span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
@@ -89,18 +89,15 @@ const Landing = () => {
         />
 
         <div className="mx-auto max-w-3xl space-y-6">
-          <span className="inline-block rounded-full bg-primary/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
-            Acesso Fundador Limitado
-          </span>
           <h1 className="text-5xl md:text-7xl font-extrabold leading-tight tracking-tight">
-            Créditos Infinitos para{" "}
+            Painel Gerador de Créditos{" "}
             <span className="text-primary underline decoration-primary/40 underline-offset-8">
               Lovable
             </span>
           </h1>
           <p className="mx-auto max-w-xl text-lg text-muted-foreground">
-            Elimine as barreiras da criatividade. Tenha acesso irrestrito, iterações
-            ilimitadas e poder total sobre seu código gerado.
+            Automatize a geração de créditos para seu workspace. Tenha controle total
+            e maximize sua produtividade com nosso painel inteligente.
           </p>
           <Button
             size="lg"
@@ -160,10 +157,10 @@ const Landing = () => {
               <span className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary font-semibold">
                 <span className="h-2 w-2 rounded-full bg-primary inline-block" /> Nível Elite
               </span>
-              <h2 className="text-3xl md:text-4xl font-bold">Painel de Créditos Infinitos</h2>
+              <h2 className="text-3xl md:text-4xl font-bold">Painel Gerador de Créditos</h2>
               <ul className="space-y-3 text-muted-foreground">
                 {[
-                  "Geração de Tokens Irrestrita",
+                  "Geração de Tokens Automatizada",
                   "Acesso Prioritário ao Pipeline de GPU",
                   "Direitos de Implantação Comercial",
                   "Linha Direta de Suporte de Engenharia",
@@ -210,12 +207,12 @@ const Landing = () => {
           {[
             {
               icon: Infinity,
-              title: "Economia Ilimitada",
-              desc: "Nunca mais se preocupe com limites de token ou recargas. O céu não é o limite, é apenas o começo.",
+              title: "Economia Inteligente",
+              desc: "Gerencie seus créditos com eficiência. Nosso sistema otimiza cada token para máximo aproveitamento.",
             },
             {
               icon: Zap,
-              title: "Experiência sem Interrupções",
+              title: "Experiência Fluida",
               desc: "Fluxo de trabalho contínuo. Sem pausas forçadas, sem mensagens de erro de cota excedida.",
             },
             {
@@ -230,8 +227,8 @@ const Landing = () => {
             },
             {
               icon: Layers,
-              title: "Projetos Simultâneos",
-              desc: "Trabalhe em múltiplos apps ao mesmo tempo sem degradação de performance ou limites artificiais.",
+              title: "Múltiplos Projetos",
+              desc: "Trabalhe em múltiplos apps ao mesmo tempo sem degradação de performance.",
             },
             {
               icon: Rocket,
@@ -259,7 +256,7 @@ const Landing = () => {
           <h2 className="text-4xl md:text-5xl font-bold">Como Funciona o Gerador</h2>
           <p className="text-muted-foreground text-lg">
             Um processo automatizado de 5 etapas para turbinar seu workspace no Lovable com
-            créditos infinitos em minutos.
+            créditos em minutos.
           </p>
         </div>
 
@@ -307,7 +304,7 @@ const Landing = () => {
       {/* CTA Final */}
       <section className="py-24 px-4 text-center">
         <div className="mx-auto max-w-2xl space-y-6">
-          <h2 className="text-4xl md:text-5xl font-bold">Pronto para o Infinito?</h2>
+          <h2 className="text-4xl md:text-5xl font-bold">Pronto para Começar?</h2>
           <p className="text-lg text-muted-foreground">
             Junte-se a centenas de desenvolvedores que já desbloquearam o potencial máximo do
             Lovable.
@@ -324,7 +321,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
-        <p>© 2026 LovableInfinite. Todos os direitos reservados.</p>
+        <p>© 2026 LovableCredits. Todos os direitos reservados.</p>
       </footer>
     </div>
   );
