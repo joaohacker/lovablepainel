@@ -63,9 +63,12 @@ function CountdownTimer({ expiresAt }: { expiresAt: number }) {
 function AnimatedCounter({ value, className }: { value: number; className?: string }) {
   const [display, setDisplay] = useState(value);
   const prevValue = useRef(value);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (value === prevValue.current) return;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
     const start = prevValue.current;
     const diff = value - start;
     const duration = 400;
@@ -74,14 +77,21 @@ function AnimatedCounter({ value, className }: { value: number; className?: stri
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // ease-out
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplay(Math.round(start + diff * eased));
-      if (progress < 1) requestAnimationFrame(animate);
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        rafRef.current = null;
+      }
     };
 
-    requestAnimationFrame(animate);
+    rafRef.current = requestAnimationFrame(animate);
     prevValue.current = value;
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [value]);
 
   return <span className={className}>{display}</span>;
@@ -91,7 +101,9 @@ function RunningCreditsDisplay({ feed, totalCreditsRequested }: { feed: FeedEntr
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 100);
+    // Use 250ms on mobile for better battery life
+    const interval = 'ontouchstart' in window ? 250 : 100;
+    const id = setInterval(() => setNow(Date.now()), interval);
     return () => clearInterval(id);
   }, []);
 
@@ -132,9 +144,9 @@ function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(Date.now());
 
-  // Tick every 100ms to reveal staggered entries smoothly
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 100);
+    const interval = 'ontouchstart' in window ? 250 : 100;
+    const id = setInterval(() => setNow(Date.now()), interval);
     return () => clearInterval(id);
   }, []);
 
@@ -151,7 +163,7 @@ function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
   const reversed = [...visible].reverse();
 
   return (
-    <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 pr-1">
+    <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 pr-1 -webkit-overflow-scrolling-touch">
       {reversed.map((entry) => (
         <div
           key={entry.id}
@@ -217,12 +229,39 @@ export function GenerationStatus({
   const [copied, setCopied] = useState(false);
   const [copiedMsg, setCopiedMsg] = useState(false);
 
+  const safeCopy = useCallback(async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {}
+    // Fallback for mobile browsers
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const copyEmail = useCallback(async () => {
     if (!masterEmail) return;
-    await navigator.clipboard.writeText(masterEmail);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [masterEmail]);
+    const ok = await safeCopy(masterEmail);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }, [masterEmail, safeCopy]);
 
   const copyClientMessage = useCallback(async () => {
     if (!masterEmail) return;
@@ -242,10 +281,12 @@ Após enviar o convite, aguarde que os créditos serão depositados automaticame
 • Sua workspace não pode ter mais de 5 membros no momento do convite.
 
 Se tiver qualquer dúvida, me chama.`;
-    await navigator.clipboard.writeText(msg);
-    setCopiedMsg(true);
-    setTimeout(() => setCopiedMsg(false), 2000);
-  }, [masterEmail]);
+    const ok = await safeCopy(msg);
+    if (ok) {
+      setCopiedMsg(true);
+      setTimeout(() => setCopiedMsg(false), 2000);
+    }
+  }, [masterEmail, safeCopy]);
 
   const progressPercent =
     totalCreditsRequested > 0 ? Math.min(100, (creditsEarned / totalCreditsRequested) * 100) : 0;
