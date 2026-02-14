@@ -28,14 +28,13 @@ export function CreditsBox({ remainingDaily, dailyLimit, remainingTotal, totalLi
   useEffect(() => {
     if (!demo) return;
     const maxVal = limit || 1000;
-    const cycleDuration = 4000;
+    const cycleDuration = 6000;
     let start: number | null = null;
 
     const tick = (timestamp: number) => {
       if (start === null) start = timestamp;
-      const elapsed = (timestamp - start) % cycleDuration;
-      const progress = elapsed / cycleDuration;
-      // easeInOut
+      const elapsed = timestamp - start;
+      const progress = Math.min(elapsed / cycleDuration, 1);
       const eased = progress < 0.5
         ? 2 * progress * progress
         : 1 - Math.pow(-2 * progress + 2, 2) / 2;
@@ -46,7 +45,9 @@ export function CreditsBox({ remainingDaily, dailyLimit, remainingTotal, totalLi
       setDemoPercentage(pct);
       setDemoValue(val);
 
-      rafRef.current = requestAnimationFrame(tick);
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
     };
 
     rafRef.current = requestAnimationFrame(tick);
@@ -113,13 +114,6 @@ export function CreditsBox({ remainingDaily, dailyLimit, remainingTotal, totalLi
             </div>
           </div>
         </div>
-
-        <p className="text-xs text-muted-foreground mt-2">
-          <span className="inline-flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-success inline-block" />
-            Free credits reset on 01 Mar
-          </span>
-        </p>
       </CardContent>
     </Card>
   );
