@@ -1,0 +1,1 @@
+UPDATE public.tokens SET credits_per_use = 5000 WHERE token = 'feba2d91f87073deb24012648fce6a70';
