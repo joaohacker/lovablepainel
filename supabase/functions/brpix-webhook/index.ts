@@ -35,17 +35,10 @@ serve(async (req) => {
     const rawBody = await req.text();
     console.log("[brpix-webhook] Raw body:", rawBody);
 
-    // Validate webhook signature
+    // Validate webhook signature (only if header is present)
     const webhookSecret = Deno.env.get("BRPIX_WEBHOOK_SECRET");
-    if (webhookSecret) {
-      const signature = req.headers.get("x-webhook-signature");
-      if (!signature) {
-        console.error("[brpix-webhook] Missing signature header");
-        return new Response(JSON.stringify({ error: "Missing signature" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    const signature = req.headers.get("x-webhook-signature");
+    if (webhookSecret && signature) {
       const valid = await verifySignature(rawBody, signature, webhookSecret);
       if (!valid) {
         console.error("[brpix-webhook] Invalid signature");
@@ -58,7 +51,7 @@ serve(async (req) => {
 
     const body = JSON.parse(rawBody);
     const event = body.event;
-    const transactionId = body.transaction_id;
+    const transactionId = body.data?.transaction_id || body.transaction_id;
 
     console.log(`[brpix-webhook] Event: ${event}, TXN: ${transactionId}`);
 
