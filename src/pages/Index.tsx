@@ -1,14 +1,7 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import Landing from "./Landing";
 
 const Index = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    navigate("/auth", { replace: true });
-  }, [navigate]);
-
-  return null;
+  return <Landing />;
 };
 
 export default Index;
