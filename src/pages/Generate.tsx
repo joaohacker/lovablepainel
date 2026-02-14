@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
+import { CreditsBox } from "@/components/CreditsBox";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ShieldX, Clock, Ban } from "lucide-react";
@@ -287,18 +288,14 @@ const Generate = () => {
             </div>
           )}
 
-          {/* Usage info */}
-          <div className="flex flex-col items-center gap-1 mt-3">
-            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-            {validation.remaining_total !== null && validation.remaining_total !== undefined && (
-              <span>Usos restantes: <span className="text-foreground font-medium">{validation.remaining_total}</span></span>
-            )}
-            {validation.remaining_daily !== null && validation.remaining_daily !== undefined && (
-              <span>Hoje: <span className="text-foreground font-medium">{validation.remaining_daily}</span></span>
-            )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">🕐 Limite diário reseta às 12:00 (horário de Brasília)</p>
-          </div>
+          {/* Credits box */}
+          <CreditsBox
+            remainingDaily={validation.remaining_daily}
+            dailyLimit={tokenInfo.daily_limit}
+            remainingTotal={validation.remaining_total}
+            totalLimit={tokenInfo.total_limit}
+          />
+          <p className="text-xs text-muted-foreground text-center mt-1">🕐 Limite diário reseta às 12:00 (horário de Brasília)</p>
         </div>
 
         <Card className="glass-card">
