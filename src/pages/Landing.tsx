@@ -131,10 +131,11 @@ const Landing = () => {
       <section className="py-12 px-4">
         <div className="mx-auto max-w-md">
           <CreditsBox
-            remainingDaily={847}
+            remainingDaily={594}
             dailyLimit={1000}
             remainingTotal={null}
             totalLimit={null}
+            demo
           />
         </div>
       </section>
