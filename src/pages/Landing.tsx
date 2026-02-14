@@ -42,7 +42,7 @@ const Landing = () => {
     }
   };
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-screen text-foreground overflow-x-hidden bg-cover bg-center bg-fixed bg-no-repeat" style={{ backgroundImage: "url('/images/bg-landing.png')" }}>
       {/* Navbar */}
       <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4">
         <div className="glass-card flex items-center justify-between rounded-full px-6 py-3">
