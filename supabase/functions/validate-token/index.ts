@@ -23,11 +23,27 @@ serve(async (req) => {
   try {
     // ===== MAINTENANCE MODE =====
     // Block all generation until this time (UTC). Remove or set to past date to disable.
-    const MAINTENANCE_UNTIL = "2000-01-01T00:00:00Z"; // Manutenção DESATIVADA
+    const MAINTENANCE_UNTIL = "2000-01-01T00:00:00Z"; // Manutenção manual DESATIVADA
     const MAINTENANCE_MSG = "⛔ Gerações temporariamente suspensas. Aguarde liberação.";
     // Tokens allowed to bypass maintenance (for testing)
     const MAINTENANCE_BYPASS_TOKENS: string[] = ["03f78b41e125c61f9443014c12a76b77"];
     // ============================
+
+    // ===== NIGHT MODE (BRT 00:00 - 07:00) =====
+    const nowUTC = new Date();
+    // BRT = UTC-3
+    const brtHour = (nowUTC.getUTCHours() - 3 + 24) % 24;
+    const isNightMode = brtHour >= 0 && brtHour < 7;
+    const NIGHT_MSG = "🌙 Geração desativada entre 00:00 e 07:00 (horário de Brasília) para manter bots no estoque. Volte às 7h!";
+    // Next 7:00 BRT in UTC for countdown
+    const getNext7amBRT = () => {
+      const next = new Date(nowUTC);
+      // 7:00 BRT = 10:00 UTC
+      next.setUTCHours(10, 0, 0, 0);
+      if (nowUTC >= next) next.setUTCDate(next.getUTCDate() + 1);
+      return next.toISOString();
+    };
+    // ===========================================
 
     // Capture client IP from request headers
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -285,11 +301,16 @@ serve(async (req) => {
       }
     }
 
-    // Check maintenance mode
+    // Check maintenance mode (manual OR night mode)
     const maintenanceActive = new Date(MAINTENANCE_UNTIL) > new Date() && !MAINTENANCE_BYPASS_TOKENS.includes(token);
+    const nightBlocked = isNightMode && !MAINTENANCE_BYPASS_TOKENS.includes(token);
 
-    // If just validating, return token info (include maintenance info)
+    // If just validating, return token info (include maintenance/night info)
     if (action === "validate") {
+      const activeBlock = maintenanceActive || nightBlocked;
+      const blockMsg = maintenanceActive ? MAINTENANCE_MSG : NIGHT_MSG;
+      const blockUntil = maintenanceActive ? MAINTENANCE_UNTIL : getNext7amBRT();
+
       return new Response(
         JSON.stringify({
           valid: true,
@@ -304,7 +325,7 @@ serve(async (req) => {
           },
           remaining_total: remainingTotal,
           remaining_daily: remainingDaily,
-          maintenance: maintenanceActive ? { until: MAINTENANCE_UNTIL, message: MAINTENANCE_MSG } : null,
+          maintenance: activeBlock ? { until: blockUntil, message: blockMsg } : null,
           warning_message: tokenData.warning_message || null,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -313,10 +334,16 @@ serve(async (req) => {
 
     // If creating a farm
     if (action === "create") {
-      // Block creation during maintenance
+      // Block creation during maintenance or night mode
       if (maintenanceActive) {
         return new Response(
           JSON.stringify({ success: false, error: MAINTENANCE_MSG }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (nightBlocked) {
+        return new Response(
+          JSON.stringify({ success: false, error: NIGHT_MSG }),
           { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
