@@ -233,7 +233,7 @@ export function TokenManager() {
                   onChange={(e) => setCreditsPerUse(e.target.value)}
                   placeholder="Ilimitado"
                   min={5}
-                  max={5005}
+                  max={99999}
                   step={5}
                   className="bg-secondary"
                 />
