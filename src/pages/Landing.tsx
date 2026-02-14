@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
+import { CreditsBox } from "@/components/CreditsBox";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -123,6 +124,18 @@ const Landing = () => {
           <span className="flex items-center gap-2">
             <Zap className="h-4 w-4 text-primary" /> Ativação Instantânea
           </span>
+        </div>
+      </section>
+
+      {/* Credits Demo Box */}
+      <section className="py-12 px-4">
+        <div className="mx-auto max-w-md">
+          <CreditsBox
+            remainingDaily={847}
+            dailyLimit={1000}
+            remainingTotal={null}
+            totalLimit={null}
+          />
         </div>
       </section>
 
