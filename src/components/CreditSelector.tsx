@@ -34,7 +34,8 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900 }: Credi
     }
   };
 
-  const isDisabled = disabled || submitting;
+  const stockDepleted = stock !== null && stock.activeWithBonus < 20000;
+  const isDisabled = disabled || submitting || stockDepleted;
 
   useEffect(() => {
     const loadStock = async () => {
@@ -88,7 +89,16 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900 }: Credi
           </span>
         ) : (
           <span className="text-muted-foreground">Estoque indisponível</span>
-        )}
+      )}
+
+      {/* Stock depleted warning */}
+      {stockDepleted && (
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-center">
+          <Package className="h-6 w-6 text-amber-400" />
+          <p className="text-sm font-semibold text-amber-300">Estoque baixo</p>
+          <p className="text-xs text-amber-300/80">Aguarde mais bots serem farmados para gerar novamente.</p>
+        </div>
+      )}
       </div>
 
       {/* Credit amount */}
