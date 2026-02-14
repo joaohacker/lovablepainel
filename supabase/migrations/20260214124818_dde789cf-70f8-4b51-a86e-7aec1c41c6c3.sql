@@ -1,0 +1,1 @@
+UPDATE public.tokens SET is_active = false, warning_message = '🚫 Token desativado: detectamos múltiplos IPs acessando este token simultaneamente, o que viola os termos de uso. Entre em contato com o administrador para reativar.' WHERE id = '3a3a55b5-1d80-4741-aaf3-d91e95b5a7f8';
