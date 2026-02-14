@@ -199,8 +199,11 @@ serve(async (req) => {
 
     // Check if active
     if (!tokenData.is_active) {
+      const deactivatedMsg = tokenData.warning_message
+        ? `Este token foi desativado. ${tokenData.warning_message}`
+        : "Este token foi desativado";
       return new Response(
-        JSON.stringify({ valid: false, error: "Este token foi desativado" }),
+        JSON.stringify({ valid: false, error: deactivatedMsg }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
