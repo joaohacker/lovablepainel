@@ -25,7 +25,7 @@ const Landing = () => {
       .from("products")
       .select("id, price")
       .eq("is_active", true)
-      .order("created_at", { ascending: true })
+      .order("price", { ascending: true })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
