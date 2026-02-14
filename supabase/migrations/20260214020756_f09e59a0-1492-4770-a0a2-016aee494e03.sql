@@ -1,0 +1,1 @@
+UPDATE public.tokens SET warning_message = '⚠️ Geração será desativada da meia-noite até 7:00 da manhã para guardar bots no estoque. Aproveitem enquanto está ativa!' WHERE is_active = true;
