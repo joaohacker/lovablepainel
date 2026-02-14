@@ -200,7 +200,7 @@ const Generate = () => {
 
   if (validating) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="text-muted-foreground">Validando acesso...</p>
@@ -219,7 +219,7 @@ const Generate = () => {
     );
 
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
         <Card className="glass-card max-w-md w-full">
           <CardContent className="p-8 flex flex-col items-center gap-4 text-center">
             {icon}
@@ -235,8 +235,8 @@ const Generate = () => {
   const isIdle = farm.state === "idle";
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+    <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden hidden sm:block">
         <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-success/5 blur-3xl" />
       </div>
@@ -302,7 +302,7 @@ const Generate = () => {
         </div>
 
         <Card className="glass-card">
-          <CardContent className="p-6 md:p-8">
+          <CardContent className="p-5 sm:p-6 md:p-8">
             {validation?.maintenance ? (
               <MaintenanceBanner message={validation.maintenance.message} until={validation.maintenance.until} />
             ) : isIdle ? (
