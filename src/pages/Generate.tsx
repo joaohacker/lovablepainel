@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
-import { CreditsBox } from "@/components/CreditsBox";
+
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ShieldX, Clock, Ban } from "lucide-react";
@@ -288,14 +288,6 @@ const Generate = () => {
             </div>
           )}
 
-          {/* Credits box */}
-          <CreditsBox
-            remainingDaily={validation.remaining_daily}
-            dailyLimit={tokenInfo.daily_limit}
-            remainingTotal={validation.remaining_total}
-            totalLimit={tokenInfo.total_limit}
-          />
-          <p className="text-xs text-muted-foreground text-center mt-1">🕐 Limite diário reseta às 12:00 (horário de Brasília)</p>
         </div>
 
         <Card className="glass-card">
