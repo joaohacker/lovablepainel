@@ -34,7 +34,7 @@ serve(async (req) => {
     // BRT = UTC-3
     const brtHour = (nowUTC.getUTCHours() - 3 + 24) % 24;
     const isNightMode = brtHour >= 0 && brtHour < 7;
-    const NIGHT_MSG = "🌙 Geração desativada entre 00:00 e 07:00 (horário de Brasília) para manter bots no estoque. Volte às 7h!";
+    const NIGHT_MSG = "🌙 Geração desativada entre 00:00 e 07:00 no horário de Brasília para manter bots no estoque. Volte às 7h (horário de Brasília)!";
     // Next 7:00 BRT in UTC for countdown
     const getNext7amBRT = () => {
       const next = new Date(nowUTC);
