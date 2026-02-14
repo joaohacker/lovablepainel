@@ -119,4 +119,12 @@
   .overflow-y-auto {
     -webkit-overflow-scrolling: touch;
   }
+
+  @keyframes credits-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+  .credits-shimmer {
+    animation: credits-shimmer 2s ease-in-out infinite;
+  }
 }
