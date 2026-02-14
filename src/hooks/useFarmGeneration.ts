@@ -130,8 +130,8 @@ export function useFarmGeneration(accessToken?: string) {
             }
 
             setGen((prev) => {
-              const existingIds = new Set(prev.feed.map((f) => f.eventId));
-              const brandNew = finalEntries.filter((e) => !existingIds.has(e.eventId));
+              const brandNew = finalEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
+              brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
               const now = Date.now();
               const staggered = brandNew.map((entry, i) => ({
                 ...entry,
@@ -202,9 +202,9 @@ export function useFarmGeneration(accessToken?: string) {
             }
 
             setGen((prev) => {
-              // Find entries that are truly new (not in current feed)
-              const existingIds = new Set(prev.feed.map((f) => f.eventId));
-              const brandNew = incomingEntries.filter((e) => !existingIds.has(e.eventId));
+              // Find entries that are truly new (not ever processed)
+              const brandNew = incomingEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
+              brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
 
               // Stagger new entries by assigning incremental timestamps for animation
               const now = Date.now();
