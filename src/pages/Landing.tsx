@@ -1,4 +1,6 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Infinity,
@@ -16,7 +18,28 @@ import lovableHeart from "@/assets/lovable-heart.png";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const [product, setProduct] = useState<{ id: string; price: number } | null>(null);
 
+  useEffect(() => {
+    supabase
+      .from("products")
+      .select("id, price")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setProduct(data);
+      });
+  }, []);
+
+  const goToCheckout = () => {
+    if (product) {
+      navigate(`/checkout?product=${product.id}`);
+    } else {
+      navigate("/auth");
+    }
+  };
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Navbar */}
@@ -81,7 +104,7 @@ const Landing = () => {
           <Button
             size="lg"
             className="rounded-full text-base px-8 gap-2 mt-4"
-            onClick={() => navigate("/auth")}
+            onClick={goToCheckout}
           >
             Começar Agora <ArrowRight className="h-4 w-4" />
           </Button>
@@ -149,7 +172,7 @@ const Landing = () => {
               <Button
                 size="lg"
                 className="w-full rounded-lg text-base gap-2"
-                onClick={() => navigate("/auth")}
+                onClick={goToCheckout}
               >
                 Inicializar Acesso <ArrowRight className="h-4 w-4" />
               </Button>
@@ -278,7 +301,7 @@ const Landing = () => {
           <Button
             size="lg"
             className="rounded-full text-base px-10 gap-2"
-            onClick={() => navigate("/auth")}
+            onClick={goToCheckout}
           >
             Começar Agora <ArrowRight className="h-4 w-4" />
           </Button>
