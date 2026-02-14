@@ -49,7 +49,7 @@ const Landing = () => {
           <div className="flex items-center gap-2">
             <img src={lovableHeart} alt="Logo" className="h-7 w-7" />
             <span className="text-lg font-bold tracking-tight">
-              Lovable<span className="text-primary">Credits</span>
+              Lovable<span className="text-primary">Painel</span>
             </span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
@@ -321,7 +321,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
-        <p>© 2026 LovableCredits. Todos os direitos reservados.</p>
+        <p>© 2026 LovablePainel. Todos os direitos reservados.</p>
       </footer>
     </div>
   );
