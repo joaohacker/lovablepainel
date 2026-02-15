@@ -15,6 +15,7 @@ import {
 import lovableHeart from "@/assets/lovable-heart.png";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PublicGenerator } from "@/components/public/PublicGenerator";
+import { PlansSection } from "@/components/public/PlansSection";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -43,11 +44,11 @@ const Landing = () => {
             <a href="#beneficios" className="hover:text-foreground transition-colors">
               Benefícios
             </a>
+            <a href="#planos" className="hover:text-foreground transition-colors">
+              Planos
+            </a>
             <a href="#como-funciona" className="hover:text-foreground transition-colors whitespace-nowrap">
               Como Funciona
-            </a>
-            <a href="#gerador" className="hover:text-foreground transition-colors">
-              Gerador
             </a>
             <Button
               size="sm"
@@ -78,6 +79,9 @@ const Landing = () => {
           <PublicGenerator />
         </div>
       </section>
+
+      {/* Plans Section */}
+      <PlansSection />
 
       {/* Trust Bar */}
       <section className="relative z-10 border-y border-border/40 py-5">

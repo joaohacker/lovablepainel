@@ -9,6 +9,7 @@ import Admin from "./pages/Admin";
 import Generate from "./pages/Generate";
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
+import Plans from "./pages/Plans";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/generate/:token" element={<Generate />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/planos" element={<Plans />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
