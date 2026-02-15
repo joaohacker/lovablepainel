@@ -28,6 +28,7 @@ export type Database = {
           status: string
           token_id: string | null
           updated_at: string
+          user_id: string | null
           workspace_name: string | null
         }
         Insert: {
@@ -43,6 +44,7 @@ export type Database = {
           status?: string
           token_id?: string | null
           updated_at?: string
+          user_id?: string | null
           workspace_name?: string | null
         }
         Update: {
@@ -58,6 +60,7 @@ export type Database = {
           status?: string
           token_id?: string | null
           updated_at?: string
+          user_id?: string | null
           workspace_name?: string | null
         }
         Relationships: [
@@ -78,6 +81,7 @@ export type Database = {
           customer_email: string
           customer_name: string
           id: string
+          order_type: string
           paid_at: string | null
           pix_code: string | null
           pix_expires_at: string | null
@@ -86,6 +90,7 @@ export type Database = {
           token_id: string | null
           transaction_id: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           amount: number
@@ -94,6 +99,7 @@ export type Database = {
           customer_email: string
           customer_name: string
           id?: string
+          order_type?: string
           paid_at?: string | null
           pix_code?: string | null
           pix_expires_at?: string | null
@@ -102,6 +108,7 @@ export type Database = {
           token_id?: string | null
           transaction_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           amount?: number
@@ -110,6 +117,7 @@ export type Database = {
           customer_email?: string
           customer_name?: string
           id?: string
+          order_type?: string
           paid_at?: string | null
           pix_code?: string | null
           pix_expires_at?: string | null
@@ -118,6 +126,7 @@ export type Database = {
           token_id?: string | null
           transaction_id?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -309,11 +318,95 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          credits: number | null
+          description: string
+          id: string
+          reference_id: string | null
+          type: string
+          wallet_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credits?: number | null
+          description?: string
+          id?: string
+          reference_id?: string | null
+          type: string
+          wallet_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credits?: number | null
+          description?: string
+          id?: string
+          reference_id?: string | null
+          type?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      credit_wallet: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_reference_id?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      debit_wallet: {
+        Args: {
+          p_amount: number
+          p_credits: number
+          p_description: string
+          p_reference_id?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

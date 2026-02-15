@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.validate-token]
 verify_jwt = false
+
+[functions.public-generate]
+verify_jwt = false
+
+[functions.wallet-deposit]
+verify_jwt = false
+
+[functions.brpix-webhook]
+verify_jwt = false
