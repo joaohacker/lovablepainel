@@ -182,7 +182,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
               {remainingDaily != null && <span className="ml-1 text-xs">(restam {remainingDaily.toLocaleString()})</span>}
             </span>
           </div>
-          <span className="text-sm font-extrabold text-amber-400 animate-pulse">🔥 Aumentar →</span>
+          <span className="text-xs font-semibold text-primary">Aumentar →</span>
         </button>
       )}
 

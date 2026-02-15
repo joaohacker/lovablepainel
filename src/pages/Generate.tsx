@@ -254,6 +254,14 @@ const Generate = () => {
           <h1 className="text-2xl font-bold text-foreground">Gerador de Créditos</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Olá, <span className="text-foreground font-medium">{tokenInfo.client_name}</span>
+            {tokenInfo.daily_limit != null && (
+              <span className="ml-2 text-xs">
+                · Limite diário: <span className="font-semibold text-foreground">{tokenInfo.daily_limit.toLocaleString()}</span>
+                {validation.remaining_daily != null && (
+                  <span className="text-muted-foreground"> (restam {validation.remaining_daily.toLocaleString()})</span>
+                )}
+              </span>
+            )}
           </p>
 
           {/* Update 3.0 flyer */}
