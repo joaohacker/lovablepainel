@@ -126,18 +126,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Credits Demo Box */}
-      <section className="relative z-10 py-12 px-4">
-        <div className="mx-auto max-w-md">
-          <CreditsBox
-            remainingDaily={594}
-            dailyLimit={1000}
-            remainingTotal={null}
-            totalLimit={null}
-            demo
-          />
-        </div>
-      </section>
 
       {/* Pricing Card */}
       <section id="preco" className="relative z-10 py-24 px-4">
