@@ -151,45 +151,167 @@ export function PublicGenerator() {
 
   return (
     <div className="w-full max-w-6xl mx-auto">
-      <Card className="glass-card">
-        <CardContent className="p-6 md:p-12">
-          {/* Wallet display */}
-          {user && (
-            <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/50 px-4 py-3 mb-6">
-              <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-primary" />
-                <span className="text-sm text-muted-foreground">Saldo:</span>
-              </div>
-              <div className="text-right">
-                <span className="text-lg font-bold text-foreground">{formatBRL(balance)}</span>
-                <span className="text-xs text-muted-foreground ml-2">≈ {balanceCredits} créditos</span>
-              </div>
-            </div>
-          )}
+      <Tabs defaultValue="generator" className="w-full">
+        <TabsList className="w-full grid grid-cols-2 mb-8 h-12 text-base">
+          <TabsTrigger value="generator" className="text-base">⚡ Gerador</TabsTrigger>
+          <TabsTrigger value="live" className="text-base">🔴 Ao Vivo</TabsTrigger>
+        </TabsList>
 
-          {isIdle ? (
-            <div className="space-y-8">
-...
-            </div>
-          ) : (
-            <GenerationStatus
-              state={farm.state}
-              masterEmail={farm.masterEmail}
-              queuePosition={farm.queuePosition}
-              workspaceName={farm.workspaceName}
-              creditsEarned={farm.creditsEarned}
-              totalCreditsRequested={farm.totalCreditsRequested}
-              result={farm.result}
-              errorMessage={farm.errorMessage}
-              logs={farm.logs}
-              feed={farm.feed}
-              expiresAt={farm.expiresAt}
-              onCancel={farm.cancelGeneration}
-              onReset={() => { farm.reset(); refetchWallet(); }}
-            />
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="generator">
+          <Card className="glass-card">
+            <CardContent className="p-6 md:p-12">
+              {/* Wallet display */}
+              {user && (
+                <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/50 px-4 py-3 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">Saldo:</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-bold text-foreground">{formatBRL(balance)}</span>
+                    <span className="text-xs text-muted-foreground ml-2">≈ {balanceCredits} créditos</span>
+                  </div>
+                </div>
+              )}
+
+
+              {isIdle ? (
+                <div className="space-y-8">
+                  {/* Credit selector */}
+                  <div className="text-center space-y-3">
+                    <label className="text-base font-medium text-muted-foreground uppercase tracking-wider">
+                      Quantidade de Créditos
+                    </label>
+                    <div className="flex items-center justify-center gap-3">
+                      <Input
+                        type="number"
+                        value={creditInput}
+                        onChange={handleInputChange}
+                        onBlur={handleInputBlur}
+                        min={5}
+                        max={10000}
+                        step={5}
+                        className="w-36 text-center text-4xl font-bold bg-secondary border-border h-18 md:h-20"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Slider */}
+                  <div className="px-4">
+                    <Slider
+                      value={[credits]}
+                      onValueChange={handleSliderChange}
+                      min={5}
+                      max={10000}
+                      step={5}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between mt-3 text-sm text-muted-foreground">
+                      <span>5</span>
+                      <span>10.000</span>
+                    </div>
+                  </div>
+
+                  {/* Price display */}
+                  <div className="rounded-xl border border-border/50 bg-secondary/30 p-6 text-center space-y-2">
+                    <p className="text-4xl md:text-5xl font-extrabold text-foreground">{formatBRL(price)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatBRL(pricePer100)} por 100 créditos
+                    </p>
+                  </div>
+
+                  {/* Fixed packages */}
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-center">
+                      Pacotes Populares
+                    </p>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                      {FIXED_PACKAGES.map((pkg) => (
+                        <button
+                          key={pkg.name}
+                          onClick={() => selectPackage(pkg)}
+                          className={`relative rounded-xl border p-4 text-center transition-all hover:border-primary/50 hover:bg-primary/5 ${
+                            credits === pkg.credits
+                              ? "border-primary bg-primary/10"
+                              : "border-border/50 bg-secondary/20"
+                          }`}
+                        >
+                          {pkg.discount && (
+                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-success text-success-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                              {pkg.discount}
+                            </span>
+                          )}
+                          <p className="text-sm font-semibold text-foreground">{pkg.credits}</p>
+                          <p className="text-xs text-muted-foreground">{formatBRL(pkg.price)}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Generate button */}
+                  <Button
+                    onClick={() => handleGenerate()}
+                    disabled={submitting || credits < 5}
+                    size="lg"
+                    className="w-full h-16 text-xl font-semibold gap-2"
+                  >
+                    {submitting ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Zap className="h-5 w-5" />
+                    )}
+                    {submitting ? "Iniciando..." : `Gerar ${credits} Créditos`}
+                  </Button>
+
+                  {/* Add balance button */}
+                  {user && (
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => { setDepositAmount(null); setShowDeposit(true); }}
+                    >
+                      <Wallet className="h-4 w-4" /> Adicionar Saldo
+                    </Button>
+                  )}
+
+                  {!user && (
+                    <p className="text-xs text-center text-muted-foreground/60 mt-1">
+                      Já tem conta?{" "}
+                      <button onClick={() => setShowAuth(true)} className="text-primary/70 hover:text-primary hover:underline transition-colors">
+                        Entrar
+                      </button>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <GenerationStatus
+                  state={farm.state}
+                  masterEmail={farm.masterEmail}
+                  queuePosition={farm.queuePosition}
+                  workspaceName={farm.workspaceName}
+                  creditsEarned={farm.creditsEarned}
+                  totalCreditsRequested={farm.totalCreditsRequested}
+                  result={farm.result}
+                  errorMessage={farm.errorMessage}
+                  logs={farm.logs}
+                  feed={farm.feed}
+                  expiresAt={farm.expiresAt}
+                  onCancel={farm.cancelGeneration}
+                  onReset={() => { farm.reset(); refetchWallet(); }}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="live">
+          <Card className="glass-card">
+            <CardContent className="p-5 md:p-8">
+              <LiveGenerations currentFarmId={farm.farmId} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <DepositModal
         open={showDeposit}
