@@ -254,15 +254,20 @@ const Generate = () => {
           <h1 className="text-2xl font-bold text-foreground">Gerador de Créditos</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Olá, <span className="text-foreground font-medium">{tokenInfo.client_name}</span>
-            {tokenInfo.daily_limit != null && (
-              <span className="ml-2 text-xs">
-                · Limite diário: <span className="font-semibold text-foreground">{tokenInfo.daily_limit.toLocaleString()}</span>
-                {validation.remaining_daily != null && (
-                  <span className="text-muted-foreground"> (restam {validation.remaining_daily.toLocaleString()})</span>
-                )}
-              </span>
-            )}
           </p>
+          {tokenInfo.daily_limit != null && (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5">
+              <span className="text-sm">🔥</span>
+              <span className="text-sm font-bold text-amber-400">
+                Limite diário: {tokenInfo.daily_limit.toLocaleString()}
+              </span>
+              {validation.remaining_daily != null && (
+                <span className="text-xs text-amber-300/80 ml-1">
+                  · restam <span className="font-semibold text-amber-300">{validation.remaining_daily.toLocaleString()}</span>
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Update 3.0 flyer */}
           <div className="mt-4 rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-600/20 via-fuchsia-500/15 to-pink-500/20 px-5 py-4 text-left relative overflow-hidden">
