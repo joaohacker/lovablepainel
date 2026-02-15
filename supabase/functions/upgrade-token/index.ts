@@ -9,9 +9,9 @@ const corsHeaders = {
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
-// Pricing with 25% discount: R$11.25 per 1000 daily, R$22.50 per 1000 per-use
-const PRICE_PER_1000_DAILY = 11.25;
-const PRICE_PER_1000_PER_USE = 22.50;
+// Pricing with 15% discount: R$12.75 per 1000 daily, R$25.50 per 1000 per-use
+const PRICE_PER_1000_DAILY = 12.75;
+const PRICE_PER_1000_PER_USE = 25.50;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
