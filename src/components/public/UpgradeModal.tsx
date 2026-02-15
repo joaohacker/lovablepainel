@@ -23,7 +23,7 @@ const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
 // Daily: tiered pricing per 1000 credits
 function getDailyPrice(totalNewLimit: number, increment: number): number {
-  const pricePerK = totalNewLimit >= 10000 ? 8 : totalNewLimit >= 5000 ? 10 : 15;
+  const pricePerK = totalNewLimit >= 10000 ? 15 : totalNewLimit >= 5000 ? 10 : 8;
   return (increment / 1000) * pricePerK;
 }
 
