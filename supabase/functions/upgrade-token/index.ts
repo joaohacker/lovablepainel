@@ -10,9 +10,8 @@ const corsHeaders = {
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
 // Daily: tiered pricing per 1000
-function getDailyAmount(increment: number, currentDailyLimit: number): number {
-  const newLimit = (currentDailyLimit || 0) + increment;
-  const pricePerK = newLimit >= 10000 ? 15 : newLimit >= 5000 ? 10 : 8;
+function getDailyAmount(increment: number): number {
+  const pricePerK = increment >= 10000 ? 15 : increment >= 5000 ? 10 : 8;
   return (increment / 1000) * pricePerK;
 }
 
@@ -87,7 +86,7 @@ serve(async (req) => {
     // Calculate price
     let amount: number;
     if (upgrade_type === "daily_limit") {
-      amount = getDailyAmount(increment, tokenData.daily_limit);
+      amount = getDailyAmount(increment);
     } else {
       amount = getPerUseAmount(increment, tokenData.credits_per_use);
     }
