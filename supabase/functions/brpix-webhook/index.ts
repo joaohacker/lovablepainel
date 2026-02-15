@@ -95,6 +95,43 @@ serve(async (req) => {
       );
     }
 
+    // ======= WALLET DEPOSIT FLOW =======
+    if (order.order_type === "deposit" && order.user_id) {
+      console.log(`[brpix-webhook] Processing wallet deposit for user ${order.user_id}, amount ${order.amount}`);
+
+      const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
+        p_user_id: order.user_id,
+        p_amount: Number(order.amount),
+        p_description: `Depósito via PIX - ${order.customer_name}`,
+        p_reference_id: order.id,
+      });
+
+      if (creditError) {
+        console.error("[brpix-webhook] Credit wallet error:", creditError);
+        return new Response(JSON.stringify({ error: "Credit wallet failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Update order as paid
+      await supabase
+        .from("orders")
+        .update({
+          status: "paid",
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", order.id);
+
+      console.log(`[brpix-webhook] Wallet deposit ${order.id} paid → R$${order.amount} credited for user ${order.user_id}`);
+
+      return new Response(
+        JSON.stringify({ ok: true, type: "deposit", new_balance: (creditResult as any)?.new_balance }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ======= ORIGINAL TOKEN FLOW =======
     // Get product config
     const { data: product } = await supabase
       .from("products")
