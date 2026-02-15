@@ -19,7 +19,7 @@ const PASSWORD_RULES = [
 ];
 
 export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) => {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,30 +28,45 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
   const [success, setSuccess] = useState<string | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // Check if already logged in and linked to this token
+  // Check if already logged in and if token has an account
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // Validate token and check if it has an account
+      const { data: tokenData } = await supabase.functions.invoke("validate-token", {
+        body: { token, action: "validate" },
+      });
+
+      if (!tokenData?.valid || !tokenData?.token?.id) {
+        setCheckingSession(false);
+        setMode("signup");
+        return;
+      }
+
+      // Check if token already has a registered account
+      const { data: hasAccount } = await supabase.functions.invoke("token-auth", {
+        body: { action: "check", token },
+      });
+      const tokenHasAccount = hasAccount?.has_account === true;
+
       if (session) {
         // Check if this user is linked to this token
-        const { data: tokenData } = await supabase.functions.invoke("validate-token", {
-          body: { token, action: "validate" },
-        });
-        if (tokenData?.valid && tokenData?.token?.id) {
-          const { data: account } = await supabase
-            .from("token_accounts" as any)
-            .select("token_id")
-            .eq("user_id", session.user.id)
-            .maybeSingle();
+        const { data: account } = await supabase
+          .from("token_accounts" as any)
+          .select("token_id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
 
-          if (account && (account as any).token_id === tokenData.token.id) {
-            onAuthenticated();
-            return;
-          }
-          // User logged in but not linked to this token - sign out
-          await supabase.auth.signOut();
+        if (account && (account as any).token_id === tokenData.token.id) {
+          onAuthenticated();
+          return;
         }
+        // User logged in but not linked to this token - sign out
+        await supabase.auth.signOut();
       }
+
+      setMode(tokenHasAccount ? "login" : "signup");
       setCheckingSession(false);
     };
     checkSession();
@@ -99,7 +114,7 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
     }
   };
 
-  if (checkingSession) {
+  if (checkingSession || mode === null) {
     return (
       <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4">
