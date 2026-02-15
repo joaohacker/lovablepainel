@@ -43,8 +43,10 @@ const Landing = () => {
   };
   return (
     <div className="min-h-screen text-foreground overflow-x-hidden bg-cover bg-center bg-fixed bg-no-repeat relative" style={{ backgroundImage: "url('/images/bg-landing.png')" }}>
+      {/* Mobile-specific cosmic background */}
+      <div className="fixed inset-0 md:hidden bg-cover bg-center bg-no-repeat z-0" style={{ backgroundImage: "url('/images/bg-mobile.png')" }} />
       {/* Dark overlay for text contrast */}
-      <div className="fixed inset-0 bg-black/60 pointer-events-none z-0" />
+      <div className="fixed inset-0 bg-black/60 md:bg-black/60 pointer-events-none z-0" />
       {/* Navbar */}
       <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4 relative">
         <div className="glass-card flex items-center justify-between rounded-full px-6 py-3">
@@ -77,16 +79,16 @@ const Landing = () => {
       </nav>
 
       {/* Hero */}
-      <section className="relative z-10 pt-20 pb-24 px-4 text-center">
+      <section className="relative z-10 pt-12 md:pt-20 pb-16 md:pb-24 px-4 text-center">
 
-        <div className="mx-auto max-w-3xl space-y-6">
-          <h1 className="text-5xl md:text-7xl font-extrabold leading-tight tracking-tight">
+        <div className="mx-auto max-w-3xl space-y-4 md:space-y-6">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold leading-tight tracking-tight">
             Painel Gerador de Créditos{" "}
             <span className="text-primary underline decoration-primary/40 underline-offset-8">
               Lovable
             </span>
           </h1>
-          <p className="mx-auto max-w-xl text-lg text-muted-foreground">
+          <p className="mx-auto max-w-xl text-base md:text-lg text-muted-foreground">
             Automatize a geração de créditos para seu workspace. Tenha controle total
             e maximize sua produtividade com nosso painel inteligente.
           </p>
@@ -117,9 +119,9 @@ const Landing = () => {
 
 
       {/* Pricing Card */}
-      <section id="preco" className="relative z-10 py-24 px-4">
+      <section id="preco" className="relative z-10 py-14 md:py-24 px-4">
         <div className="mx-auto max-w-4xl">
-          <div className="glass-card rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden">
+          <div className="glass-card rounded-2xl p-5 md:p-12 flex flex-col md:flex-row items-center gap-6 md:gap-10 relative overflow-hidden">
 
             <div className="flex-1 text-left space-y-4">
               <span className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary font-semibold">
@@ -164,14 +166,14 @@ const Landing = () => {
       </section>
 
       {/* Benefits */}
-      <section id="beneficios" className="relative z-10 py-24 px-4">
-        <div className="mx-auto max-w-5xl text-center space-y-4 mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold">Benefícios Inegáveis</h2>
+      <section id="beneficios" className="relative z-10 py-14 md:py-24 px-4">
+        <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-10 md:mb-16">
+          <h2 className="text-3xl md:text-5xl font-bold">Benefícios Inegáveis</h2>
           <p className="text-muted-foreground text-lg">
             Projetado para desenvolvedores que exigem mais. Muito mais.
           </p>
         </div>
-        <div className="mx-auto max-w-5xl grid md:grid-cols-3 gap-6">
+        <div className="mx-auto max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {[
             {
               icon: Infinity,
@@ -216,19 +218,19 @@ const Landing = () => {
       </section>
 
       {/* How it Works */}
-      <section id="como-funciona" className="relative z-10 py-24 px-4">
-        <div className="mx-auto max-w-5xl text-center space-y-4 mb-16">
+      <section id="como-funciona" className="relative z-10 py-14 md:py-24 px-4">
+        <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-10 md:mb-16">
           <span className="inline-block rounded-full bg-primary/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
             Fluxo de Trabalho
           </span>
-          <h2 className="text-4xl md:text-5xl font-bold">Como Funciona o Gerador</h2>
+          <h2 className="text-3xl md:text-5xl font-bold">Como Funciona o Gerador</h2>
           <p className="text-muted-foreground text-lg">
             Um processo automatizado de 5 etapas para turbinar seu workspace no Lovable com
             créditos em minutos.
           </p>
         </div>
 
-        <div className="mx-auto max-w-3xl space-y-10 bg-black/40 rounded-2xl p-8 md:p-12 backdrop-blur-[2px]">
+        <div className="mx-auto max-w-3xl space-y-6 md:space-y-10 bg-black/40 rounded-2xl p-5 md:p-12 backdrop-blur-[2px]">
           {[
             {
               step: "01",
@@ -270,9 +272,9 @@ const Landing = () => {
       </section>
 
       {/* CTA Final */}
-      <section className="relative z-10 py-24 px-4 text-center">
-        <div className="mx-auto max-w-2xl space-y-6">
-          <h2 className="text-4xl md:text-5xl font-bold">Pronto para Começar?</h2>
+      <section className="relative z-10 py-14 md:py-24 px-4 text-center">
+        <div className="mx-auto max-w-2xl space-y-4 md:space-y-6">
+          <h2 className="text-3xl md:text-5xl font-bold">Pronto para Começar?</h2>
           <p className="text-lg text-muted-foreground">
             Junte-se a centenas de desenvolvedores que já desbloquearam o potencial máximo do
             Lovable.
