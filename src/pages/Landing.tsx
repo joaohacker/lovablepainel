@@ -262,7 +262,7 @@ const Landing = () => {
           </p>
         </div>
 
-        <div className="mx-auto max-w-3xl space-y-10">
+        <div className="mx-auto max-w-3xl space-y-10 bg-black/40 rounded-2xl p-8 md:p-12 backdrop-blur-[2px]">
           {[
             {
               step: "01",
