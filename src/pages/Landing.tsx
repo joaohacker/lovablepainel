@@ -215,14 +215,16 @@ const Landing = () => {
                 descFull: "Integração direta com seus provedores favoritos. Do prompt para a produção instantaneamente.",
               },
             ];
-            const items = isMobile ? allBenefits.slice(0, 3) : allBenefits;
+            const items = allBenefits;
             return items.map(({ icon: Icon, title, desc, descFull }) => (
-              <div key={title} className="glass-card rounded-xl p-4 md:p-6 space-y-2 md:space-y-4 text-left">
-                <div className="inline-flex items-center justify-center h-9 w-9 md:h-11 md:w-11 rounded-lg bg-primary/10">
+              <div key={title} className="glass-card rounded-xl p-4 md:p-6 flex md:flex-col items-center md:items-start gap-3 md:gap-0 md:space-y-4 text-left">
+                <div className="shrink-0 inline-flex items-center justify-center h-9 w-9 md:h-11 md:w-11 rounded-lg bg-primary/10">
                   <Icon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
                 </div>
-                <h3 className="text-base md:text-lg font-semibold">{title}</h3>
-                <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">{isMobile ? desc : descFull}</p>
+                <div>
+                  <h3 className="text-sm md:text-lg font-semibold">{title}</h3>
+                  <p className="text-xs md:text-sm text-muted-foreground leading-relaxed mt-0.5 md:mt-2">{isMobile ? desc : descFull}</p>
+                </div>
               </div>
             ));
           })()}
@@ -276,7 +278,7 @@ const Landing = () => {
                 descFull: "Todos os créditos são verificados e consolidados no seu workspace. Relatório completo disponível no painel admin.",
               },
             ];
-            const items = isMobile ? [allSteps[0], allSteps[2], allSteps[4]] : allSteps;
+            const items = allSteps;
             return items.map(({ step, title, desc, descFull }) => (
               <div key={step} className="flex items-start gap-4 md:gap-6">
                 <div className="shrink-0 flex items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary/15 text-primary font-bold text-xs md:text-sm">
