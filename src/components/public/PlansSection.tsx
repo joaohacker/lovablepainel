@@ -29,7 +29,7 @@ export function PlansSection() {
       .from("products")
       .select("id, name, price, daily_limit, credits_per_use, description")
       .in("name", ["Básico", "Pro", "Premium"])
-      .in("price", [49, 99, 199])
+      .in("price", [49.99, 99, 199])
       .eq("is_active", true)
       .order("price")
       .then(({ data }) => {
