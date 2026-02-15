@@ -3,11 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Loader2, Wallet, LogIn } from "lucide-react";
+import { Zap, Loader2, Wallet } from "lucide-react";
 import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBalance } from "@/lib/pricing";
 import { GenerationStatus } from "@/components/GenerationStatus";
-import { LiveGenerations } from "./LiveGenerations";
 import { DepositModal } from "./DepositModal";
 import { AuthModal } from "./AuthModal";
 import { useWallet } from "@/hooks/useWallet";
@@ -151,15 +149,8 @@ export function PublicGenerator() {
 
   return (
     <div className="w-full max-w-6xl mx-auto">
-      <Tabs defaultValue="generator" className="w-full">
-        <TabsList className="w-full grid grid-cols-2 mb-8 h-12 text-base">
-          <TabsTrigger value="generator" className="text-base">⚡ Gerador</TabsTrigger>
-          <TabsTrigger value="live" className="text-base">🔴 Ao Vivo</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="generator">
-          <Card className="glass-card">
-            <CardContent className="p-6 md:p-12">
+      <Card className="glass-card">
+        <CardContent className="p-6 md:p-12">
               {/* Wallet display */}
               {user && (
                 <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/50 px-4 py-3 mb-6">
@@ -300,18 +291,8 @@ export function PublicGenerator() {
                   onReset={() => { farm.reset(); refetchWallet(); }}
                 />
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="live">
-          <Card className="glass-card">
-            <CardContent className="p-5 md:p-8">
-              <LiveGenerations currentFarmId={farm.farmId} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          </CardContent>
+      </Card>
 
       <DepositModal
         open={showDeposit}
