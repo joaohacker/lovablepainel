@@ -11,6 +11,7 @@ const API_BASE = "https://api.lovablextensao.shop";
 
 function calcularPreco(creditos: number): number {
   const pricePer100 =
+    creditos >= 5000 ? 5.0 :
     creditos >= 3000 ? 5.5 :
     creditos >= 2000 ? 6.0 :
     creditos >= 1000 ? 6.5 : 7.0;

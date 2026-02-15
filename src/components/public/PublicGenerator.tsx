@@ -37,7 +37,7 @@ export function PublicGenerator() {
 
   const handleSliderChange = (value: number[]) => {
     const rounded = Math.round(value[0] / 5) * 5;
-    const clamped = Math.max(5, Math.min(5000, rounded));
+    const clamped = Math.max(5, Math.min(10000, rounded));
     setCredits(clamped);
     setCreditInput(String(clamped));
   };
@@ -49,7 +49,7 @@ export function PublicGenerator() {
   const handleInputBlur = () => {
     const val = parseInt(creditInput) || 5;
     const rounded = Math.round(val / 5) * 5;
-    const clamped = Math.max(5, Math.min(5000, rounded));
+    const clamped = Math.max(5, Math.min(10000, rounded));
     setCredits(clamped);
     setCreditInput(String(clamped));
   };
@@ -189,7 +189,7 @@ export function PublicGenerator() {
                         onChange={handleInputChange}
                         onBlur={handleInputBlur}
                         min={5}
-                        max={5000}
+                        max={10000}
                         step={5}
                         className="w-28 text-center text-2xl font-bold bg-secondary border-border h-14"
                       />
@@ -202,13 +202,13 @@ export function PublicGenerator() {
                       value={[credits]}
                       onValueChange={handleSliderChange}
                       min={5}
-                      max={5000}
+                      max={10000}
                       step={5}
                       className="w-full"
                     />
                     <div className="flex justify-between mt-2 text-xs text-muted-foreground">
                       <span>5</span>
-                      <span>5.000</span>
+                      <span>10.000</span>
                     </div>
                   </div>
 
@@ -225,7 +225,7 @@ export function PublicGenerator() {
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">
                       Pacotes Populares
                     </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                       {FIXED_PACKAGES.map((pkg) => (
                         <button
                           key={pkg.name}
