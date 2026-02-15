@@ -84,7 +84,16 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
         body: { action: mode, token, email: email.trim(), password, ...(mode === "signup" ? { username: username.trim() } : {}) },
       });
 
-      if (fnError) throw new Error("Erro de conexão");
+      // supabase-js treats non-2xx as fnError, but data may still contain the real message
+      if (fnError) {
+        if (data && !data.success && data.error) {
+          setError(data.error);
+        } else {
+          setError("Erro de conexão. Tente novamente.");
+        }
+        setLoading(false);
+        return;
+      }
 
       if (!data?.success) {
         setError(data?.error || "Erro desconhecido");
