@@ -12,6 +12,9 @@ import {
   Loader2,
   Clock,
   ShieldCheck,
+  Zap,
+  Star,
+  CreditCard,
 } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
 import { toast } from "sonner";
@@ -73,7 +76,6 @@ const Checkout = () => {
         .single();
 
       if (order?.status === "paid" && order.token_id) {
-        // Get token value
         const { data: token } = await supabase
           .from("tokens")
           .select("token")
@@ -183,7 +185,7 @@ const Checkout = () => {
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
             <img src={lovableHeart} alt="Logo" className="h-7 w-7" />
             <span className="text-lg font-bold tracking-tight">
-              Lovable<span className="text-primary">Infinite</span>
+              Lovable<span className="text-primary">Painel</span>
             </span>
           </div>
           <Button size="sm" variant="ghost" className="rounded-full" onClick={() => navigate("/")}>
@@ -195,18 +197,60 @@ const Checkout = () => {
       <div className="mx-auto max-w-lg px-4 pt-16 pb-24">
         {/* Step: Form */}
         {step === "form" && (
-          <div className="space-y-6">
-            <div className="text-center space-y-2">
-              <h1 className="text-3xl font-bold">Finalizar Compra</h1>
-              <p className="text-muted-foreground">
-                {product.name} — <span className="text-primary font-semibold">R$ {Number(product.price).toFixed(2)}</span>
+          <div className="space-y-8">
+            {/* Product Summary Card */}
+            <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-primary/10 p-6 shadow-xl">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+              <div className="relative space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+                    <Star className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold">{product.name}</h2>
+                    {product.description && (
+                      <p className="text-sm text-muted-foreground">{product.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-end justify-between border-t border-border/50 pt-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Valor total</p>
+                    <p className="text-4xl font-extrabold text-primary tracking-tight">
+                      R$ {Number(product.price).toFixed(2).replace('.', ',')}
+                    </p>
+                  </div>
+                  <div className="text-right space-y-1">
+                    {product.daily_limit && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Zap className="h-3.5 w-3.5 text-primary" />
+                        {product.daily_limit} créditos/dia
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <CreditCard className="h-3.5 w-3.5 text-primary" />
+                      {product.credits_per_use} créditos/uso
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Checkout Form */}
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold">Finalizar Compra</h1>
+              <p className="text-sm text-muted-foreground">
+                Preencha seu e-mail para receber o link de acesso
               </p>
             </div>
 
-            <div className="glass-card rounded-xl p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-lg space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-sm font-semibold">
+                    Seu melhor e-mail
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -214,29 +258,52 @@ const Checkout = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className="h-12 rounded-xl text-base"
                   />
                 </div>
 
-                <div className="pt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Pagamento seguro via PIX
+                <div className="flex items-center gap-2 rounded-xl bg-primary/5 border border-primary/10 px-4 py-3">
+                  <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
+                  <span className="text-xs text-muted-foreground">
+                    Pagamento 100% seguro via <strong className="text-foreground">PIX</strong> — acesso liberado na hora
+                  </span>
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full"
                   size="lg"
                   disabled={submitting || !email}
+                  className="w-full h-14 rounded-xl text-base font-bold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 relative overflow-hidden group"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Gerando PIX...
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Gerando PIX...
                     </>
                   ) : (
-                    `Pagar R$ ${Number(product.price).toFixed(2)}`
+                    <>
+                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                      <CreditCard className="h-5 w-5 mr-2" />
+                      Pagar R$ {Number(product.price).toFixed(2).replace('.', ',')}
+                    </>
                   )}
                 </Button>
               </form>
+            </div>
+
+            {/* Trust badges */}
+            <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Seguro
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Zap className="h-4 w-4 text-primary" />
+                Instantâneo
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                Garantido
+              </div>
             </div>
           </div>
         )}
@@ -251,10 +318,10 @@ const Checkout = () => {
               </p>
             </div>
 
-            <div className="glass-card rounded-xl p-8 space-y-6">
+            <div className="rounded-2xl border border-border/60 bg-card p-8 shadow-lg space-y-6">
               {pixCode && (
                 <div className="flex justify-center">
-                  <div className="bg-white p-4 rounded-xl">
+                  <div className="bg-white p-4 rounded-xl shadow-inner">
                     <QRCodeSVG value={pixCode} size={220} />
                   </div>
                 </div>
@@ -266,7 +333,7 @@ const Checkout = () => {
                   <Input
                     readOnly
                     value={pixCode}
-                    className="pr-12 text-xs font-mono"
+                    className="pr-12 text-xs font-mono h-12 rounded-xl"
                   />
                   <Button
                     size="sm"
@@ -280,7 +347,7 @@ const Checkout = () => {
               </div>
 
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 Aguardando confirmação do pagamento...
               </div>
 
@@ -291,8 +358,8 @@ const Checkout = () => {
                 </div>
               )}
 
-              <p className="text-2xl font-bold text-primary">
-                R$ {Number(product.price).toFixed(2)}
+              <p className="text-3xl font-extrabold text-primary">
+                R$ {Number(product.price).toFixed(2).replace('.', ',')}
               </p>
             </div>
           </div>
@@ -302,8 +369,8 @@ const Checkout = () => {
         {step === "success" && (
           <div className="space-y-6 text-center">
             <div className="space-y-3">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
-                <CheckCircle2 className="h-8 w-8 text-success" />
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/10 border-2 border-success/20">
+                <CheckCircle2 className="h-10 w-10 text-success" />
               </div>
               <h1 className="text-3xl font-bold">Pagamento Confirmado!</h1>
               <p className="text-muted-foreground">
@@ -311,13 +378,13 @@ const Checkout = () => {
               </p>
             </div>
 
-            <div className="glass-card rounded-xl p-6 space-y-4">
+            <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-lg space-y-4">
               <p className="text-sm text-muted-foreground">Seu link de acesso:</p>
               <div className="relative">
                 <Input
                   readOnly
                   value={`${window.location.origin}/generate/${tokenValue}`}
-                  className="pr-12 text-xs font-mono"
+                  className="pr-12 text-xs font-mono h-12 rounded-xl"
                 />
                 <Button
                   size="sm"
@@ -335,7 +402,7 @@ const Checkout = () => {
 
             <Button
               size="lg"
-              className="rounded-full px-8"
+              className="rounded-full px-8 h-14 text-base font-bold shadow-lg shadow-primary/25"
               onClick={() => navigate(`/generate/${tokenValue}`)}
             >
               Acessar Painel de Geração
