@@ -80,20 +80,25 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
     setLoading(true);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("token-auth", {
-        body: { action: mode, token, email: email.trim(), password, ...(mode === "signup" ? { username: username.trim() } : {}) },
+      // Use fetch directly to avoid supabase-js swallowing error response bodies
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(`${supabaseUrl}/functions/v1/token-auth`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supabaseKey,
+        },
+        body: JSON.stringify({
+          action: mode,
+          token,
+          email: email.trim(),
+          password,
+          ...(mode === "signup" ? { username: username.trim() } : {}),
+        }),
       });
 
-      // supabase-js treats non-2xx as fnError, but data may still contain the real message
-      if (fnError) {
-        if (data && !data.success && data.error) {
-          setError(data.error);
-        } else {
-          setError("Erro de conexão. Tente novamente.");
-        }
-        setLoading(false);
-        return;
-      }
+      const data = await res.json();
 
       if (!data?.success) {
         setError(data?.error || "Erro desconhecido");
