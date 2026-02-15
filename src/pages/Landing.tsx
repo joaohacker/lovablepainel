@@ -78,17 +78,6 @@ const Landing = () => {
 
       {/* Hero */}
       <section className="relative z-10 pt-20 pb-24 px-4 text-center">
-        {/* Decorative hearts */}
-        <img
-          src={lovableHeart}
-          alt=""
-          className="absolute top-12 left-[8%] h-28 w-28 opacity-60 blur-[1px] animate-pulse-glow pointer-events-none hidden lg:block"
-        />
-        <img
-          src={lovableHeart}
-          alt=""
-          className="absolute bottom-20 right-[6%] h-20 w-20 opacity-40 rotate-12 animate-pulse-glow pointer-events-none hidden lg:block"
-        />
 
         <div className="mx-auto max-w-3xl space-y-6">
           <h1 className="text-5xl md:text-7xl font-extrabold leading-tight tracking-tight">
@@ -131,17 +120,6 @@ const Landing = () => {
       <section id="preco" className="relative z-10 py-24 px-4">
         <div className="mx-auto max-w-4xl">
           <div className="glass-card rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden">
-            {/* Decorative heart */}
-            <img
-              src={lovableHeart}
-              alt=""
-              className="absolute -top-6 -right-6 h-24 w-24 opacity-30 rotate-12 pointer-events-none hidden md:block"
-            />
-            <img
-              src={lovableHeart}
-              alt=""
-              className="absolute -bottom-8 right-20 h-16 w-16 opacity-20 -rotate-12 pointer-events-none hidden md:block"
-            />
 
             <div className="flex-1 text-left space-y-4">
               <span className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary font-semibold">
