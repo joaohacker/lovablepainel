@@ -12,7 +12,7 @@ const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 // Daily: tiered pricing per 1000
 function getDailyAmount(increment: number, currentDailyLimit: number): number {
   const newLimit = (currentDailyLimit || 0) + increment;
-  const pricePerK = newLimit >= 10000 ? 8 : newLimit >= 5000 ? 10 : 15;
+  const pricePerK = newLimit >= 10000 ? 15 : newLimit >= 5000 ? 10 : 8;
   return (increment / 1000) * pricePerK;
 }
 
