@@ -26,29 +26,22 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Authenticate user
+    // Auth is OPTIONAL — logged-in users get saldo credited immediately via webhook
+    let userId: string | null = null;
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Auth required" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (authHeader) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
       });
-    }
-
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Invalid user" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (user) userId = user.id;
     }
 
     const { amount } = await req.json();
 
-    if (!amount || amount < 1) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+    if (!amount || amount < 5) {
+      return new Response(JSON.stringify({ error: "Valor mínimo é R$ 5,00" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -67,10 +60,10 @@ serve(async (req) => {
         payment_method: "pix",
         customer: {
           name: customer.name,
-          email: user.email,
-          document: customer.document.replace(/\D/g, ""),
+          email: "cliente@lovable.com",
+          document: customer.document,
         },
-        external_id: `wallet_${user.id}_${Date.now()}`,
+        external_id: `wallet_${userId || "anon"}_${Date.now()}`,
       }),
     });
 
@@ -83,8 +76,7 @@ serve(async (req) => {
       });
     }
 
-    // We need a product_id for the orders table FK. Find or use a dummy.
-    // Use the first active product as reference
+    // We need a product_id for the orders table FK
     const { data: product } = await supabase
       .from("products")
       .select("id")
@@ -98,20 +90,20 @@ serve(async (req) => {
       });
     }
 
-    // Save order with order_type = 'deposit'
+    // Save order — user_id can be null for anonymous deposits
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
         product_id: product.id,
         amount: Number(amount),
         customer_name: customer.name,
-        customer_email: user.email || "",
-        customer_document: customer.document.replace(/\D/g, ""),
+        customer_email: "cliente@lovable.com",
+        customer_document: customer.document,
         transaction_id: pixData.transaction_id,
         pix_code: pixData.pix?.qr_code || null,
         pix_expires_at: pixData.expires_at || null,
         status: "pending",
-        user_id: user.id,
+        user_id: userId,
         order_type: "deposit",
       })
       .select()

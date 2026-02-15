@@ -12,5 +12,8 @@ verify_jwt = false
 [functions.wallet-deposit]
 verify_jwt = false
 
+[functions.claim-deposit]
+verify_jwt = false
+
 [functions.brpix-webhook]
 verify_jwt = false
