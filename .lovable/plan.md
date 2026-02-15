@@ -1,197 +1,82 @@
 
 
-# Painel Gerador Publico On-Demand
+## Plano: Upgrades de Limite via PIX para Tokens Existentes
 
-## Resumo
+### Resumo
+Quando um cliente com token atingir o limite diario ou tentar gerar mais do que o limite por vez, em vez de ver uma mensagem de erro bloqueante, ele vera opcoes de upgrade com pagamento via PIX. Os limites comprados sao somados aos existentes.
 
-Criar um painel gerador publico acessivel na landing page onde qualquer visitante pode gerar creditos pagando por demanda. O sistema mostra saldo em R$ e creditos simultaneamente, e exibe geracoes de outros clientes em uma aba lateral.
+### Precos
+- **Limite diario**: R$ 15,00 por cada 1.000 creditos adicionais
+- **Limite por vez (credits_per_use)**: R$ 30,00 por cada 1.000 creditos adicionais
 
----
+### Fluxo do Usuario
 
-## Tabela de Precos
+**Cenario 1 - Limite por vez:**
+O slider no CreditSelector continua limitado pelo `credits_per_use` atual. Abaixo do seletor, aparece um banner "Quer gerar mais por vez? Aumente seu limite" com opcoes de 1000, 2000, 3000+ creditos e o preco correspondente. Ao clicar, abre modal PIX. Apos pagamento confirmado, o token e atualizado e o slider reflete o novo limite.
 
-| Faixa de Creditos | Preco por 100 creditos |
-|---|---|
-| Ate 999 | R$ 7,00 |
-| 1.000 - 1.999 | R$ 6,50 |
-| 2.000 - 2.999 | R$ 6,00 |
-| 3.000 - 5.000 | R$ 5,50 |
+**Cenario 2 - Limite diario atingido:**
+Atualmente a pagina mostra "Acesso Negado - Limite diario atingido". Em vez disso, mostra uma tela com planos de aumento do limite diario (ex: +1000 por R$15, +2000 por R$30, +3000 por R$45). Apos pagar, o `daily_limit` do token e incrementado e o usuario pode gerar imediatamente.
 
-Pacotes fixos pre-definidos tambem serao exibidos para facilitar a compra rapida.
+### Etapas de Implementacao
 
----
+**1. Backend - Nova Edge Function `upgrade-token`**
+- Recebe: `token` (string), `upgrade_type` ("daily_limit" | "credits_per_use"), `increment` (multiplo de 1000)
+- Calcula preco: increment/1000 * 15 (daily) ou increment/1000 * 30 (per_use)
+- Cria PIX via BrPix API
+- Salva order com `order_type: "upgrade_daily"` ou `"upgrade_per_use"`, e guarda o `token_id` e `increment` nos metadados
+- Nao exige autenticacao (o token do cliente e suficiente)
 
-## Fluxo do Usuario
+**2. Backend - Atualizar `brpix-webhook`**
+- Quando `order_type` e `"upgrade_daily"` ou `"upgrade_per_use"`:
+  - Busca o token associado ao order
+  - Incrementa `daily_limit` ou `credits_per_use` no registro do token
+  - Marca order como pago
 
-```text
-+---------------------+
-| Landing Page        |
-| (Painel Publico)    |
-+---------------------+
-         |
-   Seleciona creditos
-   (slider 5-5000)
-         |
-   Clica "Gerar"
-         |
-    Tem saldo? ---------> SIM: Inicia geracao
-         |                       (email master, polling, etc.)
-        NAO
-         |
-   Modal "Sem Saldo"
-   "Adicione saldo"
-         |
-   PIX gerado (valor exato
-   ou saldo livre)
-         |
-   Pagamento confirmado
-         |
-   Ja tem conta? -------> SIM: Saldo creditado
-         |                       Geracao inicia automaticamente
-        NAO
-         |
-   Formulario criar conta
-   (email + senha)
-         |
-   Conta criada + saldo
-   creditado + geracao inicia
+**3. Backend - Atualizar `validate-token`**
+- Quando limite diario atingido, retornar `valid: true` com flag `daily_limit_reached: true` em vez de `valid: false`
+- Incluir `remaining_daily` e `remaining_total` na resposta de validacao (ja faz parcialmente)
+
+**4. Frontend - Novo componente `UpgradeModal`**
+- Modal com opcoes de upgrade (1000, 2000, 3000, 5000 creditos)
+- Mostra preco por opcao
+- Gera QR Code PIX usando a nova edge function
+- Poll no order para confirmar pagamento
+- Apos confirmacao, revalida o token automaticamente
+
+**5. Frontend - Atualizar `Generate.tsx`**
+- Quando `daily_limit_reached: true`, mostrar UI de upgrade em vez de "Acesso Negado"
+- Abaixo do CreditSelector, mostrar banner de upgrade do limite por vez
+
+**6. Frontend - Atualizar `CreditSelector.tsx`**
+- Adicionar prop `onUpgradePerUse` callback
+- Mostrar link/banner abaixo do slider: "Limite atual: X creditos | Aumentar limite"
+
+**7. Banco de Dados**
+- Adicionar colunas `token_id` (uuid, nullable) e `upgrade_increment` (integer, nullable) na tabela `orders` para rastrear upgrades
+- A coluna `token_id` ja existe na tabela orders
+
+### Detalhes Tecnicos
+
+**Nova coluna necessaria na tabela `orders`:**
+```sql
+ALTER TABLE orders ADD COLUMN upgrade_increment integer;
 ```
 
----
+**Edge Function `upgrade-token` (nova):**
+- Valida token no DB
+- Calcula preco baseado no tipo e incremento
+- Cria PIX via BrPix
+- Insere order com: `order_type`, `token_id` (do token sendo upgradado), `upgrade_increment`, `amount`
 
-## O que sera construido
-
-### 1. Banco de Dados (novas tabelas e alteracoes)
-
-**Tabela `wallets`** -- saldo do usuario
-- `id` (uuid, PK)
-- `user_id` (uuid, referencia auth.users)
-- `balance` (numeric, default 0) -- saldo em reais
-- `created_at`, `updated_at`
-- RLS: usuario ve/atualiza apenas proprio saldo
-
-**Tabela `wallet_transactions`** -- historico de depositos/gastos
-- `id` (uuid, PK)
-- `wallet_id` (uuid, FK wallets)
-- `type` (text: 'deposit' | 'debit')
-- `amount` (numeric) -- valor em R$
-- `credits` (integer, nullable) -- creditos associados (para debitos)
-- `description` (text)
-- `reference_id` (text, nullable) -- farm_id ou order_id
-- `created_at`
-- RLS: usuario ve apenas proprias transacoes
-
-**Alteracao na tabela `generations`**
-- Adicionar coluna `user_id` (uuid, nullable) para vincular geracoes ao usuario do painel publico
-- Geracoes com token continuam usando `token_id`, geracoes on-demand usam `user_id`
-
-**Alteracao na tabela `orders`**
-- Adicionar coluna `user_id` (uuid, nullable) para vincular depositos de saldo
-
-### 2. Edge Function `public-generate`
-
-Nova edge function que:
-- Recebe `user_id` e `credits` desejados
-- Calcula o custo baseado na tabela de precos
-- Verifica saldo na wallet
-- Se suficiente: debita saldo, cria farm via API externa, insere em `generations`
-- Se insuficiente: retorna erro com valor necessario
-
-### 3. Edge Function `wallet-deposit`
-
-Nova edge function para depositos de saldo:
-- Cria cobranca PIX via BrPix (similar ao brpix-payment existente)
-- Ao confirmar pagamento (webhook), credita saldo na wallet
-
-### 4. Alteracao no `brpix-webhook`
-
-Adicionar logica para processar depositos de saldo (alem dos tokens existentes):
-- Se o pedido tem `user_id` e tipo "deposit", credita na wallet
-- Se tinha geracao pendente, inicia automaticamente
-
-### 5. Frontend -- Novo componente `PublicGenerator`
-
-Componente principal na landing page com:
-- **Seletor de creditos** (slider 5-5000, multiplos de 5)
-- **Calculadora de preco** em tempo real (mostra R$ e creditos)
-- **Pacotes fixos** (ex: 100, 500, 1000, 2000, 5000 creditos)
-- **Display de saldo** (R$ X,XX = Y creditos)
-- **Botao "Gerar"** que verifica saldo
-- **Modal sem saldo** com opcao de pagamento PIX rapido
-- **Status da geracao** (reutiliza GenerationStatus existente)
-
-### 6. Frontend -- Aba "Geracoes ao Vivo"
-
-Pequena aba/tab no painel publico mostrando:
-- Lista de geracoes ativas de outros usuarios (anonimizadas)
-- A geracao do usuario atual em destaque/principal
-- Dados: quantidade de creditos, status, progresso
-- Atualizado via polling a cada 5s
-
-### 7. Frontend -- Fluxo de Autenticacao Inline
-
-- Se usuario nao logado tenta gerar: modal de login/cadastro aparece
-- Apos pagamento confirmado sem conta: formulario de criacao de conta
-- Conta criada -> saldo vinculado -> geracao inicia
-
-### 8. Landing Page -- Integracao
-
-- Substituir a secao de "Pricing Card" atual por uma secao interativa com o PublicGenerator
-- Manter secoes de beneficios e como funciona
-- O painel publico sera a peca central da pagina
-
----
-
-## Detalhes Tecnicos
-
-### Calculo de Preco (funcao utilitaria)
-
+**Webhook - novos tipos de order:**
 ```text
-function calcularPreco(creditos: number): number {
-  precoPor100 =
-    creditos >= 3000 ? 5.50
-    creditos >= 2000 ? 6.00
-    creditos >= 1000 ? 6.50
-    default: 7.00
-
-  return (creditos / 100) * precoPor100
-}
+upgrade_daily  → tokens.daily_limit += upgrade_increment
+upgrade_per_use → tokens.credits_per_use += upgrade_increment
 ```
 
-### Pacotes Fixos Sugeridos
-
-| Pacote | Creditos | Preco | Economia |
-|---|---|---|---|
-| Starter | 100 | R$ 7,00 | -- |
-| Popular | 500 | R$ 35,00 | -- |
-| Pro | 1.000 | R$ 65,00 | 7% off |
-| Business | 2.000 | R$ 120,00 | 14% off |
-| Enterprise | 5.000 | R$ 275,00 | 21% off |
-
-### Seguranca
-
-- Todas as operacoes de saldo passam por edge functions com service role
-- RLS garante que usuarios so veem proprio saldo e transacoes
-- Debito de saldo e atomico (verifica + debita na mesma transacao)
-- Geracoes publicas ficam visiveis para todos (sem dados sensiveis)
-
-### Arquivos a Criar/Editar
-
-**Novos:**
-- `src/components/public/PublicGenerator.tsx` -- componente principal
-- `src/components/public/CreditCalculator.tsx` -- calculadora de preco
-- `src/components/public/LiveGenerations.tsx` -- aba de geracoes ao vivo
-- `src/components/public/WalletDisplay.tsx` -- display de saldo
-- `src/components/public/DepositModal.tsx` -- modal de deposito PIX
-- `src/components/public/AuthModal.tsx` -- modal login/cadastro inline
-- `src/hooks/useWallet.ts` -- hook para gerenciar saldo
-- `src/hooks/usePublicGeneration.ts` -- hook para geracao publica
-- `src/lib/pricing.ts` -- funcoes de calculo de preco
-- `supabase/functions/public-generate/index.ts` -- edge function geracao
-- `supabase/functions/wallet-deposit/index.ts` -- edge function deposito
-
-**Editados:**
-- `src/pages/Landing.tsx` -- integrar PublicGenerator
-- `supabase/functions/brpix-webhook/index.ts` -- suportar depositos
-- Migracoes SQL para novas tabelas e colunas
+**Config.toml:**
+```toml
+[functions.upgrade-token]
+verify_jwt = false
+```
 
