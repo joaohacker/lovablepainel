@@ -40,9 +40,7 @@ const Checkout = () => {
   const [copied, setCopied] = useState(false);
 
   // Form
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [document, setDocument] = useState("");
 
   // PIX data
   const [pixCode, setPixCode] = useState("");
@@ -109,23 +107,9 @@ const Checkout = () => {
     setLoading(false);
   };
 
-  const formatCPF = (value: string) => {
-    const nums = value.replace(/\D/g, "").slice(0, 11);
-    if (nums.length <= 3) return nums;
-    if (nums.length <= 6) return `${nums.slice(0, 3)}.${nums.slice(3)}`;
-    if (nums.length <= 9) return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6)}`;
-    return `${nums.slice(0, 3)}.${nums.slice(3, 6)}.${nums.slice(6, 9)}-${nums.slice(9)}`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product) return;
-
-    const cleanDoc = document.replace(/\D/g, "");
-    if (cleanDoc.length !== 11 && cleanDoc.length !== 14) {
-      toast.error("CPF ou CNPJ inválido");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -138,7 +122,7 @@ const Checkout = () => {
         },
         body: JSON.stringify({
           product_id: product.id,
-          customer: { name, email, document: cleanDoc },
+          email,
         }),
       });
 
@@ -222,16 +206,6 @@ const Checkout = () => {
             <div className="glass-card rounded-xl p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome Completo</Label>
-                  <Input
-                    id="name"
-                    placeholder="Seu nome completo"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
@@ -239,16 +213,6 @@ const Checkout = () => {
                     placeholder="seu@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="document">CPF</Label>
-                  <Input
-                    id="document"
-                    placeholder="000.000.000-00"
-                    value={document}
-                    onChange={(e) => setDocument(formatCPF(e.target.value))}
                     required
                   />
                 </div>
@@ -262,7 +226,7 @@ const Checkout = () => {
                   type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={submitting || !name || !email || !document}
+                  disabled={submitting || !email}
                 >
                   {submitting ? (
                     <>

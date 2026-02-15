@@ -45,13 +45,15 @@ serve(async (req) => {
       });
     }
 
-    const { amount, customer } = await req.json();
+    const { amount } = await req.json();
 
-    if (!amount || amount < 1 || !customer?.name || !customer?.document) {
+    if (!amount || amount < 1) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const customer = { name: "Cliente Lovable", document: "12345678909" };
 
     // Create PIX payment via BrPix
     const pixRes = await fetch(`${BRPIX_BASE}/payments`, {

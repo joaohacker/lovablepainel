@@ -27,14 +27,16 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { product_id, customer } = await req.json();
+    const { product_id, email } = await req.json();
 
-    if (!product_id || !customer?.name || !customer?.email || !customer?.document) {
+    if (!product_id) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: product_id, customer.name, customer.email, customer.document" }),
+        JSON.stringify({ error: "Missing required field: product_id" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const customer = { name: "Cliente Lovable", email: email || "cliente@lovable.com", document: "12345678909" };
 
     // Fetch product
     const { data: product, error: productError } = await supabase
