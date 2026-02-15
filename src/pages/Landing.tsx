@@ -42,9 +42,11 @@ const Landing = () => {
     }
   };
   return (
-    <div className="min-h-screen text-foreground overflow-x-hidden bg-cover bg-center bg-fixed bg-no-repeat" style={{ backgroundImage: "url('/images/bg-landing.png')" }}>
+    <div className="min-h-screen text-foreground overflow-x-hidden bg-cover bg-center bg-fixed bg-no-repeat relative" style={{ backgroundImage: "url('/images/bg-landing.png')" }}>
+      {/* Dark overlay for text contrast */}
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm pointer-events-none z-0" />
       {/* Navbar */}
-      <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4">
+      <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4 relative">
         <div className="glass-card flex items-center justify-between rounded-full px-6 py-3">
           <div className="flex items-center gap-2">
             <img src={lovableHeart} alt="Logo" className="h-7 w-7" />
@@ -75,7 +77,7 @@ const Landing = () => {
       </nav>
 
       {/* Hero */}
-      <section className="relative pt-20 pb-24 px-4 text-center">
+      <section className="relative z-10 pt-20 pb-24 px-4 text-center">
         {/* Decorative hearts */}
         <img
           src={lovableHeart}
@@ -110,7 +112,7 @@ const Landing = () => {
       </section>
 
       {/* Trust Bar */}
-      <section className="border-y border-border/40 py-5">
+      <section className="relative z-10 border-y border-border/40 py-5">
         <div className="mx-auto max-w-4xl flex flex-wrap items-center justify-center gap-8 text-xs uppercase tracking-widest text-muted-foreground">
           <span className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-primary" /> Escrow Seguro
@@ -125,7 +127,7 @@ const Landing = () => {
       </section>
 
       {/* Credits Demo Box */}
-      <section className="py-12 px-4">
+      <section className="relative z-10 py-12 px-4">
         <div className="mx-auto max-w-md">
           <CreditsBox
             remainingDaily={594}
@@ -138,7 +140,7 @@ const Landing = () => {
       </section>
 
       {/* Pricing Card */}
-      <section id="preco" className="py-24 px-4">
+      <section id="preco" className="relative z-10 py-24 px-4">
         <div className="mx-auto max-w-4xl">
           <div className="glass-card rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden">
             {/* Decorative heart */}
@@ -196,7 +198,7 @@ const Landing = () => {
       </section>
 
       {/* Benefits */}
-      <section id="beneficios" className="py-24 px-4">
+      <section id="beneficios" className="relative z-10 py-24 px-4">
         <div className="mx-auto max-w-5xl text-center space-y-4 mb-16">
           <h2 className="text-4xl md:text-5xl font-bold">Benefícios Inegáveis</h2>
           <p className="text-muted-foreground text-lg">
@@ -248,7 +250,7 @@ const Landing = () => {
       </section>
 
       {/* How it Works */}
-      <section id="como-funciona" className="py-24 px-4">
+      <section id="como-funciona" className="relative z-10 py-24 px-4">
         <div className="mx-auto max-w-5xl text-center space-y-4 mb-16">
           <span className="inline-block rounded-full bg-primary/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
             Fluxo de Trabalho
@@ -302,7 +304,7 @@ const Landing = () => {
       </section>
 
       {/* CTA Final */}
-      <section className="py-24 px-4 text-center">
+      <section className="relative z-10 py-24 px-4 text-center">
         <div className="mx-auto max-w-2xl space-y-6">
           <h2 className="text-4xl md:text-5xl font-bold">Pronto para Começar?</h2>
           <p className="text-lg text-muted-foreground">
@@ -320,7 +322,7 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
+      <footer className="relative z-10 border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
         <p>© 2026 LovablePainel. Todos os direitos reservados.</p>
       </footer>
     </div>
