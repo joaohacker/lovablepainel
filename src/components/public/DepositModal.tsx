@@ -32,7 +32,8 @@ export function DepositModal({
   onGenerateAfterDeposit,
 }: DepositModalProps) {
   const [step, setStep] = useState<"form" | "pix" | "paid">("form");
-  const [amount, setAmount] = useState(suggestedAmount ?? 7);
+  const [amount, setAmount] = useState(suggestedAmount && suggestedAmount >= 5 ? suggestedAmount : 5);
+  const [amountInput, setAmountInput] = useState(String(suggestedAmount && suggestedAmount >= 5 ? suggestedAmount : 5));
   const [loading, setLoading] = useState(false);
   const [pixCode, setPixCode] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -44,12 +45,14 @@ export function DepositModal({
       setPixCode(null);
       setOrderId(null);
       setError(null);
-      if (suggestedAmount) setAmount(suggestedAmount);
+      const val = suggestedAmount && suggestedAmount >= 5 ? suggestedAmount : 5;
+      setAmount(val);
+      setAmountInput(String(val));
     }
   }, [open, suggestedAmount]);
 
   const handleSubmit = async () => {
-    if (amount < 1) return;
+    if (amount < 5) return;
     setLoading(true);
     setError(null);
 
@@ -127,18 +130,23 @@ export function DepositModal({
             )}
 
             <div className="space-y-2">
-              <Label>Valor (R$)</Label>
+              <Label>Valor (R$) — mínimo R$ 5,00</Label>
               <Input
                 type="number"
-                value={amount}
-                onChange={(e) => setAmount(Math.max(1, parseFloat(e.target.value) || 0))}
-                min={1}
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value)}
+                onBlur={() => {
+                  const v = Math.max(5, parseFloat(amountInput) || 5);
+                  setAmount(v);
+                  setAmountInput(String(v));
+                }}
+                min={5}
                 step={0.01}
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <Button onClick={handleSubmit} disabled={loading} className="w-full gap-2">
+            <Button onClick={handleSubmit} disabled={loading || amount < 5} className="w-full gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
               Gerar PIX de {formatBRL(amount)}
             </Button>
