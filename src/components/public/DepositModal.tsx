@@ -33,8 +33,6 @@ export function DepositModal({
 }: DepositModalProps) {
   const [step, setStep] = useState<"form" | "pix" | "paid">("form");
   const [amount, setAmount] = useState(suggestedAmount ?? 7);
-  const [name, setName] = useState("");
-  const [document, setDocument] = useState("");
   const [loading, setLoading] = useState(false);
   const [pixCode, setPixCode] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -51,13 +49,13 @@ export function DepositModal({
   }, [open, suggestedAmount]);
 
   const handleSubmit = async () => {
-    if (!name || !document || amount < 1) return;
+    if (amount < 1) return;
     setLoading(true);
     setError(null);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("wallet-deposit", {
-        body: { amount, customer: { name, document } },
+        body: { amount },
       });
 
       if (fnError || !data?.success) {
@@ -138,18 +136,9 @@ export function DepositModal({
                 step={0.01}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Nome completo</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" />
-            </div>
-            <div className="space-y-2">
-              <Label>CPF/CNPJ</Label>
-              <Input value={document} onChange={(e) => setDocument(e.target.value)} placeholder="000.000.000-00" />
-            </div>
-
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <Button onClick={handleSubmit} disabled={loading || !name || !document} className="w-full gap-2">
+            <Button onClick={handleSubmit} disabled={loading} className="w-full gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
               Gerar PIX de {formatBRL(amount)}
             </Button>
