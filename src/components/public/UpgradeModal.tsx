@@ -13,6 +13,7 @@ interface UpgradeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   token: string;
+  tokenString?: string;
   upgradeType: UpgradeType;
   currentLimit: number | null;
   onUpgradeComplete: () => void;
@@ -21,7 +22,13 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
-const PRICE_PER_1000_DAILY = 2.5;
+const DEFAULT_PRICE_PER_1000_DAILY = 15;
+const DEFAULT_PRICE_PER_1000_PER_USE = 30;
+
+// Token-specific pricing (must match backend)
+const TOKEN_PRICING: Record<string, { dailyPer1k: number; perUsePer1k: number }> = {
+  "f35112c962407939853dc9db8de84013": { dailyPer1k: 2.5, perUsePer1k: 5 },
+};
 
 function getDailyDiscount(credits: number): number {
   if (credits > 30000) return 25;
@@ -32,8 +39,9 @@ function getDailyDiscount(credits: number): number {
   return 0;
 }
 
-function getDailyPrice(increment: number): { price: number; originalPrice: number; discountPct: number } {
-  const originalPrice = increment * (PRICE_PER_1000_DAILY / 1000);
+function getDailyPrice(increment: number, tokenStr?: string): { price: number; originalPrice: number; discountPct: number } {
+  const rate = TOKEN_PRICING[tokenStr || ""]?.dailyPer1k ?? DEFAULT_PRICE_PER_1000_DAILY;
+  const originalPrice = increment * (rate / 1000);
   const discountPct = getDailyDiscount(increment);
   const price = originalPrice * (1 - discountPct / 100);
   return { price, originalPrice, discountPct };
@@ -47,15 +55,16 @@ function getPerUseDiscount(credits: number): number {
   return 0;
 }
 
-function getPerUsePrice(target: number, current: number): { price: number; originalPrice: number; discountPct: number } {
+function getPerUsePrice(target: number, current: number, tokenStr?: string): { price: number; originalPrice: number; discountPct: number } {
   const increment = target - current;
-  const originalPrice = increment * 0.005;
+  const rate = TOKEN_PRICING[tokenStr || ""]?.perUsePer1k ?? DEFAULT_PRICE_PER_1000_PER_USE;
+  const originalPrice = increment * (rate / 1000);
   const discountPct = getPerUseDiscount(increment);
   const price = originalPrice * (1 - discountPct / 100);
   return { price, originalPrice, discountPct };
 }
 
-export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLimit, onUpgradeComplete }: UpgradeModalProps) {
+export function UpgradeModal({ open, onOpenChange, token, tokenString, upgradeType, currentLimit, onUpgradeComplete }: UpgradeModalProps) {
   const [step, setStep] = useState<"select" | "pix" | "done">("select");
   const [selectedIncrement, setSelectedIncrement] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -135,7 +144,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     customIncrement = roundedCustom;
     customNewLimit = current + customIncrement;
     customValid = customIncrement >= 1000 && customNewLimit <= MAX_DAILY_LIMIT;
-    const dp = getDailyPrice(customIncrement);
+    const dp = getDailyPrice(customIncrement, tokenString);
     customPrice = dp.price;
     customOriginalPrice = dp.originalPrice;
     customDiscountPct = dp.discountPct;
@@ -144,7 +153,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     customIncrement = customTarget - current;
     customNewLimit = customTarget;
     customValid = customIncrement >= 1000 && customTarget <= maxPerUseTarget && customTarget > current;
-    const p = getPerUsePrice(customTarget, current);
+    const p = getPerUsePrice(customTarget, current, tokenString);
     customPrice = p.price;
     customOriginalPrice = p.originalPrice;
     customDiscountPct = p.discountPct;
@@ -211,7 +220,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                 {DAILY_INCREMENT_OPTIONS
                   .filter((inc) => inc <= maxDailyIncrement)
                   .map((inc) => {
-                    const dp = getDailyPrice(inc);
+                    const dp = getDailyPrice(inc, tokenString);
                     const newLimit = current + inc;
                     return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, dp.price, dp.originalPrice, dp.discountPct);
                   })}
@@ -227,7 +236,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                   .filter((target) => target > current)
                   .map((target) => {
                     const increment = target - current;
-                    const p = getPerUsePrice(target, current);
+                    const p = getPerUsePrice(target, current, tokenString);
                     return renderOptionCard(target, `${target.toLocaleString()} créditos/vez`, `Atual: ${current.toLocaleString()} → ${target.toLocaleString()}`, increment, p.price, p.originalPrice, p.discountPct);
                   })}
               </>
