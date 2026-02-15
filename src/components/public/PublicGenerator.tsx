@@ -207,7 +207,7 @@ export function PublicGenerator() {
                   <div className="rounded-xl border border-border/50 bg-secondary/30 p-6 text-center space-y-2">
                     <p className="text-4xl md:text-5xl font-extrabold text-foreground">{formatBRL(price)}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatBRL(pricePer100)} por 100 créditos
+                      {formatBRL(pricePer100)} por cada 100 créditos
                     </p>
                   </div>
 
