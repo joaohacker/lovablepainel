@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Users, Zap, Clock, RefreshCw } from "lucide-react";
+import { Activity, Users, Zap, Clock, RefreshCw, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -12,6 +12,7 @@ interface Generation {
   id: string;
   farm_id: string;
   token_id: string | null;
+  user_id: string | null;
   client_name: string;
   credits_requested: number;
   credits_earned: number;
@@ -21,6 +22,11 @@ interface Generation {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface PaymentInfo {
+  farm_id: string;
+  amount: number;
 }
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -36,13 +42,13 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 
 export function LiveDashboard() {
   const [generations, setGenerations] = useState<Generation[]>([]);
+  const [payments, setPayments] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
 
   const handleSync = async (gen: Generation) => {
     setSyncing(gen.farm_id);
     try {
-      // Find the token value for this generation
       const { data: tokenData } = await supabase
         .from("tokens")
         .select("token")
@@ -69,21 +75,45 @@ export function LiveDashboard() {
     }
   };
 
+  // Fetch payment info for on-demand generations
+  const fetchPayments = async (gens: Generation[]) => {
+    const onDemandFarmIds = gens
+      .filter((g) => g.token_id === null && g.user_id !== null)
+      .map((g) => g.farm_id);
+
+    if (onDemandFarmIds.length === 0) return;
+
+    const { data } = await supabase
+      .from("wallet_transactions")
+      .select("reference_id, amount")
+      .eq("type", "debit")
+      .in("reference_id", onDemandFarmIds);
+
+    if (data) {
+      const map = new Map<string, number>();
+      data.forEach((t) => {
+        if (t.reference_id) map.set(t.reference_id, Number(t.amount));
+      });
+      setPayments(map);
+    }
+  };
+
   useEffect(() => {
-    // Fetch initial data
     const fetchGenerations = async () => {
       const { data } = await supabase
         .from("generations")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(50);
-      if (data) setGenerations(data);
+      if (data) {
+        setGenerations(data);
+        fetchPayments(data);
+      }
       setLoading(false);
     };
 
     fetchGenerations();
 
-    // Subscribe to realtime changes
     const channel = supabase
       .channel("generations-realtime")
       .on(
@@ -91,7 +121,15 @@ export function LiveDashboard() {
         { event: "*", schema: "public", table: "generations" },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setGenerations((prev) => [payload.new as Generation, ...prev].slice(0, 50));
+            setGenerations((prev) => {
+              const updated = [payload.new as Generation, ...prev].slice(0, 50);
+              // Fetch payment for new on-demand generation
+              const newGen = payload.new as Generation;
+              if (newGen.token_id === null && newGen.user_id !== null) {
+                fetchPayments([newGen]);
+              }
+              return updated;
+            });
           } else if (payload.eventType === "UPDATE") {
             setGenerations((prev) =>
               prev.map((g) => (g.id === (payload.new as Generation).id ? (payload.new as Generation) : g))
@@ -116,6 +154,8 @@ export function LiveDashboard() {
     .filter((g) => g.status === "completed")
     .reduce((sum, g) => sum + g.credits_earned, 0);
 
+  const totalRevenue = Array.from(payments.values()).reduce((sum, v) => sum + v, 0);
+
   return (
     <div className="space-y-6">
       <div>
@@ -124,7 +164,7 @@ export function LiveDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="glass-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
@@ -158,6 +198,17 @@ export function LiveDashboard() {
             </div>
           </CardContent>
         </Card>
+        <Card className="glass-card">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/10">
+              <Wallet className="h-5 w-5 text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">R$ {totalRevenue.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground">Receita on-demand</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Generations list */}
@@ -179,6 +230,8 @@ export function LiveDashboard() {
             const config = statusConfig[gen.status] || { label: gen.status, variant: "secondary" as const };
             const isActive = ["creating", "queued", "waiting_invite", "running"].includes(gen.status);
             const canSync = gen.token_id !== null;
+            const isOnDemand = gen.token_id === null && gen.user_id !== null;
+            const paidAmount = payments.get(gen.farm_id);
 
             return (
               <Card key={gen.id} className={`glass-card transition-all ${isActive ? "ring-1 ring-primary/30" : ""}`}>
@@ -189,12 +242,22 @@ export function LiveDashboard() {
                         <div className="h-2 w-2 rounded-full bg-success animate-pulse shrink-0" />
                       )}
                       <div className="min-w-0">
-                        <p className="font-medium truncate">{gen.client_name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{gen.client_name}</p>
+                          {isOnDemand && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/50 text-emerald-400 shrink-0">
+                              ON-DEMAND
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                           <Clock className="h-3 w-3" />
                           {formatDistanceToNow(new Date(gen.created_at), { addSuffix: true, locale: ptBR })}
                           {gen.workspace_name && (
                             <span className="text-foreground">• {gen.workspace_name}</span>
+                          )}
+                          {isOnDemand && paidAmount !== undefined && (
+                            <span className="text-emerald-400 font-medium">• R$ {paidAmount.toFixed(2)}</span>
                           )}
                         </div>
                       </div>

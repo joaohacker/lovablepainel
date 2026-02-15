@@ -61,6 +61,76 @@ serve(async (req) => {
       );
     }
 
+    // Handle __public__ token for on-demand update-status action
+    if (token === "__public__" && action === "update-status") {
+      // Skip token lookup — handled inside update-status block below
+      // We create a dummy tokenData to pass through
+      const tokenData = { id: null } as any;
+
+      const farmId = bodyFarmId;
+      const status = bodyStatus;
+
+      if (!farmId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "farmId required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Authenticate the user to match generation by user_id
+      let genFound = false;
+      const authHeader = req.headers.get("authorization");
+      if (authHeader) {
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+        const userClient = createClient(supabaseUrl, anonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          const { data: gen } = await supabase
+            .from("generations")
+            .select("id")
+            .eq("farm_id", farmId)
+            .eq("user_id", user.id)
+            .maybeSingle();
+          genFound = !!gen;
+        }
+      }
+      if (!genFound) {
+        // Fallback: match by farm_id where token_id is null
+        const { data: gen } = await supabase
+          .from("generations")
+          .select("id")
+          .eq("farm_id", farmId)
+          .is("token_id", null)
+          .maybeSingle();
+        genFound = !!gen;
+      }
+
+      if (!genFound) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Generation not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const updateData: Record<string, unknown> = { status };
+      if (credits_earned !== undefined) updateData.credits_earned = credits_earned;
+      if (master_email !== undefined) updateData.master_email = master_email;
+      if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
+      if (error_message !== undefined) updateData.error_message = error_message;
+
+      await supabase
+        .from("generations")
+        .update(updateData)
+        .eq("farm_id", farmId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Fetch token from DB
     const { data: tokenData, error: tokenError } = await supabase
       .from("tokens")
@@ -152,16 +222,52 @@ serve(async (req) => {
         );
       }
 
-      const { data: gen } = await supabase
-        .from("generations")
-        .select("id")
-        .eq("farm_id", farmId)
-        .eq("token_id", tokenData.id)
-        .maybeSingle();
+      // On-demand generations use "__public__" as token — match by farm_id + user_id
+      const isPublic = token === "__public__";
+      let genFound = false;
 
-      if (!gen) {
+      if (isPublic) {
+        // Authenticate the user to match generation by user_id
+        const authHeader = req.headers.get("authorization");
+        if (authHeader) {
+          const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+          const userClient = createClient(supabaseUrl, anonKey, {
+            global: { headers: { Authorization: authHeader } },
+          });
+          const { data: { user } } = await userClient.auth.getUser();
+          if (user) {
+            const { data: gen } = await supabase
+              .from("generations")
+              .select("id")
+              .eq("farm_id", farmId)
+              .eq("user_id", user.id)
+              .maybeSingle();
+            genFound = !!gen;
+          }
+        }
+        if (!genFound) {
+          // Fallback: match by farm_id only for on-demand (token_id is null)
+          const { data: gen } = await supabase
+            .from("generations")
+            .select("id")
+            .eq("farm_id", farmId)
+            .is("token_id", null)
+            .maybeSingle();
+          genFound = !!gen;
+        }
+      } else {
+        const { data: gen } = await supabase
+          .from("generations")
+          .select("id")
+          .eq("farm_id", farmId)
+          .eq("token_id", tokenData.id)
+          .maybeSingle();
+        genFound = !!gen;
+      }
+
+      if (!genFound) {
         return new Response(
-          JSON.stringify({ success: false, error: "Generation not found for this token" }),
+          JSON.stringify({ success: false, error: "Generation not found" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -177,19 +283,22 @@ serve(async (req) => {
         .update(updateData)
         .eq("farm_id", farmId);
 
-      const usageUpdate: Record<string, unknown> = { status: status || "active" };
-      if (status === "completed") {
-        if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
-        usageUpdate.completed_at = new Date().toISOString();
-      } else if (status === "error" || status === "cancelled" || status === "expired") {
-        usageUpdate.credits_earned = 0;
-        usageUpdate.completed_at = new Date().toISOString();
+      // Only update token_usages for token-based generations
+      if (!isPublic) {
+        const usageUpdate: Record<string, unknown> = { status: status || "active" };
+        if (status === "completed") {
+          if (credits_earned !== undefined) usageUpdate.credits_earned = credits_earned;
+          usageUpdate.completed_at = new Date().toISOString();
+        } else if (status === "error" || status === "cancelled" || status === "expired") {
+          usageUpdate.credits_earned = 0;
+          usageUpdate.completed_at = new Date().toISOString();
+        }
+        await supabase
+          .from("token_usages")
+          .update(usageUpdate)
+          .eq("farm_id", farmId)
+          .eq("token_id", tokenData.id);
       }
-      await supabase
-        .from("token_usages")
-        .update(usageUpdate)
-        .eq("farm_id", farmId)
-        .eq("token_id", tokenData.id);
 
       return new Response(
         JSON.stringify({ success: true }),
