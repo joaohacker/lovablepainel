@@ -96,22 +96,30 @@ serve(async (req) => {
     }
 
     // ======= WALLET DEPOSIT FLOW =======
-    if (order.order_type === "deposit" && order.user_id) {
-      console.log(`[brpix-webhook] Processing wallet deposit for user ${order.user_id}, amount ${order.amount}`);
+    if (order.order_type === "deposit") {
+      // If user_id is set, credit wallet immediately
+      if (order.user_id) {
+        console.log(`[brpix-webhook] Processing wallet deposit for user ${order.user_id}, amount ${order.amount}`);
 
-      const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
-        p_user_id: order.user_id,
-        p_amount: Number(order.amount),
-        p_description: `Depósito via PIX - ${order.customer_name}`,
-        p_reference_id: order.id,
-      });
-
-      if (creditError) {
-        console.error("[brpix-webhook] Credit wallet error:", creditError);
-        return new Response(JSON.stringify({ error: "Credit wallet failed" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
+          p_user_id: order.user_id,
+          p_amount: Number(order.amount),
+          p_description: `Depósito via PIX`,
+          p_reference_id: order.id,
         });
+
+        if (creditError) {
+          console.error("[brpix-webhook] Credit wallet error:", creditError);
+          return new Response(JSON.stringify({ error: "Credit wallet failed" }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        console.log(`[brpix-webhook] Wallet deposit ${order.id} paid → R$${order.amount} credited for user ${order.user_id}`);
+      } else {
+        // Anonymous deposit — just mark as paid. Balance will be credited when user creates account and claims the order.
+        console.log(`[brpix-webhook] Anonymous deposit ${order.id} paid → R$${order.amount}. Awaiting account creation to credit.`);
       }
 
       // Update order as paid
@@ -123,10 +131,8 @@ serve(async (req) => {
         })
         .eq("id", order.id);
 
-      console.log(`[brpix-webhook] Wallet deposit ${order.id} paid → R$${order.amount} credited for user ${order.user_id}`);
-
       return new Response(
-        JSON.stringify({ ok: true, type: "deposit", new_balance: (creditResult as any)?.new_balance }),
+        JSON.stringify({ ok: true, type: "deposit" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

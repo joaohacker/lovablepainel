@@ -64,8 +64,11 @@ export function PublicGenerator() {
     if (submittingRef.current) return;
 
     if (!user) {
+      // Not logged in — open deposit so they pay first, then create account
+      const cost = calcularPreco(c);
       setPendingCredits(c);
-      setShowAuth(true);
+      setDepositAmount(Math.ceil(cost * 100) / 100);
+      setShowDeposit(true);
       return;
     }
 
@@ -316,6 +319,7 @@ export function PublicGenerator() {
         suggestedAmount={depositAmount}
         pendingCredits={pendingCredits}
         onGenerateAfterDeposit={() => pendingCredits && handleGenerate(pendingCredits)}
+        isLoggedIn={!!user}
       />
 
       <AuthModal
