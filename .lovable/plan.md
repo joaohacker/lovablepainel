@@ -1,113 +1,197 @@
 
 
-# Painel Gerador de Créditos Lovable
+# Painel Gerador Publico On-Demand
 
-## Visão Geral
-Aplicação dark-mode com interface moderna para gerar créditos Lovable, conectada à API via proxy backend seguro (Lovable Cloud Edge Functions). Inclui painel administrativo com sistema de tokens para múltiplos clientes.
+## Resumo
 
----
-
-## 1. Backend - Edge Functions (Proxy Seguro)
-
-### Edge Function: `farm-proxy`
-- Proxy único que repassa todas as chamadas para `https://api.lovablextensao.shop`
-- Armazena a API key como secret do Cloud (`FARM_API_KEY`)
-- Endpoints expostos:
-  - `POST /farm-proxy` com action: `create`, `cancel`, `status`, `stock`
-- Para SSE (`/farm/events/:farmId`), a edge function faz streaming de volta ao frontend
-
-### Edge Function: `validate-token`
-- Valida tokens de acesso antes de permitir geração
-- Verifica: ativo, expiração, limite total, limite diário
-- Cria farm via API externa e registra uso no banco
-- Insere registro na tabela `generations` para monitoramento ao vivo
+Criar um painel gerador publico acessivel na landing page onde qualquer visitante pode gerar creditos pagando por demanda. O sistema mostra saldo em R$ e creditos simultaneamente, e exibe geracoes de outros clientes em uma aba lateral.
 
 ---
 
-## 2. Banco de Dados
+## Tabela de Precos
 
-### Tabelas
-- `profiles`: Dados de usuário (auto-criado no signup)
-- `user_roles`: Roles (admin, user) com `has_role()` security definer
-- `tokens`: Tokens de acesso com client_name, total_limit, daily_limit, credits_per_use, expires_at
-- `token_usages`: Log de cada uso de token
-- `generations`: Registro de cada geração (realtime habilitado)
+| Faixa de Creditos | Preco por 100 creditos |
+|---|---|
+| Ate 999 | R$ 7,00 |
+| 1.000 - 1.999 | R$ 6,50 |
+| 2.000 - 2.999 | R$ 6,00 |
+| 3.000 - 5.000 | R$ 5,50 |
 
-### Segurança
-- RLS em todas as tabelas
-- Admins gerenciam tokens e veem gerações via `has_role()`
-- Clientes anônimos acessam via edge function com validação server-side
+Pacotes fixos pre-definidos tambem serao exibidos para facilitar a compra rapida.
 
 ---
 
-## 3. Rotas
+## Fluxo do Usuario
 
-### `/auth` - Login/Signup Admin
-- Email + Senha
-- Redireciona para `/admin` se já autenticado e admin
-
-### `/admin` - Painel Administrativo
-- **Tokens**: CRUD de tokens com link copiável
-- **Ao Vivo**: Dashboard realtime com todas as gerações
-
-### `/generate/:token` - Página do Cliente
-- Valida token via edge function
-- Mostra seletor de créditos (limitado por `credits_per_use`)
-- Mostra informações de uso restante
-- Fluxo de geração completo (fila, convite, execução, conclusão)
-
-### `/` - Página Principal (original)
-- Gerador direto sem token (mantido)
-
----
-
-## 4. Fluxo de Geração (após clicar "Gerar")
-
-### Estado: Na Fila (`queued`)
-- Mensagem: "Posição X na fila, aguarde..."
-- Polling automático a cada 5s até sair da fila
-
-### Estado: Aguardando Convite (`waiting_invite`)
-- **Email do bot master em destaque máximo** (texto grande, centralizado)
-- Botão "Copiar Email" com feedback visual
-- Instruções claras: "Convide este email no seu workspace Lovable"
-- Timer regressivo de 10 minutos visível
-- Botão "Cancelar" disponível
-
-### Estado: Executando (`running`)
-- Barra de progresso animada
-- Contador de créditos incrementando em tempo real (+5 por claim)
-- Nome do workspace detectado
-- Log de progresso com mensagens do tipo info
-
-### Estado: Concluído (`completed`)
-- Tela de sucesso com animação
-- "X créditos gerados com sucesso!" (usando `result.credits`)
-- Estatísticas: tentados vs falhas
-- Botão "Gerar Novamente"
-
-### Estados de Erro
-- **Expirado**: "Tempo esgotado" + botão tentar novamente
-- **Erro**: Mensagem do erro + botão tentar novamente
-- **Cancelado**: Confirmação de cancelamento
+```text
++---------------------+
+| Landing Page        |
+| (Painel Publico)    |
++---------------------+
+         |
+   Seleciona creditos
+   (slider 5-5000)
+         |
+   Clica "Gerar"
+         |
+    Tem saldo? ---------> SIM: Inicia geracao
+         |                       (email master, polling, etc.)
+        NAO
+         |
+   Modal "Sem Saldo"
+   "Adicione saldo"
+         |
+   PIX gerado (valor exato
+   ou saldo livre)
+         |
+   Pagamento confirmado
+         |
+   Ja tem conta? -------> SIM: Saldo creditado
+         |                       Geracao inicia automaticamente
+        NAO
+         |
+   Formulario criar conta
+   (email + senha)
+         |
+   Conta criada + saldo
+   creditado + geracao inicia
+```
 
 ---
 
-## 5. Comunicação em Tempo Real
+## O que sera construido
 
-- Conexão SSE para receber eventos de progresso
-- Reconexão automática se a conexão cair
-- Fallback para polling via `/farm/status` se SSE falhar
-- Tratamento de todos os tipos de evento
-- Supabase Realtime na tabela `generations` para dashboard admin
+### 1. Banco de Dados (novas tabelas e alteracoes)
+
+**Tabela `wallets`** -- saldo do usuario
+- `id` (uuid, PK)
+- `user_id` (uuid, referencia auth.users)
+- `balance` (numeric, default 0) -- saldo em reais
+- `created_at`, `updated_at`
+- RLS: usuario ve/atualiza apenas proprio saldo
+
+**Tabela `wallet_transactions`** -- historico de depositos/gastos
+- `id` (uuid, PK)
+- `wallet_id` (uuid, FK wallets)
+- `type` (text: 'deposit' | 'debit')
+- `amount` (numeric) -- valor em R$
+- `credits` (integer, nullable) -- creditos associados (para debitos)
+- `description` (text)
+- `reference_id` (text, nullable) -- farm_id ou order_id
+- `created_at`
+- RLS: usuario ve apenas proprias transacoes
+
+**Alteracao na tabela `generations`**
+- Adicionar coluna `user_id` (uuid, nullable) para vincular geracoes ao usuario do painel publico
+- Geracoes com token continuam usando `token_id`, geracoes on-demand usam `user_id`
+
+**Alteracao na tabela `orders`**
+- Adicionar coluna `user_id` (uuid, nullable) para vincular depositos de saldo
+
+### 2. Edge Function `public-generate`
+
+Nova edge function que:
+- Recebe `user_id` e `credits` desejados
+- Calcula o custo baseado na tabela de precos
+- Verifica saldo na wallet
+- Se suficiente: debita saldo, cria farm via API externa, insere em `generations`
+- Se insuficiente: retorna erro com valor necessario
+
+### 3. Edge Function `wallet-deposit`
+
+Nova edge function para depositos de saldo:
+- Cria cobranca PIX via BrPix (similar ao brpix-payment existente)
+- Ao confirmar pagamento (webhook), credita saldo na wallet
+
+### 4. Alteracao no `brpix-webhook`
+
+Adicionar logica para processar depositos de saldo (alem dos tokens existentes):
+- Se o pedido tem `user_id` e tipo "deposit", credita na wallet
+- Se tinha geracao pendente, inicia automaticamente
+
+### 5. Frontend -- Novo componente `PublicGenerator`
+
+Componente principal na landing page com:
+- **Seletor de creditos** (slider 5-5000, multiplos de 5)
+- **Calculadora de preco** em tempo real (mostra R$ e creditos)
+- **Pacotes fixos** (ex: 100, 500, 1000, 2000, 5000 creditos)
+- **Display de saldo** (R$ X,XX = Y creditos)
+- **Botao "Gerar"** que verifica saldo
+- **Modal sem saldo** com opcao de pagamento PIX rapido
+- **Status da geracao** (reutiliza GenerationStatus existente)
+
+### 6. Frontend -- Aba "Geracoes ao Vivo"
+
+Pequena aba/tab no painel publico mostrando:
+- Lista de geracoes ativas de outros usuarios (anonimizadas)
+- A geracao do usuario atual em destaque/principal
+- Dados: quantidade de creditos, status, progresso
+- Atualizado via polling a cada 5s
+
+### 7. Frontend -- Fluxo de Autenticacao Inline
+
+- Se usuario nao logado tenta gerar: modal de login/cadastro aparece
+- Apos pagamento confirmado sem conta: formulario de criacao de conta
+- Conta criada -> saldo vinculado -> geracao inicia
+
+### 8. Landing Page -- Integracao
+
+- Substituir a secao de "Pricing Card" atual por uma secao interativa com o PublicGenerator
+- Manter secoes de beneficios e como funciona
+- O painel publico sera a peca central da pagina
 
 ---
 
-## 6. Regras de Segurança e UX
+## Detalhes Tecnicos
 
-- Botão "Gerar" desabilitado após primeiro clique (evita duplicados)
-- API key nunca exposta no frontend
-- Validação client-side dos créditos (múltiplo de 5, range válido)
-- Validação server-side via edge function (token, limites, expiração)
-- Informações técnicas (farmId, proxy, logs internos) ocultas do usuário
-- Sistema de roles com `has_role()` security definer para admin
+### Calculo de Preco (funcao utilitaria)
+
+```text
+function calcularPreco(creditos: number): number {
+  precoPor100 =
+    creditos >= 3000 ? 5.50
+    creditos >= 2000 ? 6.00
+    creditos >= 1000 ? 6.50
+    default: 7.00
+
+  return (creditos / 100) * precoPor100
+}
+```
+
+### Pacotes Fixos Sugeridos
+
+| Pacote | Creditos | Preco | Economia |
+|---|---|---|---|
+| Starter | 100 | R$ 7,00 | -- |
+| Popular | 500 | R$ 35,00 | -- |
+| Pro | 1.000 | R$ 65,00 | 7% off |
+| Business | 2.000 | R$ 120,00 | 14% off |
+| Enterprise | 5.000 | R$ 275,00 | 21% off |
+
+### Seguranca
+
+- Todas as operacoes de saldo passam por edge functions com service role
+- RLS garante que usuarios so veem proprio saldo e transacoes
+- Debito de saldo e atomico (verifica + debita na mesma transacao)
+- Geracoes publicas ficam visiveis para todos (sem dados sensiveis)
+
+### Arquivos a Criar/Editar
+
+**Novos:**
+- `src/components/public/PublicGenerator.tsx` -- componente principal
+- `src/components/public/CreditCalculator.tsx` -- calculadora de preco
+- `src/components/public/LiveGenerations.tsx` -- aba de geracoes ao vivo
+- `src/components/public/WalletDisplay.tsx` -- display de saldo
+- `src/components/public/DepositModal.tsx` -- modal de deposito PIX
+- `src/components/public/AuthModal.tsx` -- modal login/cadastro inline
+- `src/hooks/useWallet.ts` -- hook para gerenciar saldo
+- `src/hooks/usePublicGeneration.ts` -- hook para geracao publica
+- `src/lib/pricing.ts` -- funcoes de calculo de preco
+- `supabase/functions/public-generate/index.ts` -- edge function geracao
+- `supabase/functions/wallet-deposit/index.ts` -- edge function deposito
+
+**Editados:**
+- `src/pages/Landing.tsx` -- integrar PublicGenerator
+- `supabase/functions/brpix-webhook/index.ts` -- suportar depositos
+- Migracoes SQL para novas tabelas e colunas
+
