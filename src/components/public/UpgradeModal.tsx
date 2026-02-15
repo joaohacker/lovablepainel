@@ -17,7 +17,8 @@ interface UpgradeModalProps {
   onUpgradeComplete: () => void;
 }
 
-const DAILY_INCREMENT_OPTIONS = [1000, 2000, 3000, 5000];
+const DAILY_INCREMENT_OPTIONS = [1000, 2000, 3000, 5000, 10000, 20000, 50000];
+const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 10000];
 const PRICE_PER_1000_DAILY = 15;
 const PRICE_PER_1000_PER_USE = 30;
@@ -109,8 +110,10 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
             )}
 
             {upgradeType === "daily_limit" ? (
-              // Daily limit: increment options (adds to current)
-              DAILY_INCREMENT_OPTIONS.map((inc) => {
+              // Daily limit: increment options (adds to current, capped at 100k)
+              DAILY_INCREMENT_OPTIONS
+                .filter((inc) => (currentLimit || 0) + inc <= MAX_DAILY_LIMIT)
+                .map((inc) => {
                 const price = (inc / 1000) * pricePerUnit;
                 const newLimit = (currentLimit || 0) + inc;
                 return (
