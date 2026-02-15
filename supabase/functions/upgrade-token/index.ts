@@ -9,19 +9,36 @@ const corsHeaders = {
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
-// Daily: R$10 per 1000
-const PRICE_PER_1000_DAILY = 10;
+// Daily: R$15 per 1000, with progressive discounts
+const PRICE_PER_1000_DAILY = 15;
 
-// Per-use: tiered pricing based on new target
-function getPerUseAmount(increment: number, currentCreditsPerUse: number): number {
-  const target = currentCreditsPerUse + increment;
-  const originalPrice = (increment / 1000) * 30;
-  if (target >= 10000) return Math.min(180, originalPrice);
-  let discountPct = 0;
-  if (target >= 9000) discountPct = 20;
-  else if (target >= 7000) discountPct = 15;
-  else if (target >= 5000) discountPct = 10;
-  else if (target >= 3000) discountPct = 5;
+function getDailyDiscount(credits: number): number {
+  if (credits > 30000) return 25;
+  if (credits >= 16000) return 20;
+  if (credits >= 9000) return 15;
+  if (credits >= 6000) return 10;
+  if (credits >= 3000) return 5;
+  return 0;
+}
+
+function getDailyAmount(increment: number): number {
+  const originalPrice = increment * 0.015;
+  const discountPct = getDailyDiscount(increment);
+  return originalPrice * (1 - discountPct / 100);
+}
+
+// Per-use: R$30 per 1000, with progressive discounts
+function getPerUseDiscount(credits: number): number {
+  if (credits > 10000) return 20;
+  if (credits >= 9000) return 15;
+  if (credits >= 6000) return 10;
+  if (credits >= 3000) return 5;
+  return 0;
+}
+
+function getPerUseAmount(increment: number): number {
+  const originalPrice = increment * 0.03;
+  const discountPct = getPerUseDiscount(increment);
   return originalPrice * (1 - discountPct / 100);
 }
 
@@ -83,9 +100,9 @@ serve(async (req) => {
     // Calculate price
     let amount: number;
     if (upgrade_type === "daily_limit") {
-      amount = (increment / 1000) * PRICE_PER_1000_DAILY;
+      amount = getDailyAmount(increment);
     } else {
-      amount = getPerUseAmount(increment, tokenData.credits_per_use);
+      amount = getPerUseAmount(increment);
     }
     const orderType = upgrade_type === "daily_limit" ? "upgrade_daily" : "upgrade_per_use";
 

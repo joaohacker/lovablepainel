@@ -21,26 +21,36 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
-const PRICE_PER_1000_DAILY = 10;
+const PRICE_PER_1000_DAILY = 15;
 
-// Per-use: tiered pricing based on target
-// Returns { price, originalPrice, discountPct }
+function getDailyDiscount(credits: number): number {
+  if (credits > 30000) return 25;
+  if (credits >= 16000) return 20;
+  if (credits >= 9000) return 15;
+  if (credits >= 6000) return 10;
+  if (credits >= 3000) return 5;
+  return 0;
+}
+
+function getDailyPrice(increment: number): { price: number; originalPrice: number; discountPct: number } {
+  const originalPrice = increment * 0.015;
+  const discountPct = getDailyDiscount(increment);
+  const price = originalPrice * (1 - discountPct / 100);
+  return { price, originalPrice, discountPct };
+}
+
+function getPerUseDiscount(credits: number): number {
+  if (credits > 10000) return 20;
+  if (credits >= 9000) return 15;
+  if (credits >= 6000) return 10;
+  if (credits >= 3000) return 5;
+  return 0;
+}
+
 function getPerUsePrice(target: number, current: number): { price: number; originalPrice: number; discountPct: number } {
   const increment = target - current;
-  const originalPrice = (increment / 1000) * 30;
-
-  // Fixed price for 10k target
-  if (target >= 10000) {
-    const fixedPrice = Math.min(180, originalPrice); // R$180 cap for 10k
-    return { price: fixedPrice, originalPrice, discountPct: Math.round((1 - fixedPrice / originalPrice) * 100) };
-  }
-
-  let discountPct = 0;
-  if (target >= 9000) discountPct = 20;
-  else if (target >= 7000) discountPct = 15;
-  else if (target >= 5000) discountPct = 10;
-  else if (target >= 3000) discountPct = 5;
-
+  const originalPrice = increment * 0.03;
+  const discountPct = getPerUseDiscount(increment);
   const price = originalPrice * (1 - discountPct / 100);
   return { price, originalPrice, discountPct };
 }
@@ -126,8 +136,10 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     customIncrement = roundedCustom;
     customNewLimit = current + customIncrement;
     customValid = customIncrement >= 1000 && customNewLimit <= MAX_DAILY_LIMIT;
-    customPrice = (customIncrement / 1000) * PRICE_PER_1000_DAILY;
-    customOriginalPrice = customPrice;
+    const dp = getDailyPrice(customIncrement);
+    customPrice = dp.price;
+    customOriginalPrice = dp.originalPrice;
+    customDiscountPct = dp.discountPct;
   } else {
     const customTarget = roundedCustom;
     customIncrement = customTarget - current;
@@ -200,16 +212,16 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                 {DAILY_INCREMENT_OPTIONS
                   .filter((inc) => inc <= maxDailyIncrement)
                   .map((inc) => {
-                    const price = (inc / 1000) * PRICE_PER_1000_DAILY;
+                    const dp = getDailyPrice(inc);
                     const newLimit = current + inc;
-                    return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, price, price, 0);
+                    return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, dp.price, dp.originalPrice, dp.discountPct);
                   })}
               </>
             ) : (
               <>
                 <div className="flex items-center justify-center">
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
-                    🔥 Até 20% OFF — quanto mais, mais barato
+                    🔥 Até 25% OFF — quanto mais, mais barato
                   </span>
                 </div>
                 {PER_USE_TARGET_OPTIONS
