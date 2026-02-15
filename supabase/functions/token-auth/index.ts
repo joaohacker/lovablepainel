@@ -19,9 +19,16 @@ serve(async (req) => {
   try {
     const { action, token, email, password } = await req.json();
 
-    if (!token || !email || !password) {
+    if (!token) {
       return new Response(
-        JSON.stringify({ success: false, error: "Token, email e senha são obrigatórios" }),
+        JSON.stringify({ success: false, error: "Token é obrigatório" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action !== "check" && (!email || !password)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Email e senha são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -63,6 +70,20 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, error: "Senha deve conter pelo menos um caractere especial (!@#$...)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if token has an account (no email/password needed)
+    if (action === "check") {
+      const { data: existing } = await supabase
+        .from("token_accounts")
+        .select("id")
+        .eq("token_id", tokenData.id)
+        .maybeSingle();
+
+      return new Response(
+        JSON.stringify({ success: true, has_account: !!existing }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
