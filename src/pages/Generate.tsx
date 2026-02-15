@@ -319,6 +319,8 @@ const Generate = () => {
                 onGenerate={handleGenerate}
                 disabled={farm.state !== "idle"}
                 maxCredits={tokenInfo.credits_per_use}
+                dailyLimit={tokenInfo.daily_limit}
+                remainingDaily={validation.remaining_daily}
                 onUpgradePerUse={() => setUpgradeModal({ open: true, type: "credits_per_use" })}
                 onUpgradeDaily={() => setUpgradeModal({ open: true, type: "daily_limit" })}
               />
