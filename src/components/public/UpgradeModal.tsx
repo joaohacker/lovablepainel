@@ -21,7 +21,7 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
-const PRICE_PER_1000_DAILY = 15;
+const PRICE_PER_1000_DAILY = 2.5;
 
 function getDailyDiscount(credits: number): number {
   if (credits > 30000) return 25;
@@ -33,7 +33,7 @@ function getDailyDiscount(credits: number): number {
 }
 
 function getDailyPrice(increment: number): { price: number; originalPrice: number; discountPct: number } {
-  const originalPrice = increment * 0.015;
+  const originalPrice = increment * (PRICE_PER_1000_DAILY / 1000);
   const discountPct = getDailyDiscount(increment);
   const price = originalPrice * (1 - discountPct / 100);
   return { price, originalPrice, discountPct };
@@ -49,14 +49,14 @@ function getPerUseDiscount(credits: number): number {
 
 function getPerUsePrice(target: number, current: number): { price: number; originalPrice: number; discountPct: number } {
   const increment = target - current;
-  const originalPrice = increment * 0.03;
+  const originalPrice = increment * 0.005;
   const discountPct = getPerUseDiscount(increment);
   const price = originalPrice * (1 - discountPct / 100);
   return { price, originalPrice, discountPct };
 }
 
 export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLimit, onUpgradeComplete }: UpgradeModalProps) {
-  const [step, setStep] = useState<"select" | "pix">("select");
+  const [step, setStep] = useState<"select" | "pix" | "done">("select");
   const [selectedIncrement, setSelectedIncrement] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [pixCode, setPixCode] = useState("");
@@ -92,8 +92,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
         .single();
       if (data?.status === "paid") {
         clearInterval(interval);
-        onUpgradeComplete();
-        onOpenChange(false);
+        setStep("done" as any);
       }
     }, 5000);
     return () => clearInterval(interval);
@@ -302,6 +301,28 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
 
         {step === "pix" && pixCode && (
           <PixStep pixCode={pixCode} amount={amount} />
+        )}
+
+        {step === "done" && (
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center">
+              <Check className="h-8 w-8 text-green-400" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">Pagamento Confirmado!</h3>
+            <p className="text-sm text-muted-foreground">
+              Seu {theLabel.toLowerCase()} foi aumentado com sucesso.
+            </p>
+            <Button
+              className="w-full h-11 font-semibold"
+              onClick={() => {
+                onUpgradeComplete();
+                onOpenChange(false);
+                window.location.reload();
+              }}
+            >
+              Atualizar Página
+            </Button>
+          </div>
         )}
       </DialogContent>
     </Dialog>
