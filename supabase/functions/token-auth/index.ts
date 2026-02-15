@@ -47,7 +47,21 @@ serve(async (req) => {
       );
     }
 
-    // Password strength validation (server-side)
+    // Check if token has an account (no email/password needed)
+    if (action === "check") {
+      const { data: existing } = await supabase
+        .from("token_accounts")
+        .select("id")
+        .eq("token_id", tokenData.id)
+        .maybeSingle();
+
+      return new Response(
+        JSON.stringify({ success: true, has_account: !!existing }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Password strength validation (server-side) - only for signup/login
     if (password.length < 8) {
       return new Response(
         JSON.stringify({ success: false, error: "Senha deve ter no mínimo 8 caracteres" }),
@@ -70,20 +84,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ success: false, error: "Senha deve conter pelo menos um caractere especial (!@#$...)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check if token has an account (no email/password needed)
-    if (action === "check") {
-      const { data: existing } = await supabase
-        .from("token_accounts")
-        .select("id")
-        .eq("token_id", tokenData.id)
-        .maybeSingle();
-
-      return new Response(
-        JSON.stringify({ success: true, has_account: !!existing }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
