@@ -21,24 +21,30 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
-const DISCOUNT_DAILY = 0.85; // 15% off for daily
-const PRICE_PER_1000_DAILY = 15 * DISCOUNT_DAILY;
+const DAILY_DISCOUNT = 0.85; // 15% off
+const PRICE_PER_1000_DAILY_DISCOUNTED = 15 * DAILY_DISCOUNT;
+const PRICE_PER_1000_DAILY_ORIGINAL = 15;
 
-// Per-use tiered discount based on TARGET (not increment)
-function getPerUseDiscount(target: number): number {
-  if (target >= 9000) return 0.20;
-  if (target >= 7000) return 0.15;
-  if (target >= 5000) return 0.10;
-  if (target >= 3000) return 0.05;
-  return 0;
-}
-
-function calcPerUsePrice(target: number, current: number): { price: number; originalPrice: number; discount: number } {
+// Per-use: tiered pricing based on target
+// Returns { price, originalPrice, discountPct }
+function getPerUsePrice(target: number, current: number): { price: number; originalPrice: number; discountPct: number } {
   const increment = target - current;
   const originalPrice = (increment / 1000) * 30;
-  const discount = getPerUseDiscount(target);
-  const price = originalPrice * (1 - discount);
-  return { price, originalPrice, discount };
+
+  // Fixed price for 10k target
+  if (target >= 10000) {
+    const fixedPrice = Math.min(180, originalPrice); // R$180 cap for 10k
+    return { price: fixedPrice, originalPrice, discountPct: Math.round((1 - fixedPrice / originalPrice) * 100) };
+  }
+
+  let discountPct = 0;
+  if (target >= 9000) discountPct = 20;
+  else if (target >= 7000) discountPct = 15;
+  else if (target >= 5000) discountPct = 10;
+  else if (target >= 3000) discountPct = 5;
+
+  const price = originalPrice * (1 - discountPct / 100);
+  return { price, originalPrice, discountPct };
 }
 
 export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLimit, onUpgradeComplete }: UpgradeModalProps) {
@@ -51,12 +57,9 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
   const [error, setError] = useState<string | null>(null);
   const [customValue, setCustomValue] = useState("");
 
-  const label = upgradeType === "daily_limit" ? "Limite Diário" : "Limite por Vez";
-  const icon = upgradeType === "daily_limit" ? <TrendingUp className="h-5 w-5" /> : <Zap className="h-5 w-5" />;
-  const label = upgradeType === "daily_limit" ? "Limite Diário" : "Limite por Vez";
-  const icon = upgradeType === "daily_limit" ? <TrendingUp className="h-5 w-5" /> : <Zap className="h-5 w-5" />;
+  const theLabel = upgradeType === "daily_limit" ? "Limite Diário" : "Limite por Vez";
+  const theIcon = upgradeType === "daily_limit" ? <TrendingUp className="h-5 w-5" /> : <Zap className="h-5 w-5" />;
   const current = currentLimit || 0;
-
   const maxDailyIncrement = MAX_DAILY_LIMIT - current;
   const maxPerUseTarget = 10000;
 
@@ -108,7 +111,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     }
   };
 
-  const formatPrice = (price: number) => `R$ ${price.toFixed(2).replace(".", ",")}`;
+  const formatPrice = (p: number) => `R$ ${p.toFixed(2).replace(".", ",")}`;
 
   // Custom value logic
   const parsedCustom = parseInt(customValue) || 0;
@@ -118,21 +121,27 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
   let customValid = false;
   let customNewLimit = 0;
   let customPrice = 0;
+  let customOriginalPrice = 0;
+  let customDiscountPct = 0;
 
   if (upgradeType === "daily_limit") {
     customIncrement = roundedCustom;
     customNewLimit = current + customIncrement;
     customValid = customIncrement >= 1000 && customNewLimit <= MAX_DAILY_LIMIT;
-    customPrice = (customIncrement / 1000) * pricePerUnit;
+    customPrice = (customIncrement / 1000) * PRICE_PER_1000_DAILY_DISCOUNTED;
+    customOriginalPrice = (customIncrement / 1000) * PRICE_PER_1000_DAILY_ORIGINAL;
   } else {
     const customTarget = roundedCustom;
     customIncrement = customTarget - current;
     customNewLimit = customTarget;
     customValid = customIncrement >= 1000 && customTarget <= maxPerUseTarget && customTarget > current;
-    customPrice = (customIncrement / 1000) * pricePerUnit;
+    const p = getPerUsePrice(customTarget, current);
+    customPrice = p.price;
+    customOriginalPrice = p.originalPrice;
+    customDiscountPct = p.discountPct;
   }
 
-  const renderOptionCard = (key: number, title: string, subtitle: string, increment: number, price: number, originalPrice: number) => {
+  const renderOptionCard = (key: number, title: string, subtitle: string, increment: number, price: number, originalPrice: number, discountPct: number) => {
     const isSelected = selectedIncrement === increment;
     return (
       <Card
@@ -151,8 +160,13 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
             </div>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground line-through">{formatPrice(originalPrice)}</p>
+            {discountPct > 0 && (
+              <p className="text-xs text-muted-foreground line-through">{formatPrice(originalPrice)}</p>
+            )}
             <p className="text-lg font-bold text-primary">{formatPrice(price)}</p>
+            {discountPct > 0 && (
+              <p className="text-[10px] font-semibold text-green-400">-{discountPct}%</p>
+            )}
           </div>
         </div>
       </Card>
@@ -164,8 +178,8 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {icon}
-            Aumentar {label}
+            {theIcon}
+            Aumentar {theLabel}
           </DialogTitle>
           <DialogDescription>
             Limite atual: <span className="font-bold text-foreground">{current.toLocaleString()}</span> créditos
@@ -174,13 +188,6 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
             )}
           </DialogDescription>
         </DialogHeader>
-
-        {/* Discount badge */}
-        <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
-            🔥 15% OFF em todos os upgrades
-          </span>
-        </div>
 
         {step === "select" && (
           <div className="space-y-3">
@@ -191,23 +198,36 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
             )}
 
             {upgradeType === "daily_limit" ? (
-              DAILY_INCREMENT_OPTIONS
-                .filter((inc) => inc <= maxDailyIncrement)
-                .map((inc) => {
-                  const price = (inc / 1000) * pricePerUnit;
-                  const originalPrice = (inc / 1000) * originalPricePerUnit;
-                  const newLimit = current + inc;
-                  return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, price, originalPrice);
-                })
+              <>
+                <div className="flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
+                    🔥 15% OFF em upgrades diários
+                  </span>
+                </div>
+                {DAILY_INCREMENT_OPTIONS
+                  .filter((inc) => inc <= maxDailyIncrement)
+                  .map((inc) => {
+                    const price = (inc / 1000) * PRICE_PER_1000_DAILY_DISCOUNTED;
+                    const originalPrice = (inc / 1000) * PRICE_PER_1000_DAILY_ORIGINAL;
+                    const newLimit = current + inc;
+                    return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, price, originalPrice, 15);
+                  })}
+              </>
             ) : (
-              PER_USE_TARGET_OPTIONS
-                .filter((target) => target > current)
-                .map((target) => {
-                  const increment = target - current;
-                  const price = (increment / 1000) * pricePerUnit;
-                  const originalPrice = (increment / 1000) * originalPricePerUnit;
-                  return renderOptionCard(target, `${target.toLocaleString()} créditos/vez`, `Atual: ${current.toLocaleString()} → ${target.toLocaleString()}`, increment, price, originalPrice);
-                })
+              <>
+                <div className="flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
+                    🔥 Até 20% OFF — quanto mais, mais barato
+                  </span>
+                </div>
+                {PER_USE_TARGET_OPTIONS
+                  .filter((target) => target > current)
+                  .map((target) => {
+                    const increment = target - current;
+                    const p = getPerUsePrice(target, current);
+                    return renderOptionCard(target, `${target.toLocaleString()} créditos/vez`, `Atual: ${current.toLocaleString()} → ${target.toLocaleString()}`, increment, p.price, p.originalPrice, p.discountPct);
+                  })}
+              </>
             )}
 
             {/* Custom value input */}
@@ -220,7 +240,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                   value={customValue}
                   onChange={(e) => {
                     setCustomValue(e.target.value);
-                    setSelectedIncrement(null); // deselect preset
+                    setSelectedIncrement(null);
                   }}
                   min={1000}
                   step={1000}
@@ -235,9 +255,13 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                         ? `+${customIncrement.toLocaleString()} → Novo limite: ${customNewLimit.toLocaleString()}`
                         : `${customNewLimit.toLocaleString()} créditos/vez (+${customIncrement.toLocaleString()})`}
                       {" · "}
-                      <span className="line-through text-muted-foreground/60">{formatPrice((customIncrement / 1000) * originalPricePerUnit)}</span>
-                      {" "}
+                      {customDiscountPct > 0 || (upgradeType === "daily_limit") ? (
+                        <>
+                          <span className="line-through text-muted-foreground/60">{formatPrice(customOriginalPrice)}</span>{" "}
+                        </>
+                      ) : null}
                       <span className="font-semibold text-primary">{formatPrice(customPrice)}</span>
+                      {customDiscountPct > 0 && <span className="text-green-400 ml-1">(-{customDiscountPct}%)</span>}
                     </>
                   ) : (
                     <span className="text-destructive">
