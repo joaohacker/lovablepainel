@@ -30,39 +30,8 @@ const Landing = () => {
       <div className="fixed inset-0 md:hidden bg-cover bg-center bg-no-repeat z-0" style={{ backgroundImage: "url('/images/bg-mobile.png')" }} />
       {/* Dark overlay for text contrast */}
       <div className="fixed inset-0 bg-black/60 md:bg-black/60 pointer-events-none z-0" />
-      {/* Navbar */}
-      <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4 relative">
-        <div className="glass-card flex items-center justify-between rounded-full px-4 md:px-6 py-2.5 md:py-3">
-          <div className="flex items-center gap-2">
-            <img src={lovableHeart} alt="Logo" className="h-6 w-6 md:h-7 md:w-7" />
-            <span className="text-base md:text-lg font-bold tracking-tight">
-              Lovable<span className="text-primary">Painel</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-2 md:gap-6 text-[10px] md:text-sm text-muted-foreground">
-            <a href="#beneficios" className="hover:text-foreground transition-colors">
-              Benefícios
-            </a>
-            <a href="#como-funciona" className="hover:text-foreground transition-colors whitespace-nowrap">
-              Como Funciona
-            </a>
-            <a href="#gerador" className="hover:text-foreground transition-colors">
-              Gerador
-            </a>
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full h-8 text-xs md:text-sm"
-              onClick={() => navigate("/auth")}
-            >
-              Acessar
-            </Button>
-          </div>
-        </div>
-      </nav>
-
       {/* Hero + Generator */}
-      <section id="gerador" className="relative z-10 pt-10 md:pt-16 pb-10 md:pb-16 px-4">
+      <section id="gerador" className="relative z-10 pt-8 md:pt-12 pb-10 md:pb-16 px-4">
         <div className="mx-auto max-w-6xl">
           <div className="text-center space-y-3 mb-8 md:mb-10">
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold leading-tight tracking-tight">
