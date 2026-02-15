@@ -3,10 +3,11 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
+import { UpgradeModal } from "@/components/public/UpgradeModal";
 
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ShieldX, Clock, Ban } from "lucide-react";
+import { Loader2, ShieldX, Clock, Ban, TrendingUp } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
 
 interface TokenInfo {
@@ -24,6 +25,7 @@ interface ValidationResult {
   token?: TokenInfo;
   remaining_total?: number | null;
   remaining_daily?: number | null;
+  daily_limit_reached?: boolean;
   maintenance?: { until: string; message: string } | null;
   warning_message?: string | null;
   error?: string;
@@ -76,6 +78,7 @@ const Generate = () => {
   const { token } = useParams<{ token: string }>();
   const [validating, setValidating] = useState(true);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; type: "daily_limit" | "credits_per_use" }>({ open: false, type: "daily_limit" });
   const farm = useFarmGeneration(token);
 
   useEffect(() => {
@@ -234,6 +237,7 @@ const Generate = () => {
 
   const tokenInfo = validation.token;
   const isIdle = farm.state === "idle";
+  const isDailyLimitReached = validation.daily_limit_reached === true;
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
@@ -294,11 +298,28 @@ const Generate = () => {
           <CardContent className="p-5 sm:p-6 md:p-8">
             {validation?.maintenance ? (
               <MaintenanceBanner message={validation.maintenance.message} until={validation.maintenance.until} />
+            ) : isDailyLimitReached ? (
+              <div className="flex flex-col items-center gap-5 py-4 text-center">
+                <TrendingUp className="h-14 w-14 text-amber-500" />
+                <h2 className="text-xl font-bold text-foreground">Limite Diário Atingido</h2>
+                <p className="text-sm text-muted-foreground">
+                  Você atingiu seu limite diário de <span className="font-bold text-foreground">{tokenInfo.daily_limit?.toLocaleString()}</span> créditos.
+                </p>
+                <p className="text-sm text-muted-foreground">Aumente seu limite para continuar gerando hoje!</p>
+                <button
+                  onClick={() => setUpgradeModal({ open: true, type: "daily_limit" })}
+                  className="w-full h-14 text-lg font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                >
+                  <TrendingUp className="h-5 w-5" />
+                  Aumentar Limite Diário
+                </button>
+              </div>
             ) : isIdle ? (
               <CreditSelector
                 onGenerate={handleGenerate}
                 disabled={farm.state !== "idle"}
                 maxCredits={tokenInfo.credits_per_use}
+                onUpgradePerUse={() => setUpgradeModal({ open: true, type: "credits_per_use" })}
               />
             ) : (
               <GenerationStatus
@@ -319,6 +340,18 @@ const Generate = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Upgrade Modal */}
+        {token && validation?.token && (
+          <UpgradeModal
+            open={upgradeModal.open}
+            onOpenChange={(open) => setUpgradeModal((prev) => ({ ...prev, open }))}
+            token={token}
+            upgradeType={upgradeModal.type}
+            currentLimit={upgradeModal.type === "daily_limit" ? tokenInfo.daily_limit : tokenInfo.credits_per_use}
+            onUpgradeComplete={() => validateToken()}
+          />
+        )}
       </div>
     </div>
   );

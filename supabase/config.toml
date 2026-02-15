@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.brpix-webhook]
 verify_jwt = false
+
+[functions.upgrade-token]
+verify_jwt = false

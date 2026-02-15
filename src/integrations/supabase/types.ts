@@ -90,6 +90,7 @@ export type Database = {
           token_id: string | null
           transaction_id: string | null
           updated_at: string
+          upgrade_increment: number | null
           user_id: string | null
         }
         Insert: {
@@ -108,6 +109,7 @@ export type Database = {
           token_id?: string | null
           transaction_id?: string | null
           updated_at?: string
+          upgrade_increment?: number | null
           user_id?: string | null
         }
         Update: {
@@ -126,6 +128,7 @@ export type Database = {
           token_id?: string | null
           transaction_id?: string | null
           updated_at?: string
+          upgrade_increment?: number | null
           user_id?: string | null
         }
         Relationships: [
