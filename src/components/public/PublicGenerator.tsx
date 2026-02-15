@@ -21,6 +21,7 @@ export function PublicGenerator() {
   const farm = useFarmGeneration();
 
   const [credits, setCredits] = useState(100);
+  const [creditInput, setCreditInput] = useState("100");
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -36,17 +37,26 @@ export function PublicGenerator() {
 
   const handleSliderChange = (value: number[]) => {
     const rounded = Math.round(value[0] / 5) * 5;
-    setCredits(Math.max(5, Math.min(5000, rounded)));
+    const clamped = Math.max(5, Math.min(5000, rounded));
+    setCredits(clamped);
+    setCreditInput(String(clamped));
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseInt(e.target.value) || 0;
+    setCreditInput(e.target.value);
+  };
+
+  const handleInputBlur = () => {
+    const val = parseInt(creditInput) || 5;
     const rounded = Math.round(val / 5) * 5;
-    setCredits(Math.max(5, Math.min(5000, rounded)));
+    const clamped = Math.max(5, Math.min(5000, rounded));
+    setCredits(clamped);
+    setCreditInput(String(clamped));
   };
 
   const selectPackage = (pkg: typeof FIXED_PACKAGES[number]) => {
     setCredits(pkg.credits);
+    setCreditInput(String(pkg.credits));
   };
 
   const handleGenerate = useCallback(async (creditsToGenerate?: number) => {
@@ -180,8 +190,9 @@ export function PublicGenerator() {
                     <div className="flex items-center justify-center gap-3">
                       <Input
                         type="number"
-                        value={credits}
+                        value={creditInput}
                         onChange={handleInputChange}
+                        onBlur={handleInputBlur}
                         min={5}
                         max={5000}
                         step={5}
