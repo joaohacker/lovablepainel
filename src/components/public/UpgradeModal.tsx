@@ -21,11 +21,7 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
-// Daily: tiered pricing based on increment amount
-function getDailyPrice(increment: number): number {
-  const pricePerK = increment >= 10000 ? 15 : increment >= 5000 ? 10 : 8;
-  return (increment / 1000) * pricePerK;
-}
+const PRICE_PER_1000_DAILY = 10;
 
 // Per-use: tiered pricing based on target
 // Returns { price, originalPrice, discountPct }
@@ -130,7 +126,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     customIncrement = roundedCustom;
     customNewLimit = current + customIncrement;
     customValid = customIncrement >= 1000 && customNewLimit <= MAX_DAILY_LIMIT;
-    customPrice = getDailyPrice(customIncrement);
+    customPrice = (customIncrement / 1000) * PRICE_PER_1000_DAILY;
     customOriginalPrice = customPrice;
   } else {
     const customTarget = roundedCustom;
@@ -204,8 +200,8 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                 {DAILY_INCREMENT_OPTIONS
                   .filter((inc) => inc <= maxDailyIncrement)
                   .map((inc) => {
+                    const price = (inc / 1000) * PRICE_PER_1000_DAILY;
                     const newLimit = current + inc;
-                    const price = getDailyPrice(inc);
                     return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, price, price, 0);
                   })}
               </>
