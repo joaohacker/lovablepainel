@@ -41,23 +41,23 @@ export function PixStep({ pixCode, amount }: PixStepProps) {
             ? "bg-destructive/15 border border-destructive/30"
             : isUrgent
             ? "bg-destructive/10 border border-destructive/20 animate-pulse"
-            : "bg-primary/10 border border-primary/20"
+            : "bg-accent/50 border border-border"
         }`}
       >
         {isExpired ? (
           <AlertTriangle className="h-5 w-5 text-destructive" />
         ) : (
-          <Clock className={`h-5 w-5 ${isUrgent ? "text-destructive" : "text-primary"}`} />
+          <Clock className={`h-5 w-5 ${isUrgent ? "text-destructive" : "text-muted-foreground"}`} />
         )}
         <span
           className={`text-lg font-bold tabular-nums ${
-            isExpired ? "text-destructive" : isUrgent ? "text-destructive" : "text-primary"
+            isExpired ? "text-destructive" : isUrgent ? "text-destructive" : "text-foreground"
           }`}
         >
           {isExpired ? "Tempo esgotado!" : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`}
         </span>
         {!isExpired && (
-          <span className={`text-xs ${isUrgent ? "text-destructive/80" : "text-primary/70"}`}>
+          <span className={`text-xs ${isUrgent ? "text-destructive/80" : "text-muted-foreground"}`}>
             para pagar
           </span>
         )}
