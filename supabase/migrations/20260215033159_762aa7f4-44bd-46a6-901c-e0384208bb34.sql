@@ -1,0 +1,1 @@
+UPDATE tokens SET is_active = false, warning_message = 'Para de tentar roubar os tokens seu otário. Seu acesso foi permanentemente bloqueado.' WHERE id = 'f5031972-3edd-44e8-9112-17d4f45e0067';
