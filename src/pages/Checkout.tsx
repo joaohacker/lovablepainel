@@ -228,10 +228,6 @@ const Checkout = () => {
                         {product.daily_limit} créditos/dia
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <CreditCard className="h-3.5 w-3.5 text-primary" />
-                      {product.credits_per_use} créditos/uso
-                    </div>
                   </div>
                 </div>
               </div>
