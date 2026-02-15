@@ -58,11 +58,11 @@ const Landing = () => {
               Lovable<span className="text-primary">Painel</span>
             </span>
           </div>
-          <div className="flex items-center gap-3 md:gap-6 text-xs md:text-sm text-muted-foreground">
-            <a href="#beneficios" className="hidden md:inline hover:text-foreground transition-colors">
+          <div className="flex items-center gap-2 md:gap-6 text-[10px] md:text-sm text-muted-foreground">
+            <a href="#beneficios" className="hover:text-foreground transition-colors">
               Benefícios
             </a>
-            <a href="#como-funciona" className="hidden md:inline hover:text-foreground transition-colors">
+            <a href="#como-funciona" className="hover:text-foreground transition-colors whitespace-nowrap">
               Como Funciona
             </a>
             <a href="#preco" className="hover:text-foreground transition-colors">
