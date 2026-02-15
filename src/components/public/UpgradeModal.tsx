@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PixStep } from "@/components/public/PixStep";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, TrendingUp, Zap } from "lucide-react";
+import { Loader2, TrendingUp, Zap, Check } from "lucide-react";
 
 type UpgradeType = "daily_limit" | "credits_per_use";
 
@@ -21,11 +21,13 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 10000];
-const PRICE_PER_1000_DAILY = 15;
-const PRICE_PER_1000_PER_USE = 30;
+const DISCOUNT = 0.75; // 25% off
+const PRICE_PER_1000_DAILY = 15 * DISCOUNT;   // R$11.25
+const PRICE_PER_1000_PER_USE = 30 * DISCOUNT;  // R$22.50
 
 export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLimit, onUpgradeComplete }: UpgradeModalProps) {
   const [step, setStep] = useState<"select" | "pix">("select");
+  const [selectedIncrement, setSelectedIncrement] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [pixCode, setPixCode] = useState("");
   const [amount, setAmount] = useState(0);
@@ -34,18 +36,18 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
   const [customValue, setCustomValue] = useState("");
 
   const pricePerUnit = upgradeType === "daily_limit" ? PRICE_PER_1000_DAILY : PRICE_PER_1000_PER_USE;
+  const originalPricePerUnit = upgradeType === "daily_limit" ? 15 : 30;
   const label = upgradeType === "daily_limit" ? "Limite Diário" : "Limite por Vez";
   const icon = upgradeType === "daily_limit" ? <TrendingUp className="h-5 w-5" /> : <Zap className="h-5 w-5" />;
   const current = currentLimit || 0;
 
-  // For daily: max increment so total doesn't exceed 100k
   const maxDailyIncrement = MAX_DAILY_LIMIT - current;
-  // For per-use: max target is 10k
   const maxPerUseTarget = 10000;
 
   useEffect(() => {
     if (!open) {
       setStep("select");
+      setSelectedIncrement(null);
       setPixCode("");
       setOrderId(null);
       setError(null);
@@ -90,6 +92,8 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     }
   };
 
+  const formatPrice = (price: number) => `R$ ${price.toFixed(2).replace(".", ",")}`;
+
   // Custom value logic
   const parsedCustom = parseInt(customValue) || 0;
   const roundedCustom = Math.round(parsedCustom / 1000) * 1000;
@@ -105,13 +109,39 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     customValid = customIncrement >= 1000 && customNewLimit <= MAX_DAILY_LIMIT;
     customPrice = (customIncrement / 1000) * pricePerUnit;
   } else {
-    // Per-use: custom value is the target
     const customTarget = roundedCustom;
     customIncrement = customTarget - current;
     customNewLimit = customTarget;
     customValid = customIncrement >= 1000 && customTarget <= maxPerUseTarget && customTarget > current;
     customPrice = (customIncrement / 1000) * pricePerUnit;
   }
+
+  const renderOptionCard = (key: number, title: string, subtitle: string, increment: number, price: number, originalPrice: number) => {
+    const isSelected = selectedIncrement === increment;
+    return (
+      <Card
+        key={key}
+        className={`cursor-pointer transition-colors ${isSelected ? "border-primary bg-primary/10" : "hover:border-primary/50"}`}
+        onClick={() => setSelectedIncrement(increment)}
+      >
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"}`}>
+              {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">{title}</p>
+              <p className="text-xs text-muted-foreground">{subtitle}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground line-through">{formatPrice(originalPrice)}</p>
+            <p className="text-lg font-bold text-primary">{formatPrice(price)}</p>
+          </div>
+        </div>
+      </Card>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,8 +159,15 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
           </DialogDescription>
         </DialogHeader>
 
+        {/* Discount badge */}
+        <div className="flex items-center justify-center">
+          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
+            🔥 25% OFF em todos os upgrades
+          </span>
+        </div>
+
         {step === "select" && (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3">
             {error && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {error}
@@ -142,26 +179,9 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                 .filter((inc) => inc <= maxDailyIncrement)
                 .map((inc) => {
                   const price = (inc / 1000) * pricePerUnit;
+                  const originalPrice = (inc / 1000) * originalPricePerUnit;
                   const newLimit = current + inc;
-                  return (
-                    <Card
-                      key={inc}
-                      className="cursor-pointer hover:border-primary/50 transition-colors"
-                      onClick={() => !loading && handlePurchase(inc)}
-                    >
-                      <div className="flex items-center justify-between p-4">
-                        <div>
-                          <p className="font-semibold text-foreground">+{inc.toLocaleString()} créditos</p>
-                          <p className="text-xs text-muted-foreground">
-                            Novo limite: {newLimit.toLocaleString()}
-                          </p>
-                        </div>
-                        <p className="text-lg font-bold text-primary">
-                          R$ {price.toFixed(2).replace(".", ",")}
-                        </p>
-                      </div>
-                    </Card>
-                  );
+                  return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, price, originalPrice);
                 })
             ) : (
               PER_USE_TARGET_OPTIONS
@@ -169,48 +189,27 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                 .map((target) => {
                   const increment = target - current;
                   const price = (increment / 1000) * pricePerUnit;
-                  return (
-                    <Card
-                      key={target}
-                      className="cursor-pointer hover:border-primary/50 transition-colors"
-                      onClick={() => !loading && handlePurchase(increment)}
-                    >
-                      <div className="flex items-center justify-between p-4">
-                        <div>
-                          <p className="font-semibold text-foreground">{target.toLocaleString()} créditos/vez</p>
-                          <p className="text-xs text-muted-foreground">
-                            Atual: {current.toLocaleString()} → {target.toLocaleString()}
-                          </p>
-                        </div>
-                        <p className="text-lg font-bold text-primary">
-                          R$ {price.toFixed(2).replace(".", ",")}
-                        </p>
-                      </div>
-                    </Card>
-                  );
+                  const originalPrice = (increment / 1000) * originalPricePerUnit;
+                  return renderOptionCard(target, `${target.toLocaleString()} créditos/vez`, `Atual: ${current.toLocaleString()} → ${target.toLocaleString()}`, increment, price, originalPrice);
                 })
             )}
 
             {/* Custom value input */}
-            <div className="border-t border-border pt-4 mt-4 space-y-3">
+            <div className="border-t border-border pt-4 space-y-3">
               <p className="text-sm font-medium text-muted-foreground">Valor personalizado</p>
               <div className="flex gap-2">
                 <Input
                   type="number"
                   placeholder={upgradeType === "daily_limit" ? "Ex: 7000" : "Ex: 4000"}
                   value={customValue}
-                  onChange={(e) => setCustomValue(e.target.value)}
+                  onChange={(e) => {
+                    setCustomValue(e.target.value);
+                    setSelectedIncrement(null); // deselect preset
+                  }}
                   min={1000}
                   step={1000}
                   className="flex-1"
                 />
-                <Button
-                  disabled={!customValid || loading}
-                  onClick={() => handlePurchase(customIncrement)}
-                  className="shrink-0"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pagar"}
-                </Button>
               </div>
               {customValue && roundedCustom > 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -220,14 +219,14 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
                         ? `+${customIncrement.toLocaleString()} → Novo limite: ${customNewLimit.toLocaleString()}`
                         : `${customNewLimit.toLocaleString()} créditos/vez (+${customIncrement.toLocaleString()})`}
                       {" · "}
-                      <span className="font-semibold text-primary">
-                        R$ {customPrice.toFixed(2).replace(".", ",")}
-                      </span>
+                      <span className="line-through text-muted-foreground/60">{formatPrice((customIncrement / 1000) * originalPricePerUnit)}</span>
+                      {" "}
+                      <span className="font-semibold text-primary">{formatPrice(customPrice)}</span>
                     </>
                   ) : (
                     <span className="text-destructive">
                       {upgradeType === "daily_limit"
-                        ? `Mínimo 1.000, máximo +${maxDailyIncrement.toLocaleString()} (total não ultrapassa ${MAX_DAILY_LIMIT.toLocaleString()})`
+                        ? `Mínimo 1.000, máximo +${maxDailyIncrement.toLocaleString()}`
                         : `Mínimo ${(current + 1000).toLocaleString()}, máximo ${maxPerUseTarget.toLocaleString()}`}
                     </span>
                   )}
@@ -235,12 +234,25 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
               )}
             </div>
 
-            {loading && (
-              <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Gerando PIX...
-              </div>
-            )}
+            {/* Pay button */}
+            <Button
+              className="w-full h-12 text-base font-semibold gap-2"
+              disabled={loading || (!selectedIncrement && !customValid)}
+              onClick={() => {
+                if (customValue && customValid && !selectedIncrement) {
+                  handlePurchase(customIncrement);
+                } else if (selectedIncrement) {
+                  handlePurchase(selectedIncrement);
+                }
+              }}
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Zap className="h-5 w-5" />
+              )}
+              {loading ? "Gerando PIX..." : "Pagar via PIX"}
+            </Button>
           </div>
         )}
 
