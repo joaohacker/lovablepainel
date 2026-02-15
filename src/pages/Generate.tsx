@@ -365,6 +365,7 @@ const Generate = () => {
             open={upgradeModal.open}
             onOpenChange={(open) => setUpgradeModal((prev) => ({ ...prev, open }))}
             token={token}
+            tokenString={token}
             upgradeType={upgradeModal.type}
             currentLimit={upgradeModal.type === "daily_limit" ? tokenInfo.daily_limit : tokenInfo.credits_per_use}
             onUpgradeComplete={() => validateToken()}

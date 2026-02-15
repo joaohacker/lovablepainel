@@ -9,8 +9,13 @@ const corsHeaders = {
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
-// Daily: R$2.50 per 1000, with progressive discounts
-const PRICE_PER_1000_DAILY = 2.5;
+// Daily: R$15 per 1000, with progressive discounts
+const PRICE_PER_1000_DAILY = 15;
+
+// Token-specific pricing overrides (token string -> pricing)
+const TOKEN_PRICING: Record<string, { dailyPer1k: number; perUsePer1k: number }> = {
+  "f35112c962407939853dc9db8de84013": { dailyPer1k: 2.5, perUsePer1k: 5 },
+};
 
 function getDailyDiscount(credits: number): number {
   if (credits > 30000) return 25;
@@ -21,13 +26,14 @@ function getDailyDiscount(credits: number): number {
   return 0;
 }
 
-function getDailyAmount(increment: number): number {
-  const originalPrice = increment * (PRICE_PER_1000_DAILY / 1000);
+function getDailyAmount(increment: number, tokenStr?: string): number {
+  const rate = TOKEN_PRICING[tokenStr || ""]?.dailyPer1k ?? PRICE_PER_1000_DAILY;
+  const originalPrice = increment * (rate / 1000);
   const discountPct = getDailyDiscount(increment);
   return originalPrice * (1 - discountPct / 100);
 }
 
-// Per-use: R$5 per 1000, with progressive discounts
+// Per-use: R$30 per 1000, with progressive discounts
 function getPerUseDiscount(credits: number): number {
   if (credits > 10000) return 20;
   if (credits >= 9000) return 15;
@@ -36,8 +42,9 @@ function getPerUseDiscount(credits: number): number {
   return 0;
 }
 
-function getPerUseAmount(increment: number): number {
-  const originalPrice = increment * 0.005;
+function getPerUseAmount(increment: number, tokenStr?: string): number {
+  const rate = TOKEN_PRICING[tokenStr || ""]?.perUsePer1k ?? 30;
+  const originalPrice = increment * (rate / 1000);
   const discountPct = getPerUseDiscount(increment);
   return originalPrice * (1 - discountPct / 100);
 }
@@ -100,9 +107,9 @@ serve(async (req) => {
     // Calculate price
     let amount: number;
     if (upgrade_type === "daily_limit") {
-      amount = getDailyAmount(increment);
+      amount = getDailyAmount(increment, token);
     } else {
-      amount = getPerUseAmount(increment);
+      amount = getPerUseAmount(increment, token);
     }
     const orderType = upgrade_type === "daily_limit" ? "upgrade_daily" : "upgrade_per_use";
 
