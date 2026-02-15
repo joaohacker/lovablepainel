@@ -21,9 +21,9 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 10000];
-const DISCOUNT = 0.75; // 25% off
-const PRICE_PER_1000_DAILY = 15 * DISCOUNT;   // R$11.25
-const PRICE_PER_1000_PER_USE = 30 * DISCOUNT;  // R$22.50
+const DISCOUNT = 0.85; // 15% off
+const PRICE_PER_1000_DAILY = 15 * DISCOUNT;   // R$12.75
+const PRICE_PER_1000_PER_USE = 30 * DISCOUNT;  // R$25.50
 
 export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLimit, onUpgradeComplete }: UpgradeModalProps) {
   const [step, setStep] = useState<"select" | "pix">("select");
@@ -162,7 +162,7 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
         {/* Discount badge */}
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
-            🔥 25% OFF em todos os upgrades
+            🔥 15% OFF em todos os upgrades
           </span>
         </div>
 
