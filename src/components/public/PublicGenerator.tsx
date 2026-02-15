@@ -174,14 +174,6 @@ export function PublicGenerator() {
                 </div>
               )}
 
-              {!user && (
-                <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 mb-6">
-                  <span className="text-sm text-muted-foreground">Faça login para ver seu saldo</span>
-                  <Button size="sm" variant="outline" onClick={() => setShowAuth(true)} className="gap-1.5">
-                    <LogIn className="h-3.5 w-3.5" /> Entrar
-                  </Button>
-                </div>
-              )}
 
               {isIdle ? (
                 <div className="space-y-6">
@@ -280,6 +272,15 @@ export function PublicGenerator() {
                     >
                       <Wallet className="h-4 w-4" /> Adicionar Saldo
                     </Button>
+                  )}
+
+                  {!user && (
+                    <p className="text-xs text-center text-muted-foreground/60 mt-1">
+                      Já tem conta?{" "}
+                      <button onClick={() => setShowAuth(true)} className="text-primary/70 hover:text-primary hover:underline transition-colors">
+                        Entrar
+                      </button>
+                    </p>
                   )}
                 </div>
               ) : (
