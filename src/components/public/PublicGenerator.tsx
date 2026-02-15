@@ -150,7 +150,7 @@ export function PublicGenerator() {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto">
       <Tabs defaultValue="generator" className="w-full">
         <TabsList className="w-full grid grid-cols-2 mb-6">
           <TabsTrigger value="generator">⚡ Gerador</TabsTrigger>

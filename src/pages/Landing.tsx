@@ -61,26 +61,21 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative z-10 pt-12 md:pt-20 pb-16 md:pb-24 px-4 text-center">
-        <div className="mx-auto max-w-3xl space-y-4 md:space-y-6">
-          <h1 className="text-3xl sm:text-5xl md:text-7xl font-extrabold leading-tight tracking-tight">
-            Painel Gerador de Créditos{" "}
-            <span className="text-primary underline decoration-primary/40 underline-offset-8">
-              Lovable
-            </span>
-          </h1>
-          <p className="mx-auto max-w-xl text-base md:text-lg text-muted-foreground">
-            Gere créditos por demanda para seu workspace. Pague apenas pelo que usar,
-            sem planos ou compromissos.
-          </p>
-          <Button
-            size="lg"
-            className="rounded-full text-base px-8 gap-2 mt-4"
-            onClick={() => document.getElementById("gerador")?.scrollIntoView({ behavior: "smooth" })}
-          >
-            Começar Agora <ArrowRight className="h-4 w-4" />
-          </Button>
+      {/* Hero + Generator */}
+      <section id="gerador" className="relative z-10 pt-10 md:pt-16 pb-10 md:pb-16 px-4">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center space-y-3 mb-8 md:mb-10">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold leading-tight tracking-tight">
+              Gerador de Créditos{" "}
+              <span className="text-primary underline decoration-primary/40 underline-offset-8">
+                Lovable
+              </span>
+            </h1>
+            <p className="mx-auto max-w-xl text-sm md:text-lg text-muted-foreground">
+              Escolha a quantidade, pague via PIX e seus créditos são gerados automaticamente.
+            </p>
+          </div>
+          <PublicGenerator />
         </div>
       </section>
 
@@ -97,20 +92,6 @@ const Landing = () => {
             <Zap className="h-4 w-4 text-primary" /> Pague por Demanda
           </span>
         </div>
-      </section>
-
-      {/* PUBLIC GENERATOR */}
-      <section id="gerador" className="relative z-10 py-14 md:py-24 px-4">
-        <div className="mx-auto max-w-4xl text-center space-y-3 mb-8">
-          <span className="inline-block rounded-full bg-primary/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
-            Gerador On-Demand
-          </span>
-          <h2 className="text-2xl md:text-5xl font-bold">Gere Créditos Agora</h2>
-          <p className="text-muted-foreground text-sm md:text-lg">
-            Escolha a quantidade, pague via PIX e seus créditos são gerados automaticamente.
-          </p>
-        </div>
-        <PublicGenerator />
       </section>
 
       {/* Benefits */}
