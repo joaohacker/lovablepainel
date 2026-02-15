@@ -1,0 +1,1 @@
+UPDATE products SET daily_limit = ROUND(daily_limit * 0.8) WHERE name IN ('Básico', 'Pro', 'Premium') AND is_active = true AND price IN (49, 99, 199);
