@@ -16,9 +16,11 @@ import {
 } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
 import { CreditsBox } from "@/components/CreditsBox";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Landing = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [product, setProduct] = useState<{ id: string; price: number } | null>(null);
 
   useEffect(() => {
@@ -167,107 +169,126 @@ const Landing = () => {
 
       {/* Benefits */}
       <section id="beneficios" className="relative z-10 py-14 md:py-24 px-4">
-        <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-10 md:mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold">Benefícios Inegáveis</h2>
-          <p className="text-muted-foreground text-lg">
+        <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-8 md:mb-16">
+          <h2 className="text-2xl md:text-5xl font-bold">Benefícios Inegáveis</h2>
+          <p className="text-muted-foreground text-sm md:text-lg hidden md:block">
             Projetado para desenvolvedores que exigem mais. Muito mais.
           </p>
         </div>
         <div className="mx-auto max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-          {[
-            {
-              icon: Infinity,
-              title: "Economia Inteligente",
-              desc: "Gerencie seus créditos com eficiência. Nosso sistema otimiza cada token para máximo aproveitamento.",
-            },
-            {
-              icon: Zap,
-              title: "Experiência Fluida",
-              desc: "Fluxo de trabalho contínuo. Sem pausas forçadas, sem mensagens de erro de cota excedida.",
-            },
-            {
-              icon: ShieldCheck,
-              title: "Controle Total",
-              desc: "Painel administrativo robusto para gerenciar suas instâncias e uso em tempo real com segurança total.",
-            },
-            {
-              icon: Cpu,
-              title: "Processamento Prioritário",
-              desc: "Salte a fila. Usuários do painel infinito têm prioridade máxima na geração de código.",
-            },
-            {
-              icon: Layers,
-              title: "Múltiplos Projetos",
-              desc: "Trabalhe em múltiplos apps ao mesmo tempo sem degradação de performance.",
-            },
-            {
-              icon: Rocket,
-              title: "Deploy em 1 Clique",
-              desc: "Integração direta com seus provedores favoritos. Do prompt para a produção instantaneamente.",
-            },
-          ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="glass-card rounded-xl p-6 space-y-4 text-left">
-              <div className="inline-flex items-center justify-center h-11 w-11 rounded-lg bg-primary/10">
-                <Icon className="h-5 w-5 text-primary" />
+          {(() => {
+            const allBenefits = [
+              {
+                icon: Infinity,
+                title: "Economia Inteligente",
+                desc: "Otimize cada token para máximo aproveitamento.",
+                descFull: "Gerencie seus créditos com eficiência. Nosso sistema otimiza cada token para máximo aproveitamento.",
+              },
+              {
+                icon: Zap,
+                title: "Experiência Fluida",
+                desc: "Sem pausas forçadas ou erros de cota.",
+                descFull: "Fluxo de trabalho contínuo. Sem pausas forçadas, sem mensagens de erro de cota excedida.",
+              },
+              {
+                icon: ShieldCheck,
+                title: "Controle Total",
+                desc: "Gerencie instâncias e uso em tempo real.",
+                descFull: "Painel administrativo robusto para gerenciar suas instâncias e uso em tempo real com segurança total.",
+              },
+              {
+                icon: Cpu,
+                title: "Processamento Prioritário",
+                desc: "Prioridade máxima na geração de código.",
+                descFull: "Salte a fila. Usuários do painel infinito têm prioridade máxima na geração de código.",
+              },
+              {
+                icon: Layers,
+                title: "Múltiplos Projetos",
+                desc: "Múltiplos apps sem perda de performance.",
+                descFull: "Trabalhe em múltiplos apps ao mesmo tempo sem degradação de performance.",
+              },
+              {
+                icon: Rocket,
+                title: "Deploy em 1 Clique",
+                desc: "Do prompt para produção instantaneamente.",
+                descFull: "Integração direta com seus provedores favoritos. Do prompt para a produção instantaneamente.",
+              },
+            ];
+            const items = isMobile ? allBenefits.slice(0, 3) : allBenefits;
+            return items.map(({ icon: Icon, title, desc, descFull }) => (
+              <div key={title} className="glass-card rounded-xl p-4 md:p-6 space-y-2 md:space-y-4 text-left">
+                <div className="inline-flex items-center justify-center h-9 w-9 md:h-11 md:w-11 rounded-lg bg-primary/10">
+                  <Icon className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                </div>
+                <h3 className="text-base md:text-lg font-semibold">{title}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">{isMobile ? desc : descFull}</p>
               </div>
-              <h3 className="text-lg font-semibold">{title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       </section>
 
       {/* How it Works */}
       <section id="como-funciona" className="relative z-10 py-14 md:py-24 px-4">
-        <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-10 md:mb-16">
+        <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-8 md:mb-16">
           <span className="inline-block rounded-full bg-primary/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
             Fluxo de Trabalho
           </span>
-          <h2 className="text-3xl md:text-5xl font-bold">Como Funciona o Gerador</h2>
-          <p className="text-muted-foreground text-lg">
+          <h2 className="text-2xl md:text-5xl font-bold">Como Funciona</h2>
+          <p className="text-muted-foreground text-sm md:text-lg hidden md:block">
             Um processo automatizado de 5 etapas para turbinar seu workspace no Lovable com
             créditos em minutos.
           </p>
         </div>
 
-        <div className="mx-auto max-w-3xl space-y-6 md:space-y-10 bg-black/40 rounded-2xl p-5 md:p-12 backdrop-blur-[2px]">
-          {[
-            {
-              step: "01",
-              title: "Escolha a Quantidade",
-              desc: "Selecione quantos créditos você deseja gerar para o seu workspace. Nosso algoritmo balanceia a carga de bots automaticamente.",
-            },
-            {
-              step: "02",
-              title: "Convide & Sincronize",
-              desc: "Convide nosso agente automatizado para o seu workspace como editor. O sistema detectará o convite automaticamente.",
-            },
-            {
-              step: "03",
-              title: "Automação Iniciada",
-              desc: 'Nossos bots "slaves" começam a processar a requisição através de proxies seguros. Você verá os primeiros créditos entrarem instantaneamente.',
-            },
-            {
-              step: "04",
-              title: "Escalonamento em Massa",
-              desc: "O sistema escala a geração rapidamente, injetando pacotes de créditos através de múltiplas contas de bots simultâneas.",
-            },
-            {
-              step: "05",
-              title: "Conclusão & Verificação",
-              desc: "Todos os créditos são verificados e consolidados no seu workspace. Relatório completo disponível no painel admin.",
-            },
-          ].map(({ step, title, desc }) => (
-            <div key={step} className="flex items-start gap-6">
-              <div className="shrink-0 flex items-center justify-center h-12 w-12 rounded-xl bg-primary/15 text-primary font-bold text-sm">
-                {step}
+        <div className="mx-auto max-w-3xl space-y-5 md:space-y-10 bg-black/40 rounded-2xl p-4 md:p-12 backdrop-blur-[2px]">
+          {(() => {
+            const allSteps = [
+              {
+                step: "01",
+                title: "Escolha a Quantidade",
+                desc: "Selecione quantos créditos deseja gerar.",
+                descFull: "Selecione quantos créditos você deseja gerar para o seu workspace. Nosso algoritmo balanceia a carga de bots automaticamente.",
+              },
+              {
+                step: "02",
+                title: "Convide & Sincronize",
+                desc: "Convide nosso agente ao seu workspace.",
+                descFull: "Convide nosso agente automatizado para o seu workspace como editor. O sistema detectará o convite automaticamente.",
+              },
+              {
+                step: "03",
+                title: "Automação Iniciada",
+                desc: "Bots processam via proxies seguros.",
+                descFull: 'Nossos bots "slaves" começam a processar a requisição através de proxies seguros. Você verá os primeiros créditos entrarem instantaneamente.',
+              },
+              {
+                step: "04",
+                title: "Escalonamento em Massa",
+                desc: "Geração escalada com múltiplas contas.",
+                descFull: "O sistema escala a geração rapidamente, injetando pacotes de créditos através de múltiplas contas de bots simultâneas.",
+              },
+              {
+                step: "05",
+                title: "Conclusão & Verificação",
+                desc: "Créditos verificados e consolidados.",
+                descFull: "Todos os créditos são verificados e consolidados no seu workspace. Relatório completo disponível no painel admin.",
+              },
+            ];
+            const items = isMobile ? [allSteps[0], allSteps[2], allSteps[4]] : allSteps;
+            return items.map(({ step, title, desc, descFull }) => (
+              <div key={step} className="flex items-start gap-4 md:gap-6">
+                <div className="shrink-0 flex items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary/15 text-primary font-bold text-xs md:text-sm">
+                  {step}
+                </div>
+                <div className="space-y-1 md:space-y-2">
+                  <h3 className="text-base md:text-xl font-bold">{title}</h3>
+                  <p className="text-xs md:text-base text-muted-foreground leading-relaxed">{isMobile ? desc : descFull}</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold">{title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{desc}</p>
-              </div>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       </section>
 
