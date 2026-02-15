@@ -13,6 +13,7 @@ import { Loader2, QrCode, Wallet, CheckCircle2, UserPlus } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/pricing";
+import { PixStep } from "./PixStep";
 
 interface DepositModalProps {
   open: boolean;
@@ -226,28 +227,10 @@ export function DepositModal({
         )}
 
         {step === "pix" && pixCode && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="bg-white p-4 rounded-lg">
-              <QRCodeSVG value={pixCode} size={200} />
-            </div>
-            <div className="w-full">
-              <Label className="text-xs text-muted-foreground">Código PIX (Copia e Cola)</Label>
-              <div className="flex gap-2 mt-1">
-                <Input value={pixCode} readOnly className="text-xs" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigator.clipboard.writeText(pixCode)}
-                >
-                  Copiar
-                </Button>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Aguardando pagamento...
-            </div>
-          </div>
+          <PixStep
+            pixCode={pixCode}
+            amount={amount}
+          />
         )}
 
         {(step === "paid" || step === "signup") && (
