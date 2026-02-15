@@ -62,8 +62,8 @@ serve(async (req) => {
     }
 
     const { credits } = await req.json();
-    if (!credits || credits < 5 || credits > 5000 || credits % 5 !== 0) {
-      return new Response(JSON.stringify({ error: "Créditos inválidos (5-5000, múltiplos de 5)" }), {
+    if (!credits || credits < 5 || credits > 10000 || credits % 5 !== 0) {
+      return new Response(JSON.stringify({ error: "Créditos inválidos (5-10000, múltiplos de 5)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
