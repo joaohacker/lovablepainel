@@ -20,10 +20,26 @@ interface UpgradeModalProps {
 
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
-const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 10000];
-const DISCOUNT = 0.85; // 15% off
-const PRICE_PER_1000_DAILY = 15 * DISCOUNT;   // R$12.75
-const PRICE_PER_1000_PER_USE = 30 * DISCOUNT;  // R$25.50
+const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
+const DISCOUNT_DAILY = 0.85; // 15% off for daily
+const PRICE_PER_1000_DAILY = 15 * DISCOUNT_DAILY;
+
+// Per-use tiered discount based on TARGET (not increment)
+function getPerUseDiscount(target: number): number {
+  if (target >= 9000) return 0.20;
+  if (target >= 7000) return 0.15;
+  if (target >= 5000) return 0.10;
+  if (target >= 3000) return 0.05;
+  return 0;
+}
+
+function calcPerUsePrice(target: number, current: number): { price: number; originalPrice: number; discount: number } {
+  const increment = target - current;
+  const originalPrice = (increment / 1000) * 30;
+  const discount = getPerUseDiscount(target);
+  const price = originalPrice * (1 - discount);
+  return { price, originalPrice, discount };
+}
 
 export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLimit, onUpgradeComplete }: UpgradeModalProps) {
   const [step, setStep] = useState<"select" | "pix">("select");
@@ -35,8 +51,8 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
   const [error, setError] = useState<string | null>(null);
   const [customValue, setCustomValue] = useState("");
 
-  const pricePerUnit = upgradeType === "daily_limit" ? PRICE_PER_1000_DAILY : PRICE_PER_1000_PER_USE;
-  const originalPricePerUnit = upgradeType === "daily_limit" ? 15 : 30;
+  const label = upgradeType === "daily_limit" ? "Limite Diário" : "Limite por Vez";
+  const icon = upgradeType === "daily_limit" ? <TrendingUp className="h-5 w-5" /> : <Zap className="h-5 w-5" />;
   const label = upgradeType === "daily_limit" ? "Limite Diário" : "Limite por Vez";
   const icon = upgradeType === "daily_limit" ? <TrendingUp className="h-5 w-5" /> : <Zap className="h-5 w-5" />;
   const current = currentLimit || 0;
