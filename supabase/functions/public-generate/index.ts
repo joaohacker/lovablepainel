@@ -10,12 +10,25 @@ const corsHeaders = {
 const API_BASE = "https://api.lovablextensao.shop";
 
 function calcularPreco(creditos: number): number {
-  const pricePer100 =
-    creditos >= 5000 ? 5.0 :
-    creditos >= 3000 ? 5.5 :
-    creditos >= 2000 ? 6.0 :
-    creditos >= 1000 ? 6.5 : 7.0;
-  return (creditos / 100) * pricePer100;
+  const TIERS = [
+    { credits: 100, price: 3.50 },
+    { credits: 1000, price: 24.50 },
+    { credits: 5000, price: 105.00 },
+    { credits: 10000, price: 196.00 },
+  ];
+  if (creditos <= 0) return 0;
+  if (creditos <= TIERS[0].credits) return +(creditos * (TIERS[0].price / TIERS[0].credits));
+  if (creditos >= TIERS[TIERS.length - 1].credits) return +(creditos * (TIERS[TIERS.length - 1].price / TIERS[TIERS.length - 1].credits));
+  for (let i = 0; i < TIERS.length - 1; i++) {
+    if (creditos >= TIERS[i].credits && creditos <= TIERS[i + 1].credits) {
+      const t = (creditos - TIERS[i].credits) / (TIERS[i + 1].credits - TIERS[i].credits);
+      const unitLow = TIERS[i].price / TIERS[i].credits;
+      const unitHigh = TIERS[i + 1].price / TIERS[i + 1].credits;
+      const unit = unitLow + t * (unitHigh - unitLow);
+      return +(creditos * unit).toFixed(2);
+    }
+  }
+  return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
 }
 
 serve(async (req) => {
