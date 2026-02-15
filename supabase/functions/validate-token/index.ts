@@ -297,8 +297,24 @@ serve(async (req) => {
 
       remainingDaily = tokenData.daily_limit - usedDaily - reservedDaily;
       if (remainingDaily <= 0) {
+        // Return daily_limit_reached flag instead of blocking
         return new Response(
-          JSON.stringify({ valid: false, error: "Limite diário de créditos atingido" }),
+          JSON.stringify({
+            valid: true,
+            daily_limit_reached: true,
+            token: {
+              id: tokenData.id,
+              client_name: tokenData.client_name,
+              credits_per_use: tokenData.credits_per_use,
+              total_limit: tokenData.total_limit,
+              daily_limit: tokenData.daily_limit,
+              expires_at: tokenData.expires_at,
+              is_active: tokenData.is_active,
+            },
+            remaining_total: remainingTotal,
+            remaining_daily: 0,
+            warning_message: tokenData.warning_message || null,
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

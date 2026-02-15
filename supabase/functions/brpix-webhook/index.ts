@@ -137,6 +137,56 @@ serve(async (req) => {
       );
     }
 
+    // ======= UPGRADE FLOWS =======
+    if (order.order_type === "upgrade_daily" || order.order_type === "upgrade_per_use") {
+      const field = order.order_type === "upgrade_daily" ? "daily_limit" : "credits_per_use";
+      const increment = order.upgrade_increment;
+
+      if (!order.token_id || !increment) {
+        console.error("[brpix-webhook] Upgrade order missing token_id or increment");
+        return new Response(JSON.stringify({ error: "Invalid upgrade order" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get current token value
+      const { data: tokenRow, error: tokenErr } = await supabase
+        .from("tokens")
+        .select(field)
+        .eq("id", order.token_id)
+        .single();
+
+      if (tokenErr || !tokenRow) {
+        console.error("[brpix-webhook] Token not found for upgrade:", order.token_id);
+        return new Response(JSON.stringify({ error: "Token not found" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const currentValue = (tokenRow as Record<string, number | null>)[field] || 0;
+      const newValue = currentValue + increment;
+
+      await supabase
+        .from("tokens")
+        .update({ [field]: newValue })
+        .eq("id", order.token_id);
+
+      // Mark order as paid
+      await supabase
+        .from("orders")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("id", order.id);
+
+      console.log(`[brpix-webhook] Upgrade ${order.order_type}: token ${order.token_id} ${field} ${currentValue} → ${newValue}`);
+
+      return new Response(
+        JSON.stringify({ ok: true, type: order.order_type, new_value: newValue }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ======= ORIGINAL TOKEN FLOW =======
     // Get product config
     const { data: product } = await supabase

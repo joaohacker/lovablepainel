@@ -4,16 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { fetchStock, type StockResponse } from "@/lib/farm-api";
-import { Zap, Bot, Package, Loader2, Monitor } from "lucide-react";
+import { Zap, Bot, Package, Loader2, Monitor, TrendingUp } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CreditSelectorProps {
   onGenerate: (credits: number) => Promise<void> | void;
   disabled: boolean;
   maxCredits?: number;
+  onUpgradePerUse?: () => void;
 }
 
-export function CreditSelector({ onGenerate, disabled, maxCredits = 900 }: CreditSelectorProps) {
+export function CreditSelector({ onGenerate, disabled, maxCredits = 900, onUpgradePerUse }: CreditSelectorProps) {
   const max = maxCredits;
   const [credits, setCredits] = useState(Math.min(100, max));
   const [stock, setStock] = useState<StockResponse | null>(null);
@@ -149,6 +150,22 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900 }: Credi
           </div>
         </CardContent>
       </Card>
+
+      {/* Upgrade per-use limit banner */}
+      {onUpgradePerUse && (
+        <button
+          onClick={onUpgradePerUse}
+          className="w-full flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <span className="text-sm text-muted-foreground">
+              Limite atual: <span className="font-semibold text-foreground">{max}</span> créditos/vez
+            </span>
+          </div>
+          <span className="text-xs font-semibold text-primary">Aumentar →</span>
+        </button>
+      )}
 
       {/* Generate button */}
       <Button
