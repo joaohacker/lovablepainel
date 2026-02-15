@@ -166,7 +166,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
               Limite por vez: <span className="font-semibold text-foreground">{max}</span>
             </span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">🔥 Aumentar →</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">Aumentar →</span>
         </button>
       )}
 
@@ -182,7 +182,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
               {remainingDaily != null && <span className="ml-1 text-xs">(restam {remainingDaily.toLocaleString()})</span>}
             </span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">🔥 Aumentar →</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">Aumentar →</span>
         </button>
       )}
 
