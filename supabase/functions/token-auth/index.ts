@@ -17,7 +17,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { action, token, email, password } = await req.json();
+    const { action, token, email, password, username } = await req.json();
 
     if (!token) {
       return new Response(
@@ -102,12 +102,21 @@ serve(async (req) => {
         );
       }
 
+      // Validate username
+      const trimmedUsername = (username || "").trim();
+      if (!trimmedUsername || trimmedUsername.length < 2) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Nome de usuário deve ter pelo menos 2 caracteres" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Create auth user (auto-confirm since no email verification needed for token users)
       const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: { token_id: tokenData.id, client_name: tokenData.client_name },
+        user_metadata: { token_id: tokenData.id, client_name: trimmedUsername },
       });
 
       if (authErr) {
@@ -120,12 +129,15 @@ serve(async (req) => {
         );
       }
 
-      // Link user to token
+      // Link user to token and update client_name
       const { error: linkErr } = await supabase.from("token_accounts").insert({
         token_id: tokenData.id,
         user_id: authData.user.id,
         email,
       });
+
+      // Update token client_name with the username
+      await supabase.from("tokens").update({ client_name: trimmedUsername }).eq("id", tokenData.id);
 
       if (linkErr) {
         // Rollback: delete the auth user

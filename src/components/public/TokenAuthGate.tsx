@@ -20,6 +20,7 @@ const PASSWORD_RULES = [
 
 export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) => {
   const [mode, setMode] = useState<"login" | "signup" | null>(null);
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -80,7 +81,7 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("token-auth", {
-        body: { action: mode, token, email: email.trim(), password },
+        body: { action: mode, token, email: email.trim(), password, ...(mode === "signup" ? { username: username.trim() } : {}) },
       });
 
       if (fnError) throw new Error("Erro de conexão");
@@ -151,6 +152,21 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
         <Card className="glass-card">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {isSignup && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nome de usuário</label>
+                  <Input
+                    type="text"
+                    placeholder="Seu nome ou apelido"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                    maxLength={50}
+                    className="bg-muted/50"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label>
                 <Input
