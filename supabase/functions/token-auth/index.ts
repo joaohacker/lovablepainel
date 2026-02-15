@@ -26,7 +26,7 @@ serve(async (req) => {
       );
     }
 
-    if (action !== "check" && (!email || !password)) {
+    if (!["check", "reset-account"].includes(action) && (!email || !password)) {
       return new Response(
         JSON.stringify({ success: false, error: "Email e senha são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -62,29 +62,31 @@ serve(async (req) => {
     }
 
     // Password strength validation (server-side) - only for signup/login
-    if (password.length < 8) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Senha deve ter no mínimo 8 caracteres" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!/[A-Z]/.test(password)) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Senha deve conter pelo menos uma letra maiúscula" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!/[0-9]/.test(password)) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Senha deve conter pelo menos um número" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!/[^A-Za-z0-9]/.test(password)) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Senha deve conter pelo menos um caractere especial (!@#$...)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (["signup", "login"].includes(action)) {
+      if (password.length < 8) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Senha deve ter no mínimo 8 caracteres" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!/[A-Z]/.test(password)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Senha deve conter pelo menos uma letra maiúscula" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!/[0-9]/.test(password)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Senha deve conter pelo menos um número" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!/[^A-Za-z0-9]/.test(password)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Senha deve conter pelo menos um caractere especial (!@#$...)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     if (action === "signup") {
@@ -196,6 +198,33 @@ serve(async (req) => {
           success: true,
           session: signInData.session,
         }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "reset-account") {
+      // Admin-only: delete token_account and auth user
+      const { data: account } = await supabase
+        .from("token_accounts")
+        .select("user_id, email")
+        .eq("token_id", tokenData.id)
+        .maybeSingle();
+
+      if (!account) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Nenhuma conta vinculada a este token" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Delete token_account link
+      await supabase.from("token_accounts").delete().eq("token_id", tokenData.id);
+
+      // Delete auth user
+      await supabase.auth.admin.deleteUser(account.user_id);
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Conta resetada. Token liberado para novo cadastro.", deleted_email: account.email }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
