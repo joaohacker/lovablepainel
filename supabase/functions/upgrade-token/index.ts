@@ -9,9 +9,21 @@ const corsHeaders = {
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
-// Pricing with 15% discount: R$12.75 per 1000 daily, R$25.50 per 1000 per-use
+// Daily: 15% off → R$12.75 per 1000
 const PRICE_PER_1000_DAILY = 12.75;
-const PRICE_PER_1000_PER_USE = 25.50;
+
+// Per-use: tiered pricing based on new target
+function getPerUseAmount(increment: number, currentCreditsPerUse: number): number {
+  const target = currentCreditsPerUse + increment;
+  const originalPrice = (increment / 1000) * 30;
+  if (target >= 10000) return Math.min(180, originalPrice);
+  let discountPct = 0;
+  if (target >= 9000) discountPct = 20;
+  else if (target >= 7000) discountPct = 15;
+  else if (target >= 5000) discountPct = 10;
+  else if (target >= 3000) discountPct = 5;
+  return originalPrice * (1 - discountPct / 100);
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,8 +81,13 @@ serve(async (req) => {
     }
 
     // Calculate price
-    const pricePerUnit = upgrade_type === "daily_limit" ? PRICE_PER_1000_DAILY : PRICE_PER_1000_PER_USE;
-    const amount = (increment / 1000) * pricePerUnit;
+    let amount: number;
+    if (upgrade_type === "daily_limit") {
+      amount = (increment / 1000) * PRICE_PER_1000_DAILY;
+    } else {
+      amount = getPerUseAmount(increment, tokenData.credits_per_use);
+    }
+    const orderType = upgrade_type === "daily_limit" ? "upgrade_daily" : "upgrade_per_use";
     const orderType = upgrade_type === "daily_limit" ? "upgrade_daily" : "upgrade_per_use";
 
     // We need a product_id for the orders table FK. Use a dummy/first product.
