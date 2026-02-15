@@ -146,13 +146,40 @@ export function LiveDashboard() {
     };
   }, []);
 
+  // Daily boundary: 12:00 BRT (15:00 UTC)
+  const getDayStart = () => {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setUTCHours(15, 0, 0, 0);
+    if (now < todayStart) {
+      todayStart.setDate(todayStart.getDate() - 1);
+    }
+    return todayStart;
+  };
+
+  const dayStart = getDayStart();
+
+  const todayGenerations = generations.filter(
+    (g) => new Date(g.created_at) >= dayStart
+  );
+
   const activeCount = generations.filter(
     (g) => ["creating", "queued", "waiting_invite", "running"].includes(g.status)
   ).length;
 
+  const todayCredits = todayGenerations
+    .filter((g) => g.status === "completed")
+    .reduce((sum, g) => sum + g.credits_earned, 0);
+
   const totalCredits = generations
     .filter((g) => g.status === "completed")
     .reduce((sum, g) => sum + g.credits_earned, 0);
+
+  const todayCount = todayGenerations.length;
+
+  const todayRevenue = todayGenerations
+    .filter((g) => g.token_id === null && g.user_id !== null)
+    .reduce((sum, g) => sum + (payments.get(g.farm_id) || 0), 0);
 
   const totalRevenue = Array.from(payments.values()).reduce((sum, v) => sum + v, 0);
 
@@ -163,52 +190,86 @@ export function LiveDashboard() {
         <p className="text-sm text-muted-foreground">Acompanhe as gerações em tempo real</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="glass-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Users className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{activeCount}</p>
-              <p className="text-xs text-muted-foreground">Ativas agora</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-success/10">
-              <Zap className="h-5 w-5 text-success" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{totalCredits.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Créditos gerados</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-accent">
-              <Activity className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{generations.length}</p>
-              <p className="text-xs text-muted-foreground">Total gerações</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-500/10">
-              <Wallet className="h-5 w-5 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">R$ {totalRevenue.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground">Receita on-demand</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Daily Stats */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground mb-3">📊 Hoje</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="glass-card">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Activity className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{todayCount}</p>
+                <p className="text-[11px] text-muted-foreground">Gerações hoje</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-success/10">
+                <Zap className="h-4 w-4 text-success" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{todayCredits.toLocaleString()}</p>
+                <p className="text-[11px] text-muted-foreground">Créditos hoje</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-500/10">
+                <Wallet className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">R$ {todayRevenue.toFixed(2)}</p>
+                <p className="text-[11px] text-muted-foreground">Receita hoje</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{activeCount}</p>
+                <p className="text-[11px] text-muted-foreground">Ativas agora</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Total Stats */}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground mb-3">📈 Total</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="glass-card">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div>
+                <p className="text-xl font-bold">{generations.length}</p>
+                <p className="text-[11px] text-muted-foreground">Gerações</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div>
+                <p className="text-xl font-bold">{totalCredits.toLocaleString()}</p>
+                <p className="text-[11px] text-muted-foreground">Créditos</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="glass-card">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div>
+                <p className="text-xl font-bold">R$ {totalRevenue.toFixed(2)}</p>
+                <p className="text-[11px] text-muted-foreground">Receita on-demand</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Generations list */}
