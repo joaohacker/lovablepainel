@@ -9,8 +9,8 @@ const corsHeaders = {
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
-// Daily: 15% off → R$12.75 per 1000
-const PRICE_PER_1000_DAILY = 12.75;
+// Daily: R$10 per 1000
+const PRICE_PER_1000_DAILY = 10;
 
 // Per-use: tiered pricing based on new target
 function getPerUseAmount(increment: number, currentCreditsPerUse: number): number {
@@ -87,7 +87,6 @@ serve(async (req) => {
     } else {
       amount = getPerUseAmount(increment, tokenData.credits_per_use);
     }
-    const orderType = upgrade_type === "daily_limit" ? "upgrade_daily" : "upgrade_per_use";
     const orderType = upgrade_type === "daily_limit" ? "upgrade_daily" : "upgrade_per_use";
 
     // We need a product_id for the orders table FK. Use a dummy/first product.

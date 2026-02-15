@@ -21,9 +21,7 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
-const DAILY_DISCOUNT = 0.85; // 15% off
-const PRICE_PER_1000_DAILY_DISCOUNTED = 15 * DAILY_DISCOUNT;
-const PRICE_PER_1000_DAILY_ORIGINAL = 15;
+const PRICE_PER_1000_DAILY = 10;
 
 // Per-use: tiered pricing based on target
 // Returns { price, originalPrice, discountPct }
@@ -128,8 +126,8 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
     customIncrement = roundedCustom;
     customNewLimit = current + customIncrement;
     customValid = customIncrement >= 1000 && customNewLimit <= MAX_DAILY_LIMIT;
-    customPrice = (customIncrement / 1000) * PRICE_PER_1000_DAILY_DISCOUNTED;
-    customOriginalPrice = (customIncrement / 1000) * PRICE_PER_1000_DAILY_ORIGINAL;
+    customPrice = (customIncrement / 1000) * PRICE_PER_1000_DAILY;
+    customOriginalPrice = customPrice;
   } else {
     const customTarget = roundedCustom;
     customIncrement = customTarget - current;
@@ -199,18 +197,12 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
 
             {upgradeType === "daily_limit" ? (
               <>
-                <div className="flex items-center justify-center">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
-                    🔥 15% OFF em upgrades diários
-                  </span>
-                </div>
                 {DAILY_INCREMENT_OPTIONS
                   .filter((inc) => inc <= maxDailyIncrement)
                   .map((inc) => {
-                    const price = (inc / 1000) * PRICE_PER_1000_DAILY_DISCOUNTED;
-                    const originalPrice = (inc / 1000) * PRICE_PER_1000_DAILY_ORIGINAL;
+                    const price = (inc / 1000) * PRICE_PER_1000_DAILY;
                     const newLimit = current + inc;
-                    return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, price, originalPrice, 15);
+                    return renderOptionCard(inc, `+${inc.toLocaleString()} créditos`, `Novo limite: ${newLimit.toLocaleString()}`, inc, price, price, 0);
                   })}
               </>
             ) : (
