@@ -17,7 +17,8 @@ interface UpgradeModalProps {
   onUpgradeComplete: () => void;
 }
 
-const INCREMENT_OPTIONS = [1000, 2000, 3000, 5000];
+const DAILY_INCREMENT_OPTIONS = [1000, 2000, 3000, 5000];
+const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 10000];
 const PRICE_PER_1000_DAILY = 15;
 const PRICE_PER_1000_PER_USE = 30;
 
@@ -107,31 +108,63 @@ export function UpgradeModal({ open, onOpenChange, token, upgradeType, currentLi
               </div>
             )}
 
-            {INCREMENT_OPTIONS.map((inc) => {
-              const price = (inc / 1000) * pricePerUnit;
-              const newLimit = (currentLimit || 0) + inc;
-              return (
-                <Card
-                  key={inc}
-                  className="cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => !loading && handlePurchase(inc)}
-                >
-                  <div className="flex items-center justify-between p-4">
-                    <div>
-                      <p className="font-semibold text-foreground">+{inc.toLocaleString()} créditos</p>
-                      <p className="text-xs text-muted-foreground">
-                        Novo limite: {newLimit.toLocaleString()}
-                      </p>
+            {upgradeType === "daily_limit" ? (
+              // Daily limit: increment options (adds to current)
+              DAILY_INCREMENT_OPTIONS.map((inc) => {
+                const price = (inc / 1000) * pricePerUnit;
+                const newLimit = (currentLimit || 0) + inc;
+                return (
+                  <Card
+                    key={inc}
+                    className="cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => !loading && handlePurchase(inc)}
+                  >
+                    <div className="flex items-center justify-between p-4">
+                      <div>
+                        <p className="font-semibold text-foreground">+{inc.toLocaleString()} créditos</p>
+                        <p className="text-xs text-muted-foreground">
+                          Novo limite: {newLimit.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-primary">
+                          R$ {price.toFixed(2).replace(".", ",")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-primary">
-                        R$ {price.toFixed(2).replace(".", ",")}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+                  </Card>
+                );
+              })
+            ) : (
+              // Per-use: fixed target options (replaces current, min 2000)
+              PER_USE_TARGET_OPTIONS
+                .filter((target) => target > (currentLimit || 0))
+                .map((target) => {
+                  const increment = target - (currentLimit || 0);
+                  const price = (increment / 1000) * pricePerUnit;
+                  return (
+                    <Card
+                      key={target}
+                      className="cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => !loading && handlePurchase(increment)}
+                    >
+                      <div className="flex items-center justify-between p-4">
+                        <div>
+                          <p className="font-semibold text-foreground">{target.toLocaleString()} créditos/vez</p>
+                          <p className="text-xs text-muted-foreground">
+                            Atual: {(currentLimit || 0).toLocaleString()} → {target.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-primary">
+                            R$ {price.toFixed(2).replace(".", ",")}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })
+            )}
 
             {loading && (
               <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">

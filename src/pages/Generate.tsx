@@ -320,6 +320,7 @@ const Generate = () => {
                 disabled={farm.state !== "idle"}
                 maxCredits={tokenInfo.credits_per_use}
                 onUpgradePerUse={() => setUpgradeModal({ open: true, type: "credits_per_use" })}
+                onUpgradeDaily={() => setUpgradeModal({ open: true, type: "daily_limit" })}
               />
             ) : (
               <GenerationStatus
