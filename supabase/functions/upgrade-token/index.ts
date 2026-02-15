@@ -9,8 +9,8 @@ const corsHeaders = {
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
-// Daily: R$15 per 1000, with progressive discounts
-const PRICE_PER_1000_DAILY = 15;
+// Daily: R$2.50 per 1000, with progressive discounts
+const PRICE_PER_1000_DAILY = 2.5;
 
 function getDailyDiscount(credits: number): number {
   if (credits > 30000) return 25;
@@ -22,12 +22,12 @@ function getDailyDiscount(credits: number): number {
 }
 
 function getDailyAmount(increment: number): number {
-  const originalPrice = increment * 0.015;
+  const originalPrice = increment * (PRICE_PER_1000_DAILY / 1000);
   const discountPct = getDailyDiscount(increment);
   return originalPrice * (1 - discountPct / 100);
 }
 
-// Per-use: R$30 per 1000, with progressive discounts
+// Per-use: R$5 per 1000, with progressive discounts
 function getPerUseDiscount(credits: number): number {
   if (credits > 10000) return 20;
   if (credits >= 9000) return 15;
@@ -37,7 +37,7 @@ function getPerUseDiscount(credits: number): number {
 }
 
 function getPerUseAmount(increment: number): number {
-  const originalPrice = increment * 0.03;
+  const originalPrice = increment * 0.005;
   const discountPct = getPerUseDiscount(increment);
   return originalPrice * (1 - discountPct / 100);
 }
