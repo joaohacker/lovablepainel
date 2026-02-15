@@ -1,82 +1,65 @@
 
 
-## Plano: Upgrades de Limite via PIX para Tokens Existentes
+## Planos de Licenca - Basico / Pro / Premium
 
 ### Resumo
-Quando um cliente com token atingir o limite diario ou tentar gerar mais do que o limite por vez, em vez de ver uma mensagem de erro bloqueante, ele vera opcoes de upgrade com pagamento via PIX. Os limites comprados sao somados aos existentes.
 
-### Precos
-- **Limite diario**: R$ 15,00 por cada 1.000 creditos adicionais
-- **Limite por vez (credits_per_use)**: R$ 30,00 por cada 1.000 creditos adicionais
+Criar um sistema de planos de licenca com pagamento unico via PIX que libera um token automaticamente. Os planos aparecem em dois lugares: na landing page (abaixo do gerador por demanda) e em uma pagina dedicada `/planos`.
 
-### Fluxo do Usuario
+### Planos
 
-**Cenario 1 - Limite por vez:**
-O slider no CreditSelector continua limitado pelo `credits_per_use` atual. Abaixo do seletor, aparece um banner "Quer gerar mais por vez? Aumente seu limite" com opcoes de 1000, 2000, 3000+ creditos e o preco correspondente. Ao clicar, abre modal PIX. Apos pagamento confirmado, o token e atualizado e o slider reflete o novo limite.
+| Plano    | Preco    | Limite Diario | Creditos/Geracao | Token Expira? |
+|----------|----------|---------------|------------------|---------------|
+| Basico   | R$ 49,00 | 500/dia       | 100/geracao      | Nao           |
+| Pro      | R$ 99,00 | 1.500/dia     | 200/geracao      | Nao           |
+| Premium  | R$ 199,00| 5.000/dia     | 500/geracao      | Nao           |
 
-**Cenario 2 - Limite diario atingido:**
-Atualmente a pagina mostra "Acesso Negado - Limite diario atingido". Em vez disso, mostra uma tela com planos de aumento do limite diario (ex: +1000 por R$15, +2000 por R$30, +3000 por R$45). Apos pagar, o `daily_limit` do token e incrementado e o usuario pode gerar imediatamente.
+O pagamento e unico e o token nao expira. So tem os limites diarios configurados.
 
-### Etapas de Implementacao
+### O que sera construido
 
-**1. Backend - Nova Edge Function `upgrade-token`**
-- Recebe: `token` (string), `upgrade_type` ("daily_limit" | "credits_per_use"), `increment` (multiplo de 1000)
-- Calcula preco: increment/1000 * 15 (daily) ou increment/1000 * 30 (per_use)
-- Cria PIX via BrPix API
-- Salva order com `order_type: "upgrade_daily"` ou `"upgrade_per_use"`, e guarda o `token_id` e `increment` nos metadados
-- Nao exige autenticacao (o token do cliente e suficiente)
+**1. Produtos no banco de dados**
+- Inserir 3 produtos na tabela `products` com os nomes, precos e limites acima
+- Cada produto tera `is_active = true` para aparecer na listagem publica
 
-**2. Backend - Atualizar `brpix-webhook`**
-- Quando `order_type` e `"upgrade_daily"` ou `"upgrade_per_use"`:
-  - Busca o token associado ao order
-  - Incrementa `daily_limit` ou `credits_per_use` no registro do token
-  - Marca order como pago
+**2. Componente de cards de planos (`PlansSection`)**
+- 3 cards lado a lado (empilhados no mobile)
+- Cada card mostra: nome, preco, limite diario, creditos por geracao, botao "Assinar"
+- O plano Pro tera destaque visual ("Mais Popular")
+- Botao leva para `/checkout?product=<id>`
 
-**3. Backend - Atualizar `validate-token`**
-- Quando limite diario atingido, retornar `valid: true` com flag `daily_limit_reached: true` em vez de `valid: false`
-- Incluir `remaining_daily` e `remaining_total` na resposta de validacao (ja faz parcialmente)
+**3. Landing page - secao abaixo do gerador**
+- Nova secao com titulo "Planos de Licenca" logo apos o gerador por demanda
+- Usa o mesmo componente `PlansSection`
+- Link na navbar: "Planos" aponta para `#planos` na landing ou para `/planos`
 
-**4. Frontend - Novo componente `UpgradeModal`**
-- Modal com opcoes de upgrade (1000, 2000, 3000, 5000 creditos)
-- Mostra preco por opcao
-- Gera QR Code PIX usando a nova edge function
-- Poll no order para confirmar pagamento
-- Apos confirmacao, revalida o token automaticamente
+**4. Pagina dedicada `/planos`**
+- Rota nova no App.tsx
+- Reutiliza o componente `PlansSection` centralizado com navbar simplificada
+- Mesmos cards e mesmo fluxo de checkout
 
-**5. Frontend - Atualizar `Generate.tsx`**
-- Quando `daily_limit_reached: true`, mostrar UI de upgrade em vez de "Acesso Negado"
-- Abaixo do CreditSelector, mostrar banner de upgrade do limite por vez
+**5. Navbar atualizada**
+- Novo link "Planos" na navbar da landing page
+- Aponta para a secao `#planos` quando na landing, ou `/planos` como link direto
 
-**6. Frontend - Atualizar `CreditSelector.tsx`**
-- Adicionar prop `onUpgradePerUse` callback
-- Mostrar link/banner abaixo do slider: "Limite atual: X creditos | Aumentar limite"
-
-**7. Banco de Dados**
-- Adicionar colunas `token_id` (uuid, nullable) e `upgrade_increment` (integer, nullable) na tabela `orders` para rastrear upgrades
-- A coluna `token_id` ja existe na tabela orders
+**6. Fluxo de compra**
+- O checkout atual (`/checkout?product=<id>`) ja funciona:
+  - Gera PIX, aguarda pagamento, webhook cria o token automaticamente
+  - Mostra link de acesso ao token na tela de sucesso
+- Nenhuma alteracao necessaria no checkout ou nas edge functions existentes
 
 ### Detalhes Tecnicos
 
-**Nova coluna necessaria na tabela `orders`:**
-```sql
-ALTER TABLE orders ADD COLUMN upgrade_increment integer;
-```
+**Arquivos novos:**
+- `src/components/public/PlansSection.tsx` - componente reutilizavel com os 3 cards
+- `src/pages/Plans.tsx` - pagina dedicada `/planos`
 
-**Edge Function `upgrade-token` (nova):**
-- Valida token no DB
-- Calcula preco baseado no tipo e incremento
-- Cria PIX via BrPix
-- Insere order com: `order_type`, `token_id` (do token sendo upgradado), `upgrade_increment`, `amount`
+**Arquivos modificados:**
+- `src/App.tsx` - adicionar rota `/planos`
+- `src/pages/Landing.tsx` - adicionar secao de planos abaixo do gerador + link na navbar
 
-**Webhook - novos tipos de order:**
-```text
-upgrade_daily  → tokens.daily_limit += upgrade_increment
-upgrade_per_use → tokens.credits_per_use += upgrade_increment
-```
+**Migracao SQL:**
+- INSERT de 3 produtos na tabela `products` com os valores definidos
 
-**Config.toml:**
-```toml
-[functions.upgrade-token]
-verify_jwt = false
-```
+**Nenhuma alteracao em edge functions** - o fluxo de checkout e webhook existente ja lida com a criacao automatica do token apos pagamento.
 
