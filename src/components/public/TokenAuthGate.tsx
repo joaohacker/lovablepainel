@@ -34,10 +34,20 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Validate token and check if it has an account
-      const { data: tokenData } = await supabase.functions.invoke("validate-token", {
-        body: { token, action: "validate" },
-      });
+      // Validate token — use fetch directly to avoid SDK issues
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      let tokenData: any = null;
+      try {
+        const valRes = await fetch(`${supabaseUrl}/functions/v1/validate-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": supabaseKey },
+          body: JSON.stringify({ token, action: "validate" }),
+        });
+        tokenData = await valRes.json();
+      } catch (e) {
+        console.error("[TokenAuthGate] validate error:", e);
+      }
 
       if (!tokenData?.valid || !tokenData?.token?.id) {
         setCheckingSession(false);
@@ -46,10 +56,18 @@ export const TokenAuthGate = ({ token, onAuthenticated }: TokenAuthGateProps) =>
       }
 
       // Check if token already has a registered account
-      const { data: hasAccount } = await supabase.functions.invoke("token-auth", {
-        body: { action: "check", token },
-      });
-      const tokenHasAccount = hasAccount?.has_account === true;
+      let tokenHasAccount = false;
+      try {
+        const checkRes = await fetch(`${supabaseUrl}/functions/v1/token-auth`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": supabaseKey },
+          body: JSON.stringify({ action: "check", token }),
+        });
+        const checkData = await checkRes.json();
+        tokenHasAccount = checkData?.has_account === true;
+      } catch (e) {
+        console.error("[TokenAuthGate] check error:", e);
+      }
 
       if (session) {
         // Check if this user is linked to this token
