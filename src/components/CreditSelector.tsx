@@ -12,9 +12,10 @@ interface CreditSelectorProps {
   disabled: boolean;
   maxCredits?: number;
   onUpgradePerUse?: () => void;
+  onUpgradeDaily?: () => void;
 }
 
-export function CreditSelector({ onGenerate, disabled, maxCredits = 900, onUpgradePerUse }: CreditSelectorProps) {
+export function CreditSelector({ onGenerate, disabled, maxCredits = 900, onUpgradePerUse, onUpgradeDaily }: CreditSelectorProps) {
   const max = maxCredits;
   const [credits, setCredits] = useState(Math.min(100, max));
   const [stock, setStock] = useState<StockResponse | null>(null);
@@ -158,10 +159,24 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, onUpgra
           className="w-full flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" />
+            <Zap className="h-4 w-4 text-primary" />
             <span className="text-sm text-muted-foreground">
-              Limite atual: <span className="font-semibold text-foreground">{max}</span> créditos/vez
+              Limite por vez: <span className="font-semibold text-foreground">{max}</span>
             </span>
+          </div>
+          <span className="text-xs font-semibold text-primary">Aumentar →</span>
+        </button>
+      )}
+
+      {/* Upgrade daily limit banner */}
+      {onUpgradeDaily && (
+        <button
+          onClick={onUpgradeDaily}
+          className="w-full flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <span className="text-sm text-muted-foreground">Limite diário</span>
           </div>
           <span className="text-xs font-semibold text-primary">Aumentar →</span>
         </button>
