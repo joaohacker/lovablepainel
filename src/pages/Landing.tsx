@@ -16,6 +16,7 @@ import lovableHeart from "@/assets/lovable-heart.png";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PublicGenerator } from "@/components/public/PublicGenerator";
 import { PlansSection } from "@/components/public/PlansSection";
+import { WhatsAppButton } from "@/components/public/WhatsAppButton";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -234,6 +235,8 @@ const Landing = () => {
       <footer className="relative z-10 border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
         <p>© 2026 LovablePainel. Todos os direitos reservados.</p>
       </footer>
+
+      <WhatsAppButton />
     </div>
   );
 };
