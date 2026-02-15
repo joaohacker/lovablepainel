@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface LiveGeneration {
   id: string;
@@ -10,15 +10,67 @@ interface LiveGeneration {
   status: string;
   client_name: string;
   created_at: string;
+  isFake?: boolean;
 }
 
 interface LiveGenerationsProps {
   currentFarmId: string | null;
 }
 
+const FAKE_NAMES = [
+  "Lucas M.", "Ana S.", "Pedro R.", "Julia C.", "Marcos T.",
+  "Camila F.", "Rafael B.", "Isabela L.", "Thiago P.", "Fernanda A.",
+  "Gabriel O.", "Larissa N.", "Bruno D.", "Beatriz V.", "Diego H.",
+];
+
+const FAKE_STATUSES: Array<{ status: string; weight: number }> = [
+  { status: "running", weight: 5 },
+  { status: "waiting_invite", weight: 3 },
+  { status: "queued", weight: 2 },
+];
+
+function pickWeightedStatus() {
+  const total = FAKE_STATUSES.reduce((s, f) => s + f.weight, 0);
+  let r = Math.random() * total;
+  for (const f of FAKE_STATUSES) {
+    r -= f.weight;
+    if (r <= 0) return f.status;
+  }
+  return "running";
+}
+
+function generateFakeGenerations(): LiveGeneration[] {
+  const count = 4 + Math.floor(Math.random() * 5);
+  const shuffled = [...FAKE_NAMES].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count).map((name, i) => {
+    const creditOptions = [50, 100, 200, 300, 500, 1000, 1500, 2000];
+    const credits = creditOptions[Math.floor(Math.random() * creditOptions.length)];
+    const status = pickWeightedStatus();
+    const earned = status === "running" ? Math.floor(Math.random() * credits * 0.7) : null;
+    return {
+      id: `fake-${i}`,
+      farm_id: `fake-farm-${i}`,
+      credits_requested: credits,
+      credits_earned: earned,
+      status,
+      client_name: name,
+      created_at: new Date(Date.now() - Math.random() * 600000).toISOString(),
+      isFake: true,
+    };
+  });
+}
+
 export function LiveGenerations({ currentFarmId }: LiveGenerationsProps) {
-  const [generations, setGenerations] = useState<LiveGeneration[]>([]);
+  const [realGenerations, setRealGenerations] = useState<LiveGeneration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fakeGenerations, setFakeGenerations] = useState<LiveGeneration[]>(() => generateFakeGenerations());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFakeGenerations(generateFakeGenerations());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const fetchGenerations = async () => {
@@ -28,8 +80,8 @@ export function LiveGenerations({ currentFarmId }: LiveGenerationsProps) {
         .in("status", ["running", "waiting_invite", "queued", "creating"])
         .order("created_at", { ascending: false })
         .limit(20);
-      
-      if (data) setGenerations(data as LiveGeneration[]);
+
+      if (data) setRealGenerations(data as LiveGeneration[]);
       setLoading(false);
     };
 
@@ -37,6 +89,20 @@ export function LiveGenerations({ currentFarmId }: LiveGenerationsProps) {
     const interval = setInterval(fetchGenerations, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const allGenerations = useMemo(() => {
+    const merged = [...realGenerations, ...fakeGenerations];
+    merged.sort((a, b) => {
+      const aCurrent = a.farm_id === currentFarmId ? 1 : 0;
+      const bCurrent = b.farm_id === currentFarmId ? 1 : 0;
+      if (aCurrent !== bCurrent) return bCurrent - aCurrent;
+      const aReal = a.isFake ? 0 : 1;
+      const bReal = b.isFake ? 0 : 1;
+      if (aReal !== bReal) return bReal - aReal;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    return merged;
+  }, [realGenerations, fakeGenerations, currentFarmId]);
 
   const statusLabel = (status: string) => {
     switch (status) {
@@ -71,22 +137,18 @@ export function LiveGenerations({ currentFarmId }: LiveGenerationsProps) {
     );
   }
 
-  if (generations.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <Zap className="h-8 w-8 mx-auto mb-3 opacity-40" />
-        <p className="text-sm">Nenhuma geração ativa no momento</p>
-        <p className="text-xs mt-1">As gerações em andamento aparecerão aqui</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-muted-foreground text-center mb-4">
-        {generations.length} geração{generations.length > 1 ? "ões" : ""} ativa{generations.length > 1 ? "s" : ""}
-      </p>
-      {generations.map((gen) => {
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success"></span>
+        </span>
+        <p className="text-sm font-medium text-muted-foreground">
+          {allGenerations.length} geração{allGenerations.length > 1 ? "ões" : ""} ativa{allGenerations.length > 1 ? "s" : ""}
+        </p>
+      </div>
+      {allGenerations.map((gen) => {
         const isCurrent = gen.farm_id === currentFarmId;
         return (
           <div
