@@ -51,32 +51,32 @@ const Landing = () => {
       <div className="fixed inset-0 bg-black/60 md:bg-black/60 pointer-events-none z-0" />
       {/* Navbar */}
       <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4 relative">
-        <div className="glass-card flex items-center justify-between rounded-full px-6 py-3">
+        <div className="glass-card flex items-center justify-between rounded-full px-4 md:px-6 py-2.5 md:py-3">
           <div className="flex items-center gap-2">
-            <img src={lovableHeart} alt="Logo" className="h-7 w-7" />
-            <span className="text-lg font-bold tracking-tight">
+            <img src={lovableHeart} alt="Logo" className="h-6 w-6 md:h-7 md:w-7" />
+            <span className="text-base md:text-lg font-bold tracking-tight">
               Lovable<span className="text-primary">Painel</span>
             </span>
           </div>
-          <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#beneficios" className="hover:text-foreground transition-colors">
+          <div className="flex items-center gap-3 md:gap-6 text-xs md:text-sm text-muted-foreground">
+            <a href="#beneficios" className="hidden md:inline hover:text-foreground transition-colors">
               Benefícios
             </a>
-            <a href="#como-funciona" className="hover:text-foreground transition-colors">
+            <a href="#como-funciona" className="hidden md:inline hover:text-foreground transition-colors">
               Como Funciona
             </a>
             <a href="#preco" className="hover:text-foreground transition-colors">
               Preço
             </a>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full h-8 text-xs md:text-sm"
+              onClick={() => navigate("/auth")}
+            >
+              Acessar
+            </Button>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full"
-            onClick={() => navigate("/auth")}
-          >
-            Acessar
-          </Button>
         </div>
       </nav>
 
