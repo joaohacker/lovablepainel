@@ -211,6 +211,38 @@ export type Database = {
         }
         Relationships: []
       }
+      token_accounts: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          token_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          token_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          token_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_accounts_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_usages: {
         Row: {
           client_ip: string | null

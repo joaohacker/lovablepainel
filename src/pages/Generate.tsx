@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { UpgradeModal } from "@/components/public/UpgradeModal";
+import { TokenAuthGate } from "@/components/public/TokenAuthGate";
 
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +77,7 @@ const MaintenanceBanner = ({ message, until }: { message: string; until: string 
 
 const Generate = () => {
   const { token } = useParams<{ token: string }>();
+  const [authenticated, setAuthenticated] = useState(false);
   const [validating, setValidating] = useState(true);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; type: "daily_limit" | "credits_per_use" }>({ open: false, type: "daily_limit" });
@@ -86,9 +88,9 @@ const Generate = () => {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !authenticated) return;
     validateToken();
-  }, [token]);
+  }, [token, authenticated]);
 
   // Resume session after page refresh (only on initial load)
   const hasResumedRef = useRef(false);
@@ -201,6 +203,11 @@ const Generate = () => {
       }
     });
   }, [farm.state, farm.creditsEarned, farm.masterEmail, farm.workspaceName, farm.errorMessage, farm.farmId, token, validation?.token]);
+
+  // Auth gate - show login/signup before anything else
+  if (!authenticated && token) {
+    return <TokenAuthGate token={token} onAuthenticated={() => setAuthenticated(true)} />;
+  }
 
   if (validating) {
     return (

@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.upgrade-token]
 verify_jwt = false
+
+[functions.token-auth]
+verify_jwt = false
