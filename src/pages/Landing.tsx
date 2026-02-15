@@ -63,7 +63,7 @@ const Landing = () => {
 
       {/* Hero + Generator */}
       <section id="gerador" className="relative z-10 pt-10 md:pt-16 pb-10 md:pb-16 px-4">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           <div className="text-center space-y-3 mb-8 md:mb-10">
             <h1 className="text-3xl sm:text-4xl md:text-6xl font-extrabold leading-tight tracking-tight">
               Gerador de Créditos{" "}

@@ -150,16 +150,16 @@ export function PublicGenerator() {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full max-w-6xl mx-auto">
       <Tabs defaultValue="generator" className="w-full">
-        <TabsList className="w-full grid grid-cols-2 mb-6">
-          <TabsTrigger value="generator">⚡ Gerador</TabsTrigger>
-          <TabsTrigger value="live">🔴 Ao Vivo</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-2 mb-8 h-12 text-base">
+          <TabsTrigger value="generator" className="text-base">⚡ Gerador</TabsTrigger>
+          <TabsTrigger value="live" className="text-base">🔴 Ao Vivo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="generator">
           <Card className="glass-card">
-            <CardContent className="p-5 md:p-8">
+            <CardContent className="p-6 md:p-12">
               {/* Wallet display */}
               {user && (
                 <div className="flex items-center justify-between rounded-lg border border-border/50 bg-secondary/50 px-4 py-3 mb-6">
@@ -176,10 +176,10 @@ export function PublicGenerator() {
 
 
               {isIdle ? (
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Credit selector */}
-                  <div className="text-center space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                  <div className="text-center space-y-3">
+                    <label className="text-base font-medium text-muted-foreground uppercase tracking-wider">
                       Quantidade de Créditos
                     </label>
                     <div className="flex items-center justify-center gap-3">
@@ -191,13 +191,13 @@ export function PublicGenerator() {
                         min={5}
                         max={10000}
                         step={5}
-                        className="w-28 text-center text-2xl font-bold bg-secondary border-border h-14"
+                        className="w-36 text-center text-4xl font-bold bg-secondary border-border h-18 md:h-20"
                       />
                     </div>
                   </div>
 
                   {/* Slider */}
-                  <div className="px-2">
+                  <div className="px-4">
                     <Slider
                       value={[credits]}
                       onValueChange={handleSliderChange}
@@ -206,31 +206,31 @@ export function PublicGenerator() {
                       step={5}
                       className="w-full"
                     />
-                    <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                    <div className="flex justify-between mt-3 text-sm text-muted-foreground">
                       <span>5</span>
                       <span>10.000</span>
                     </div>
                   </div>
 
                   {/* Price display */}
-                  <div className="rounded-lg border border-border/50 bg-secondary/30 p-4 text-center space-y-1">
-                    <p className="text-3xl font-extrabold text-foreground">{formatBRL(price)}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <div className="rounded-xl border border-border/50 bg-secondary/30 p-6 text-center space-y-2">
+                    <p className="text-4xl md:text-5xl font-extrabold text-foreground">{formatBRL(price)}</p>
+                    <p className="text-sm text-muted-foreground">
                       {formatBRL(pricePer100)} por 100 créditos
                     </p>
                   </div>
 
                   {/* Fixed packages */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-center">
                       Pacotes Populares
                     </p>
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {FIXED_PACKAGES.map((pkg) => (
                         <button
                           key={pkg.name}
                           onClick={() => selectPackage(pkg)}
-                          className={`relative rounded-lg border p-3 text-center transition-all hover:border-primary/50 hover:bg-primary/5 ${
+                          className={`relative rounded-xl border p-4 text-center transition-all hover:border-primary/50 hover:bg-primary/5 ${
                             credits === pkg.credits
                               ? "border-primary bg-primary/10"
                               : "border-border/50 bg-secondary/20"
@@ -241,8 +241,8 @@ export function PublicGenerator() {
                               {pkg.discount}
                             </span>
                           )}
-                          <p className="text-xs font-semibold text-foreground">{pkg.credits}</p>
-                          <p className="text-[10px] text-muted-foreground">{formatBRL(pkg.price)}</p>
+                          <p className="text-sm font-semibold text-foreground">{pkg.credits}</p>
+                          <p className="text-xs text-muted-foreground">{formatBRL(pkg.price)}</p>
                         </button>
                       ))}
                     </div>
@@ -253,7 +253,7 @@ export function PublicGenerator() {
                     onClick={() => handleGenerate()}
                     disabled={submitting || credits < 5}
                     size="lg"
-                    className="w-full h-14 text-lg font-semibold gap-2"
+                    className="w-full h-16 text-xl font-semibold gap-2"
                   >
                     {submitting ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
