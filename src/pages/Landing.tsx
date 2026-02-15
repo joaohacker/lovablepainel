@@ -17,6 +17,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { PublicGenerator } from "@/components/public/PublicGenerator";
 import { PlansSection } from "@/components/public/PlansSection";
 import { WhatsAppButton } from "@/components/public/WhatsAppButton";
+import { BackgroundEffects } from "@/components/public/BackgroundEffects";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ const Landing = () => {
       <div className="fixed inset-0 md:hidden bg-cover bg-center bg-no-repeat z-0" style={{ backgroundImage: "url('/images/bg-mobile.png')" }} />
       {/* Dark overlay for text contrast */}
       <div className="fixed inset-0 bg-black/60 md:bg-black/60 pointer-events-none z-0" />
+      <BackgroundEffects />
       {/* Navbar */}
       <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4 relative">
         <div className="glass-card flex items-center justify-between rounded-full px-4 md:px-6 py-2.5 md:py-3">
