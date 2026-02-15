@@ -182,7 +182,7 @@ export function PublicGenerator() {
                         min={5}
                         max={10000}
                         step={5}
-                        className="w-44 text-center text-5xl md:text-6xl font-bold bg-secondary border-border h-20 md:h-24"
+                        className="w-44 text-center !text-5xl md:!text-6xl font-bold bg-secondary border-border h-20 md:h-24"
                       />
                     </div>
                   </div>
