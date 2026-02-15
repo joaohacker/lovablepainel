@@ -91,10 +91,6 @@ export function PlansSection() {
                 </li>
                 <li className="flex items-center gap-2 text-sm">
                   <Check className="h-4 w-4 text-primary shrink-0" />
-                  <span>{p.credits_per_use} créditos/geração</span>
-                </li>
-                <li className="flex items-center gap-2 text-sm">
-                  <Check className="h-4 w-4 text-primary shrink-0" />
                   <span>Token permanente</span>
                 </li>
                 <li className="flex items-center gap-2 text-sm">
