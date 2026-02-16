@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Target, Crown, Diamond } from "lucide-react";
+import { Check, Target, Crown, Gem } from "lucide-react";
 
 interface Product {
   id: string;
@@ -17,7 +17,7 @@ interface Product {
 const PLAN_META: Record<string, { icon: typeof Target; popular?: boolean }> = {
   "Básico": { icon: Target },
   "Pro": { icon: Crown, popular: true },
-  "Premium": { icon: Diamond },
+  "Premium": { icon: Gem },
 };
 
 export function PlansSection() {
