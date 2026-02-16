@@ -21,7 +21,7 @@ interface UpgradeModalProps {
 
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
-const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
+const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000, 15000, 20000];
 const DEFAULT_PRICE_PER_1000_DAILY = 15;
 const DEFAULT_PRICE_PER_1000_PER_USE = 30;
 
@@ -48,6 +48,7 @@ function getDailyPrice(increment: number, tokenStr?: string): { price: number; o
 }
 
 function getPerUseDiscount(credits: number): number {
+  if (credits >= 15000) return 25;
   if (credits > 10000) return 20;
   if (credits >= 9000) return 15;
   if (credits >= 6000) return 10;
@@ -78,7 +79,7 @@ export function UpgradeModal({ open, onOpenChange, token, tokenString, upgradeTy
   const theIcon = upgradeType === "daily_limit" ? <TrendingUp className="h-5 w-5" /> : <Zap className="h-5 w-5" />;
   const current = currentLimit || 0;
   const maxDailyIncrement = MAX_DAILY_LIMIT - current;
-  const maxPerUseTarget = 10000;
+  const maxPerUseTarget = 20000;
 
   useEffect(() => {
     if (!open) {

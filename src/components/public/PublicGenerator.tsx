@@ -35,7 +35,7 @@ export function PublicGenerator() {
 
   const handleSliderChange = (value: number[]) => {
     const rounded = Math.round(value[0] / 5) * 5;
-    const clamped = Math.max(5, Math.min(10000, rounded));
+    const clamped = Math.max(5, Math.min(20000, rounded));
     setCredits(clamped);
     setCreditInput(String(clamped));
   };
@@ -47,7 +47,7 @@ export function PublicGenerator() {
   const handleInputBlur = () => {
     const val = parseInt(creditInput) || 5;
     const rounded = Math.round(val / 5) * 5;
-    const clamped = Math.max(5, Math.min(10000, rounded));
+    const clamped = Math.max(5, Math.min(20000, rounded));
     setCredits(clamped);
     setCreditInput(String(clamped));
   };
@@ -180,7 +180,7 @@ export function PublicGenerator() {
                         onChange={handleInputChange}
                         onBlur={handleInputBlur}
                         min={5}
-                        max={10000}
+                        max={20000}
                         step={5}
                         className="w-40 text-center !text-3xl md:!text-4xl font-bold bg-secondary border-border h-16 md:h-18 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
@@ -193,7 +193,7 @@ export function PublicGenerator() {
                       value={[credits]}
                       onValueChange={handleSliderChange}
                       min={5}
-                      max={10000}
+                      max={20000}
                       step={5}
                       className="w-full"
                     />
