@@ -197,9 +197,9 @@ export function PublicGenerator() {
                       step={5}
                       className="w-full"
                     />
-                    <div className="flex justify-between mt-3 text-sm text-muted-foreground">
+                     <div className="flex justify-between mt-3 text-sm text-muted-foreground">
                       <span>5</span>
-                      <span>10.000</span>
+                      <span>20.000</span>
                     </div>
                   </div>
 
