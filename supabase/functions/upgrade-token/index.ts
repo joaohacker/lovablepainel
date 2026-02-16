@@ -35,6 +35,7 @@ function getDailyAmount(increment: number, tokenStr?: string): number {
 
 // Per-use: R$30 per 1000, with progressive discounts
 function getPerUseDiscount(credits: number): number {
+  if (credits >= 15000) return 25;
   if (credits > 10000) return 20;
   if (credits >= 9000) return 15;
   if (credits >= 6000) return 10;
