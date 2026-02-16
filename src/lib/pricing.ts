@@ -42,9 +42,22 @@ export const FIXED_PACKAGES = [
   { name: "10000", credits: 10000, price: calcularPreco(10000), discount: "44% off" },
 ] as const;
 
-/** Given a balance in R$, how many credits can be bought at the base rate (R$5/100) */
+/** Given a balance in R$, estimate how many credits can be bought using the real pricing tiers */
 export function creditsFromBalance(balanceReais: number): number {
-  return Math.floor((balanceReais / 0.05) / 5) * 5;
+  if (balanceReais <= 0) return 0;
+  // Binary search: find the max credits where calcularPreco(credits) <= balance
+  let lo = 0;
+  let hi = 500000;
+  while (lo + 5 < hi) {
+    const mid = Math.floor((lo + hi) / 2 / 5) * 5;
+    if (mid <= 0) { lo = 0; break; }
+    if (calcularPreco(mid) <= balanceReais) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
 }
 
 export function formatBRL(value: number): string {
