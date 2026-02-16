@@ -71,6 +71,19 @@ const MaintenanceBanner = ({ message, until }: { message: string; until: string 
           {timeLeft}
         </p>
       </div>
+
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 w-full text-center">
+        <p className="text-sm font-semibold text-emerald-400 mb-1">⚡ Quer gerar agora?</p>
+        <p className="text-xs text-emerald-300/80 mb-3">
+          O painel por demanda funciona <span className="font-bold text-emerald-300">24 horas por dia</span>, sem bloqueio noturno!
+        </p>
+        <a
+          href="/"
+          className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-all"
+        >
+          🚀 Ir para o Painel por Demanda
+        </a>
+      </div>
     </div>
   );
 };
