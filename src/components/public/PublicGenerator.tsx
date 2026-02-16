@@ -216,24 +216,24 @@ export function PublicGenerator() {
                     <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider text-center">
                       Pacotes Populares
                     </p>
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-3 gap-y-5">
                       {FIXED_PACKAGES.map((pkg) => (
                         <button
                           key={pkg.name}
                           onClick={() => selectPackage(pkg)}
-                          className={`relative rounded-xl border p-4 text-center transition-all hover:border-primary/50 hover:bg-primary/5 ${
+                          className={`relative rounded-xl border p-3 pt-4 text-center transition-all hover:border-primary/50 hover:bg-primary/5 ${
                             credits === pkg.credits
                               ? "border-primary bg-primary/10"
                               : "border-border/50 bg-secondary/20"
                           }`}
                         >
                           {pkg.discount && (
-                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-success text-success-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-success text-success-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap leading-tight">
                               {pkg.discount}
                             </span>
                           )}
-                          <p className="text-sm font-semibold text-foreground">{pkg.credits}</p>
-                          <p className="text-xs text-muted-foreground">{formatBRL(pkg.price)}</p>
+                          <p className="text-sm font-semibold text-foreground">{pkg.credits.toLocaleString()}</p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">{formatBRL(pkg.price)}</p>
                         </button>
                       ))}
                     </div>

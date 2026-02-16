@@ -36,27 +36,27 @@ const Landing = () => {
       <BackgroundEffects />
       {/* Navbar */}
       <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4 relative">
-        <div className="glass-card flex items-center justify-between rounded-full px-4 md:px-6 py-2.5 md:py-3">
-          <div className="flex items-center gap-2">
-            <img src={lovableHeart} alt="Logo" className="h-6 w-6 md:h-7 md:w-7" />
-            <span className="text-base md:text-lg font-bold tracking-tight">
+        <div className="glass-card flex items-center justify-between rounded-full px-3 md:px-6 py-2.5 md:py-3">
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+            <img src={lovableHeart} alt="Logo" className="h-5 w-5 md:h-7 md:w-7" />
+            <span className="text-sm md:text-lg font-bold tracking-tight whitespace-nowrap">
               Lovable<span className="text-primary">Painel</span>
             </span>
           </div>
-          <div className="flex items-center gap-2 md:gap-6 text-[10px] md:text-sm text-muted-foreground">
-            <a href="#beneficios" className="hover:text-foreground transition-colors">
+          <div className="flex items-center gap-1.5 md:gap-6 text-[10px] md:text-sm text-muted-foreground ml-2">
+            <a href="#beneficios" className="hover:text-foreground transition-colors hidden sm:inline">
               Benefícios
             </a>
             <a href="#planos" className="hover:text-foreground transition-colors">
               Planos
             </a>
-            <a href="#como-funciona" className="hover:text-foreground transition-colors whitespace-nowrap">
+            <a href="#como-funciona" className="hover:text-foreground transition-colors whitespace-nowrap hidden sm:inline">
               Como Funciona
             </a>
             <Button
               size="sm"
               variant="outline"
-              className="rounded-full h-8 text-xs md:text-sm"
+              className="rounded-full h-7 md:h-8 text-[10px] md:text-sm px-2.5 md:px-3"
               onClick={() => navigate("/auth")}
             >
               Acessar
