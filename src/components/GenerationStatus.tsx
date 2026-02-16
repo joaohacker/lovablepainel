@@ -99,18 +99,26 @@ function AnimatedCounter({ value, className }: { value: number; className?: stri
 
 function RunningCreditsDisplay({ feed, totalCreditsRequested }: { feed: FeedEntry[]; totalCreditsRequested: number }) {
   const [now, setNow] = useState(Date.now());
+  // Keep a monotonic (never-decreasing) credit counter to avoid flicker
+  // when older entries are pruned from the feed's 200-entry cap.
+  const maxCreditsRef = useRef(0);
 
   useEffect(() => {
-    // Use 250ms on mobile for better battery life
     const interval = 'ontouchstart' in window ? 250 : 100;
     const id = setInterval(() => setNow(Date.now()), interval);
     return () => clearInterval(id);
   }, []);
 
   // Count credits only from visible (arrived) entries
-  const visibleCredits = feed
+  const rawVisible = feed
     .filter((e) => e.kind === "credit" && (!e.arrivedAt || e.arrivedAt <= now))
     .reduce((sum, e) => sum + (e.credits || 0), 0);
+
+  // Never allow the counter to decrease
+  if (rawVisible > maxCreditsRef.current) {
+    maxCreditsRef.current = rawVisible;
+  }
+  const visibleCredits = maxCreditsRef.current;
 
   const progressPercent = totalCreditsRequested > 0
     ? Math.min(100, (visibleCredits / totalCreditsRequested) * 100)
