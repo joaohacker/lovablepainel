@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap, Crown, Rocket } from "lucide-react";
+import { Check, Target, Crown, Diamond } from "lucide-react";
 
 interface Product {
   id: string;
@@ -14,10 +14,10 @@ interface Product {
   description: string | null;
 }
 
-const PLAN_META: Record<string, { icon: typeof Zap; popular?: boolean }> = {
-  "Básico": { icon: Zap },
+const PLAN_META: Record<string, { icon: typeof Target; popular?: boolean }> = {
+  "Básico": { icon: Target },
   "Pro": { icon: Crown, popular: true },
-  "Premium": { icon: Rocket },
+  "Premium": { icon: Diamond },
 };
 
 export function PlansSection() {
@@ -53,7 +53,7 @@ export function PlansSection() {
 
       <div className="mx-auto max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
         {products.map((p) => {
-          const meta = PLAN_META[p.name] ?? { icon: Zap };
+          const meta = PLAN_META[p.name] ?? { icon: Target };
           const Icon = meta.icon;
           const isPopular = meta.popular;
 
