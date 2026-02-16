@@ -53,6 +53,9 @@ const Landing = () => {
             <a href="#como-funciona" className="hover:text-foreground transition-colors whitespace-nowrap hidden sm:inline">
               Como Funciona
             </a>
+            <a href="https://wa.me/5521992046054" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+              Contato
+            </a>
             <Button
               size="sm"
               variant="outline"
