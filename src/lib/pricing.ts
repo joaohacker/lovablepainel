@@ -4,6 +4,7 @@ const TIERS = [
   { credits: 1000, price: 24.50 },
   { credits: 5000, price: 105.00 },
   { credits: 10000, price: 196.00 },
+  { credits: 20000, price: 372.00 },
 ] as const;
 
 export function calcularPreco(creditos: number): number {
@@ -40,6 +41,7 @@ export const FIXED_PACKAGES = [
   { name: "2000", credits: 2000, price: calcularPreco(2000), discount: "30% off" },
   { name: "5000", credits: 5000, price: calcularPreco(5000), discount: "40% off" },
   { name: "10000", credits: 10000, price: calcularPreco(10000), discount: "44% off" },
+  { name: "20000", credits: 20000, price: calcularPreco(20000), discount: "47% off" },
 ] as const;
 
 /** Given a balance in R$, estimate how many credits can be bought using the real pricing tiers */

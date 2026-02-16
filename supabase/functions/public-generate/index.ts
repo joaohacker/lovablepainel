@@ -15,6 +15,7 @@ function calcularPreco(creditos: number): number {
     { credits: 1000, price: 24.50 },
     { credits: 5000, price: 105.00 },
     { credits: 10000, price: 196.00 },
+    { credits: 20000, price: 372.00 },
   ];
   if (creditos <= 0) return 0;
   if (creditos <= TIERS[0].credits) return +(creditos * (TIERS[0].price / TIERS[0].credits));
