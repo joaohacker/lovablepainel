@@ -229,8 +229,8 @@ export function UpgradeModal({ open, onOpenChange, token, tokenString, upgradeTy
             ) : (
               <>
                 <div className="flex items-center justify-center">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 border border-green-500/30 px-3 py-1 text-xs font-bold text-green-400">
-                    🔥 Até 25% OFF — quanto mais, mais barato
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-400">
+                    🔥 50% OFF — quanto mais, mais barato
                   </span>
                 </div>
                 {PER_USE_TARGET_OPTIONS
