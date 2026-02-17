@@ -354,6 +354,10 @@ const Generate = () => {
           </CardContent>
         </Card>
 
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          🕐 Os limites diários resetam todo dia às 12:00 (horário de Brasília)
+        </p>
+
         {/* Upgrade Modal */}
         {token && validation?.token && (
           <UpgradeModal
