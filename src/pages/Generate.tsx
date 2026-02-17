@@ -27,6 +27,7 @@ interface ValidationResult {
   remaining_total?: number | null;
   remaining_daily?: number | null;
   daily_limit_reached?: boolean;
+  daily_bonus?: number;
   maintenance?: { until: string; message: string } | null;
   warning_message?: string | null;
   error?: string;
@@ -293,6 +294,15 @@ const Generate = () => {
             )}
           </p>
 
+          {/* Daily bonus banner */}
+          {validation.daily_bonus && validation.daily_bonus > 0 && (
+            <div className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-center">
+              <p className="text-sm font-bold text-emerald-400">
+                🎁 Bônus de hoje: +{validation.daily_bonus} créditos no limite diário!
+              </p>
+              <p className="text-[11px] text-emerald-300/70 mt-0.5">Válido apenas hoje</p>
+            </div>
+          )}
 
 
           {/* Token-specific warning message */}
