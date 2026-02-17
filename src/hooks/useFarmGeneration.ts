@@ -231,12 +231,17 @@ export function useFarmGeneration(accessToken?: string) {
                 .filter((e) => e.kind === "credit" && e.credits)
                 .reduce((sum, e) => sum + (e.credits || 0), 0);
 
+              // Use status.credits as floor — the API may cap logs but still report correct total
+              const apiCredits = status.credits || 0;
+              const accumulated = prev.creditsEarned + newCredits;
+              const bestCredits = Math.max(accumulated, apiCredits);
+
               return {
                 ...prev,
                 state: "running",
                 workspaceName: status.workspaceName || prev.workspaceName,
                 masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: prev.creditsEarned + newCredits,
+                creditsEarned: bestCredits,
                 feed: merged,
               };
             });
