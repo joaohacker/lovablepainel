@@ -1,0 +1,1 @@
+UPDATE public.tokens SET credits_per_use = 10000 WHERE credits_per_use > 10000;
