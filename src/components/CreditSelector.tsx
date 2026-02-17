@@ -38,8 +38,8 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
     }
   };
 
-  const stockDepleted = stock !== null && stock.activeWithBonus < 20000;
-  const isDisabled = disabled || submitting || stockDepleted;
+  const stockDepleted = false;
+  const isDisabled = disabled || submitting;
 
   useEffect(() => {
     const loadStock = async () => {
