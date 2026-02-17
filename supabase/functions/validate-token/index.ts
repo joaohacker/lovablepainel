@@ -115,10 +115,16 @@ serve(async (req) => {
       }
 
       const updateData: Record<string, unknown> = { status };
-      if (credits_earned !== undefined) updateData.credits_earned = credits_earned;
       if (master_email !== undefined) updateData.master_email = master_email;
       if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
       if (error_message !== undefined) updateData.error_message = error_message;
+
+      // Never overwrite credits_earned with a lower value
+      if (credits_earned !== undefined && credits_earned > 0) {
+        const { data: currentGen } = await supabase.from("generations").select("credits_earned").eq("farm_id", farmId).maybeSingle();
+        const dbCredits = currentGen?.credits_earned ?? 0;
+        updateData.credits_earned = Math.max(credits_earned, dbCredits);
+      }
 
       await supabase
         .from("generations")
@@ -186,23 +192,39 @@ serve(async (req) => {
             { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         const real = await statusRes.json();
-        const realCredits = real.creditsEarned ?? real.result?.credits ?? 0;
+        // creditsEarned may be null for multi-batch — count from logs
+        let realCredits = real.creditsEarned ?? real.result?.credits ?? null;
+        if (realCredits === null && Array.isArray(real.logs)) {
+          realCredits = 0;
+          for (const log of real.logs) {
+            if (log.type === "credit" && typeof log.message === "string") {
+              const match = log.message.match(/^\+(\d+)\s/);
+              if (match) realCredits += parseInt(match[1], 10);
+            }
+          }
+        }
+        if (realCredits === null) realCredits = 0;
         const realStatus = real.status === "completed" ? "completed" : real.status === "error" ? "error" : real.status;
+
+        // Never overwrite with lower value — fetch current DB value first
+        const { data: currentGen } = await supabase.from("generations").select("credits_earned").eq("farm_id", farmId).maybeSingle();
+        const dbCredits = currentGen?.credits_earned ?? 0;
+        const finalCredits = Math.max(realCredits, dbCredits);
 
         await supabase.from("generations").update({
           status: realStatus,
-          credits_earned: realCredits,
+          credits_earned: finalCredits,
           master_email: real.masterEmail || undefined,
           workspace_name: real.workspaceName || undefined,
         }).eq("farm_id", farmId);
 
         await supabase.from("token_usages").update({
           status: realStatus,
-          credits_earned: realCredits,
+          credits_earned: finalCredits,
           completed_at: ["completed", "error", "expired", "cancelled"].includes(realStatus) ? new Date().toISOString() : undefined,
         }).eq("farm_id", farmId);
 
-        return new Response(JSON.stringify({ success: true, status: realStatus, credits_earned: realCredits }),
+        return new Response(JSON.stringify({ success: true, status: realStatus, credits_earned: finalCredits }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e) {
         return new Response(JSON.stringify({ success: false, error: "Failed to reach external API" }),
@@ -273,10 +295,16 @@ serve(async (req) => {
       }
 
       const updateData: Record<string, unknown> = { status };
-      if (credits_earned !== undefined) updateData.credits_earned = credits_earned;
       if (master_email !== undefined) updateData.master_email = master_email;
       if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
       if (error_message !== undefined) updateData.error_message = error_message;
+
+      // Never overwrite credits_earned with a lower value
+      if (credits_earned !== undefined && credits_earned > 0) {
+        const { data: currentGen } = await supabase.from("generations").select("credits_earned").eq("farm_id", farmId).maybeSingle();
+        const dbCredits = currentGen?.credits_earned ?? 0;
+        updateData.credits_earned = Math.max(credits_earned, dbCredits);
+      }
 
       await supabase
         .from("generations")
