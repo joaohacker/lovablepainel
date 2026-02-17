@@ -22,12 +22,12 @@ interface UpgradeModalProps {
 const DAILY_INCREMENT_OPTIONS = [1000, 2000, 5000, 10000, 20000, 50000];
 const MAX_DAILY_LIMIT = 100000;
 const PER_USE_TARGET_OPTIONS = [2000, 3000, 5000, 7000, 10000];
-const DEFAULT_PRICE_PER_1000_DAILY = 15;
-const DEFAULT_PRICE_PER_1000_PER_USE = 30;
+const DEFAULT_PRICE_PER_1000_DAILY = 7.5;
+const DEFAULT_PRICE_PER_1000_PER_USE = 15;
 
 // Token-specific pricing (must match backend)
 const TOKEN_PRICING: Record<string, { dailyPer1k: number; perUsePer1k: number }> = {
-  "f35112c962407939853dc9db8de84013": { dailyPer1k: 2.5, perUsePer1k: 5 },
+  "f35112c962407939853dc9db8de84013": { dailyPer1k: 1.25, perUsePer1k: 2.5 },
 };
 
 function getDailyDiscount(credits: number): number {
