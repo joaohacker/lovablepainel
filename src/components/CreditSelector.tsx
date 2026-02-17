@@ -142,14 +142,14 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
       </div>
 
       {/* Bots info */}
-      <Card className="rounded-xl border-2 border-blue-500/30 bg-gradient-to-r from-blue-600/15 to-cyan-600/15 shadow-lg shadow-blue-500/10">
+      <Card className="glass-card">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-blue-400" />
-              <span className="text-sm text-blue-200">Bots necessários</span>
+              <Bot className="h-5 w-5 text-primary" />
+              <span className="text-sm text-muted-foreground">Bots necessários</span>
             </div>
-            <span className="text-lg font-bold text-white">{botsNeeded}</span>
+            <span className="text-lg font-bold text-foreground">{botsNeeded}</span>
           </div>
         </CardContent>
       </Card>
@@ -158,15 +158,15 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
       {onUpgradePerUse && (
         <button
           onClick={onUpgradePerUse}
-          className="w-full flex items-center justify-between rounded-xl border-2 border-purple-500/40 bg-gradient-to-r from-purple-600/20 to-violet-600/20 px-5 py-4 hover:from-purple-600/30 hover:to-violet-600/30 hover:border-purple-400/60 transition-all shadow-lg shadow-purple-500/10"
+          className="w-full flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-purple-400" />
-            <span className="text-sm text-purple-100">
-              Limite por vez: <span className="font-bold text-white">{max}</span>
+            <Zap className="h-4 w-4 text-primary" />
+            <span className="text-sm text-muted-foreground">
+              Limite por vez: <span className="font-semibold text-foreground">{max}</span>
             </span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-500 to-violet-500 px-4 py-1.5 text-xs font-bold text-white animate-pulse shadow-md shadow-purple-500/30">⚡ Aumentar →</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">Aumentar →</span>
         </button>
       )}
 
@@ -174,16 +174,15 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
       {onUpgradeDaily && (
         <button
           onClick={onUpgradeDaily}
-          className="w-full flex items-center justify-between rounded-xl border-2 border-purple-500/40 bg-gradient-to-r from-violet-600/20 to-purple-600/20 px-5 py-4 hover:from-violet-600/30 hover:to-purple-600/30 hover:border-purple-400/60 transition-all shadow-lg shadow-purple-500/10"
+          className="w-full flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-purple-400" />
-            <span className="text-sm text-purple-100">
-              Limite diário: <span className="font-bold text-white">{dailyLimit?.toLocaleString() ?? '∞'}</span>
-              {remainingDaily != null && <span className="ml-1 text-xs text-purple-300">(restam {remainingDaily.toLocaleString()})</span>}
+            <span className="text-sm text-muted-foreground">
+              Limite diário: <span className="font-semibold text-foreground">{dailyLimit?.toLocaleString() ?? '∞'}</span>
+              {remainingDaily != null && <span className="ml-1 text-xs">(restam {remainingDaily.toLocaleString()})</span>}
             </span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 px-4 py-1.5 text-xs font-bold text-white animate-pulse shadow-md shadow-purple-500/30">⚡ Aumentar →</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">Aumentar →</span>
         </button>
       )}
 
