@@ -293,26 +293,6 @@ const Generate = () => {
             )}
           </p>
 
-          {/* Update 3.0 flyer */}
-          <div className="mt-4 rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-600/20 via-fuchsia-500/15 to-pink-500/20 px-5 py-4 text-left relative overflow-hidden">
-            <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-fuchsia-500/15 blur-2xl" />
-            <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full bg-violet-500/15 blur-xl" />
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">⚡</span>
-                <p className="text-sm font-bold text-fuchsia-400">Painel 3.0 — Grande Atualização!</p>
-              </div>
-              <p className="text-sm font-semibold text-violet-300 leading-relaxed mb-1.5">
-                Agora você pode gerar até <span className="text-fuchsia-300 font-extrabold">1.000 créditos</span> por vez!
-              </p>
-              <p className="text-xs text-violet-300/80 leading-relaxed mb-1.5">
-                🗑️ Todos os bots são removidos ao final, <span className="font-semibold text-violet-200">inclusive o primeiro convidado (MASTER)</span>. Sua workspace fica limpa!
-              </p>
-              <p className="text-xs font-semibold text-fuchsia-400/90 leading-relaxed">
-                🎁 Limite diário de todos foi resetado!
-              </p>
-            </div>
-          </div>
 
           {/* Workspace limit warning */}
           <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left">
