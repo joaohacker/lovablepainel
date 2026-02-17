@@ -15,7 +15,6 @@ function calcularPreco(creditos: number): number {
     { credits: 1000, price: 24.50 },
     { credits: 5000, price: 105.00 },
     { credits: 10000, price: 196.00 },
-    { credits: 20000, price: 372.00 },
   ];
   if (creditos <= 0) return 0;
   if (creditos <= TIERS[0].credits) return +(creditos * (TIERS[0].price / TIERS[0].credits));
@@ -63,7 +62,7 @@ serve(async (req) => {
     }
 
     const { credits } = await req.json();
-    if (!credits || credits < 5 || credits > 20000 || credits % 5 !== 0) {
+    if (!credits || credits < 5 || credits > 10000 || credits % 5 !== 0) {
       return new Response(JSON.stringify({ error: "Créditos inválidos (5-20000, múltiplos de 5)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

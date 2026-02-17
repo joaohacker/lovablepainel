@@ -35,7 +35,7 @@ export function PublicGenerator() {
 
   const handleSliderChange = (value: number[]) => {
     const rounded = Math.round(value[0] / 5) * 5;
-    const clamped = Math.max(5, Math.min(20000, rounded));
+    const clamped = Math.max(5, Math.min(10000, rounded));
     setCredits(clamped);
     setCreditInput(String(clamped));
   };
@@ -47,7 +47,7 @@ export function PublicGenerator() {
   const handleInputBlur = () => {
     const val = parseInt(creditInput) || 5;
     const rounded = Math.round(val / 5) * 5;
-    const clamped = Math.max(5, Math.min(20000, rounded));
+    const clamped = Math.max(5, Math.min(10000, rounded));
     setCredits(clamped);
     setCreditInput(String(clamped));
   };
@@ -199,7 +199,7 @@ export function PublicGenerator() {
                     />
                      <div className="flex justify-between mt-3 text-sm text-muted-foreground">
                       <span>5</span>
-                      <span>20.000</span>
+                      <span>10.000</span>
                     </div>
                   </div>
 
