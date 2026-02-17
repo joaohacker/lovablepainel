@@ -142,14 +142,14 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
       </div>
 
       {/* Bots info */}
-      <Card className="glass-card">
+      <Card className="rounded-xl border-2 border-blue-500/30 bg-gradient-to-r from-blue-600/15 to-cyan-600/15 shadow-lg shadow-blue-500/10">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-primary" />
-              <span className="text-sm text-muted-foreground">Bots necessários</span>
+              <Bot className="h-5 w-5 text-blue-400" />
+              <span className="text-sm text-blue-200">Bots necessários</span>
             </div>
-            <span className="text-lg font-bold text-foreground">{botsNeeded}</span>
+            <span className="text-lg font-bold text-white">{botsNeeded}</span>
           </div>
         </CardContent>
       </Card>
