@@ -152,7 +152,7 @@ export function useFarmGeneration(accessToken?: string) {
                   ...p,
                   state: "completed",
                   result: status.result || null,
-                  creditsEarned: status.result?.credits || p.creditsEarned,
+                  creditsEarned: Math.min(status.result?.credits || p.creditsEarned, p.totalCreditsRequested),
                 }));
               }, drainMs);
 
@@ -234,7 +234,7 @@ export function useFarmGeneration(accessToken?: string) {
               // Use status.credits as floor — the API may cap logs but still report correct total
               const apiCredits = status.credits || 0;
               const accumulated = prev.creditsEarned + newCredits;
-              const bestCredits = Math.max(accumulated, apiCredits);
+              const bestCredits = Math.min(Math.max(accumulated, apiCredits), prev.totalCreditsRequested);
 
               return {
                 ...prev,

@@ -119,11 +119,12 @@ serve(async (req) => {
       if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
       if (error_message !== undefined) updateData.error_message = error_message;
 
-      // Never overwrite credits_earned with a lower value
+      // Never overwrite credits_earned with a lower value, cap at credits_requested
       if (credits_earned !== undefined && credits_earned > 0) {
-        const { data: currentGen } = await supabase.from("generations").select("credits_earned").eq("farm_id", farmId).maybeSingle();
+        const { data: currentGen } = await supabase.from("generations").select("credits_earned, credits_requested").eq("farm_id", farmId).maybeSingle();
         const dbCredits = currentGen?.credits_earned ?? 0;
-        updateData.credits_earned = Math.max(credits_earned, dbCredits);
+        const capCredits = currentGen?.credits_requested ?? Infinity;
+        updateData.credits_earned = Math.min(Math.max(credits_earned, dbCredits), capCredits);
       }
 
       await supabase
@@ -207,9 +208,10 @@ serve(async (req) => {
         const realStatus = real.status === "completed" ? "completed" : real.status === "error" ? "error" : real.status;
 
         // Never overwrite with lower value — fetch current DB value first
-        const { data: currentGen } = await supabase.from("generations").select("credits_earned").eq("farm_id", farmId).maybeSingle();
+        const { data: currentGen } = await supabase.from("generations").select("credits_earned, credits_requested").eq("farm_id", farmId).maybeSingle();
         const dbCredits = currentGen?.credits_earned ?? 0;
-        const finalCredits = Math.max(realCredits, dbCredits);
+        const capCredits = currentGen?.credits_requested ?? Infinity;
+        const finalCredits = Math.min(Math.max(realCredits, dbCredits), capCredits);
 
         await supabase.from("generations").update({
           status: realStatus,
@@ -299,11 +301,12 @@ serve(async (req) => {
       if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
       if (error_message !== undefined) updateData.error_message = error_message;
 
-      // Never overwrite credits_earned with a lower value
+      // Never overwrite credits_earned with a lower value, cap at credits_requested
       if (credits_earned !== undefined && credits_earned > 0) {
-        const { data: currentGen } = await supabase.from("generations").select("credits_earned").eq("farm_id", farmId).maybeSingle();
+        const { data: currentGen } = await supabase.from("generations").select("credits_earned, credits_requested").eq("farm_id", farmId).maybeSingle();
         const dbCredits = currentGen?.credits_earned ?? 0;
-        updateData.credits_earned = Math.max(credits_earned, dbCredits);
+        const capCredits = currentGen?.credits_requested ?? Infinity;
+        updateData.credits_earned = Math.min(Math.max(credits_earned, dbCredits), capCredits);
       }
 
       await supabase
