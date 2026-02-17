@@ -166,7 +166,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
               Limite por vez: <span className="font-semibold text-foreground">{max}</span>
             </span>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-500/30 animate-pulse group-hover:shadow-emerald-500/50 transition-shadow">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-shadow">
             50% OFF · Aumentar →
           </span>
         </button>
@@ -185,7 +185,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
               {remainingDaily != null && <span className="ml-1 text-xs">(restam {remainingDaily.toLocaleString()})</span>}
             </span>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-500/30 animate-pulse group-hover:shadow-emerald-500/50 transition-shadow">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-shadow">
             50% OFF · Aumentar →
           </span>
         </button>
