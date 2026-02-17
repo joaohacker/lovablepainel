@@ -133,10 +133,13 @@ export function useFarmGeneration(accessToken?: string) {
               const brandNew = finalEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
               brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
               const now = Date.now();
+              const staggerMs = brandNew.length > 20
+                ? Math.max(50, Math.min(350, 2000 / brandNew.length))
+                : 350;
               const staggered = brandNew.map((entry, i) => ({
                 ...entry,
                 id: ++feedIdCounter,
-                arrivedAt: now + i * 350,
+                arrivedAt: now + i * staggerMs,
               }));
               const merged = [...prev.feed, ...staggered].slice(-200);
 
@@ -206,12 +209,15 @@ export function useFarmGeneration(accessToken?: string) {
               const brandNew = incomingEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
               brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
 
-              // Stagger new entries by assigning incremental timestamps for animation
+              // Stagger new entries — adaptive interval to avoid piling up
               const now = Date.now();
+              const staggerMs = brandNew.length > 20
+                ? Math.max(50, Math.min(350, 2000 / brandNew.length))
+                : 350;
               const staggered = brandNew.map((entry, i) => ({
                 ...entry,
                 id: ++feedIdCounter,
-                arrivedAt: now + i * 350, // 350ms apart for smooth drip effect
+                arrivedAt: now + i * staggerMs,
               }));
 
               const merged = [...prev.feed, ...staggered].slice(-200);

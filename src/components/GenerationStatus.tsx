@@ -97,10 +97,9 @@ function AnimatedCounter({ value, className }: { value: number; className?: stri
   return <span className={className}>{display}</span>;
 }
 
-function RunningCreditsDisplay({ feed, totalCreditsRequested }: { feed: FeedEntry[]; totalCreditsRequested: number }) {
+function RunningCreditsDisplay({ feed, totalCreditsRequested, creditsEarned }: { feed: FeedEntry[]; totalCreditsRequested: number; creditsEarned: number }) {
   const [now, setNow] = useState(Date.now());
   // Keep a monotonic (never-decreasing) credit counter to avoid flicker
-  // when older entries are pruned from the feed's 200-entry cap.
   const maxCreditsRef = useRef(0);
 
   useEffect(() => {
@@ -109,14 +108,16 @@ function RunningCreditsDisplay({ feed, totalCreditsRequested }: { feed: FeedEntr
     return () => clearInterval(id);
   }, []);
 
-  // Count credits only from visible (arrived) entries
+  // Count credits from visible (arrived) feed entries for drip effect
   const rawVisible = feed
     .filter((e) => e.kind === "credit" && (!e.arrivedAt || e.arrivedAt <= now))
     .reduce((sum, e) => sum + (e.credits || 0), 0);
 
-  // Never allow the counter to decrease
-  if (rawVisible > maxCreditsRef.current) {
-    maxCreditsRef.current = rawVisible;
+  // Use the MAX of: feed-visible count, accumulated creditsEarned, and previous max
+  // This ensures the counter never stalls even when feed entries are pruned (200 cap)
+  const best = Math.max(rawVisible, creditsEarned);
+  if (best > maxCreditsRef.current) {
+    maxCreditsRef.current = best;
   }
   const visibleCredits = maxCreditsRef.current;
 
@@ -415,6 +416,7 @@ Se tiver qualquer dúvida, me chama.`;
         <RunningCreditsDisplay
           feed={feed}
           totalCreditsRequested={totalCreditsRequested}
+          creditsEarned={creditsEarned}
         />
 
         {/* Activity feed */}
