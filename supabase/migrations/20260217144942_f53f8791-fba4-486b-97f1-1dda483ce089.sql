@@ -1,0 +1,1 @@
+UPDATE public.tokens SET daily_limit = 20000, credits_per_use = 3000, updated_at = now() WHERE token = 'f20dbd34786d3172763e6bf41d3bf408';
