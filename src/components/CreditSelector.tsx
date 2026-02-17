@@ -38,8 +38,8 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
     }
   };
 
-  const stockDepleted = false;
-  const isDisabled = disabled || submitting;
+  const stockDepleted = stock !== null && stock.activeWithBonus < 100000;
+  const isDisabled = disabled || submitting || stockDepleted;
 
   useEffect(() => {
     const loadStock = async () => {
@@ -95,12 +95,13 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
           <span className="text-muted-foreground">Estoque indisponível</span>
       )}
 
-      {/* Stock depleted warning */}
+      {/* Stock depleted - maintenance screen */}
       {stockDepleted && (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-center">
-          <Package className="h-6 w-6 text-amber-400" />
-          <p className="text-sm font-semibold text-amber-300">Estoque baixo</p>
-          <p className="text-xs text-amber-300/80">Aguarde mais bots serem farmados para gerar novamente.</p>
+        <div className="flex flex-col items-center gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-5 py-6 text-center">
+          <Package className="h-10 w-10 text-amber-400 animate-pulse" />
+          <p className="text-base font-bold text-amber-300">🔧 Manutenção — Aguardando Bots</p>
+          <p className="text-sm text-amber-300/80">O estoque de bots está sendo reabastecido. A geração será liberada automaticamente assim que houver bots disponíveis.</p>
+          <p className="text-xs text-muted-foreground">Sem previsão de tempo. Tente novamente em alguns minutos.</p>
         </div>
       )}
       </div>
