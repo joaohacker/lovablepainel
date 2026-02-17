@@ -341,9 +341,16 @@ Se tiver qualquer dúvida, me chama.`;
 
         <Card className="glass-card w-full">
           <CardContent className="p-6 flex flex-col items-center gap-4">
-            <p className="text-xl md:text-2xl font-mono font-bold text-primary break-all text-center select-all">
-              {masterEmail}
-            </p>
+            {masterEmail ? (
+              <p className="text-xl md:text-2xl font-mono font-bold text-primary break-all text-center select-all">
+                {masterEmail}
+              </p>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <p className="text-lg font-mono animate-pulse">Aguardando email do bot...</p>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-2 w-full">
               <Button
                 onClick={copyEmail}
