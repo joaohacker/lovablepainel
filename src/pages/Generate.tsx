@@ -294,13 +294,6 @@ const Generate = () => {
           </p>
 
 
-          {/* Workspace limit warning */}
-          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-left">
-            <p className="text-xs font-semibold text-amber-400 mb-1">⚠️ Atenção — Limite de membros</p>
-            <p className="text-xs text-amber-300/80 leading-relaxed">
-              Sua workspace deve ter <span className="font-bold text-amber-300">no máximo 5 membros</span> no momento de convidar o bot. O fluxo agora remove membros extras automaticamente.
-            </p>
-          </div>
 
           {/* Token-specific warning message */}
           {validation.warning_message && (
