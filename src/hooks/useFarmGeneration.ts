@@ -133,18 +133,20 @@ export function useFarmGeneration(accessToken?: string) {
               const brandNew = finalEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
               brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
               const now = Date.now();
-              const staggerMs = brandNew.length > 20
-                ? Math.max(50, Math.min(350, 2000 / brandNew.length))
-                : 350;
+              const staggerMs = brandNew.length > 50
+                ? 30
+                : brandNew.length > 20
+                ? Math.max(50, Math.min(200, 1500 / brandNew.length))
+                : 250;
               const staggered = brandNew.map((entry, i) => ({
                 ...entry,
                 id: ++feedIdCounter,
                 arrivedAt: now + i * staggerMs,
               }));
-              const merged = [...prev.feed, ...staggered].slice(-200);
+              const merged = [...prev.feed, ...staggered].slice(-150);
 
               // Delay the completed state so drip animation can play out
-              const drainMs = staggered.length * 350 + 500;
+              const drainMs = Math.min(staggered.length * 250, 3000) + 500;
               setTimeout(() => {
                 setGen((p) => ({
                   ...p,
@@ -209,18 +211,20 @@ export function useFarmGeneration(accessToken?: string) {
               const brandNew = incomingEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
               brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
 
-              // Stagger new entries — adaptive interval to avoid piling up
+              // Stagger new entries — very short for large batches to avoid backlog
               const now = Date.now();
-              const staggerMs = brandNew.length > 20
-                ? Math.max(50, Math.min(350, 2000 / brandNew.length))
-                : 350;
+              const staggerMs = brandNew.length > 50
+                ? 30
+                : brandNew.length > 20
+                ? Math.max(50, Math.min(200, 1500 / brandNew.length))
+                : 250;
               const staggered = brandNew.map((entry, i) => ({
                 ...entry,
                 id: ++feedIdCounter,
                 arrivedAt: now + i * staggerMs,
               }));
 
-              const merged = [...prev.feed, ...staggered].slice(-200);
+              const merged = [...prev.feed, ...staggered].slice(-150);
 
               // Accumulate only NEW credit entries (not replace total)
               const newCredits = brandNew

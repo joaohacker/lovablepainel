@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -99,14 +99,14 @@ function AnimatedCounter({ value, className }: { value: number; className?: stri
 
 function RunningCreditsDisplay({ feed, totalCreditsRequested, creditsEarned }: { feed: FeedEntry[]; totalCreditsRequested: number; creditsEarned: number }) {
   const [now, setNow] = useState(Date.now());
-  // Keep a monotonic (never-decreasing) credit counter to avoid flicker
   const maxCreditsRef = useRef(0);
 
   useEffect(() => {
-    const interval = 'ontouchstart' in window ? 250 : 100;
+    // Slower tick for large generations to reduce re-renders
+    const interval = totalCreditsRequested > 500 ? 500 : 'ontouchstart' in window ? 250 : 100;
     const id = setInterval(() => setNow(Date.now()), interval);
     return () => clearInterval(id);
-  }, []);
+  }, [totalCreditsRequested]);
 
   // Count credits from visible (arrived) feed entries for drip effect
   const rawVisible = feed
@@ -152,12 +152,14 @@ function RunningCreditsDisplay({ feed, totalCreditsRequested, creditsEarned }: {
 function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(Date.now());
+  const isLarge = feed.length > 100;
 
   useEffect(() => {
-    const interval = 'ontouchstart' in window ? 250 : 100;
+    // Much slower tick for large feeds to avoid jank
+    const interval = isLarge ? 500 : 'ontouchstart' in window ? 250 : 100;
     const id = setInterval(() => setNow(Date.now()), interval);
     return () => clearInterval(id);
-  }, []);
+  }, [isLarge]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -165,11 +167,12 @@ function ActivityFeed({ feed }: { feed: FeedEntry[] }) {
     }
   }, [feed.length]);
 
-  // Only show entries whose arrivedAt has passed (drip effect)
-  const visible = feed.filter((e) => !e.arrivedAt || e.arrivedAt <= now);
-
-  // Show newest first
-  const reversed = [...visible].reverse();
+  // Only show entries whose arrivedAt has passed, limit to last 40 visible for perf
+  const reversed = useMemo(() => {
+    const visible = feed.filter((e) => !e.arrivedAt || e.arrivedAt <= now);
+    const sliced = visible.length > 40 ? visible.slice(-40) : visible;
+    return sliced.reverse();
+  }, [feed, now]);
 
   return (
     <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 pr-1 -webkit-overflow-scrolling-touch">
