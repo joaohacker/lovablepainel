@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -129,7 +129,7 @@ export function PublicGenerator() {
     refetchWallet();
   }, [refetchWallet]);
 
-  // Send update-status to backend for on-demand generations
+  // Send update-status to backend on state transitions
   const farmStateRef = useRef(farm.state);
   if (farm.farmId && farm.state !== farmStateRef.current) {
     farmStateRef.current = farm.state;
@@ -146,6 +146,34 @@ export function PublicGenerator() {
       },
     }).catch(() => {});
   }
+
+  // Periodically push credits_earned to DB while running (so admin dashboard updates live)
+  const lastPushedCreditsRef = useRef(0);
+  useEffect(() => {
+    if (farm.state !== "running" || !farm.farmId) {
+      lastPushedCreditsRef.current = 0;
+      return;
+    }
+
+    const interval = setInterval(() => {
+      // Only push if credits changed since last push
+      if (farm.creditsEarned > lastPushedCreditsRef.current) {
+        lastPushedCreditsRef.current = farm.creditsEarned;
+        supabase.functions.invoke("validate-token", {
+          body: {
+            token: "__public__",
+            action: "update-status",
+            farmId: farm.farmId,
+            status: "running",
+            credits_earned: farm.creditsEarned,
+            workspace_name: farm.workspaceName,
+          },
+        }).catch(() => {});
+      }
+    }, 5000); // every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [farm.state, farm.farmId, farm.creditsEarned, farm.workspaceName]);
 
   return (
     <div className="w-full max-w-6xl mx-auto">

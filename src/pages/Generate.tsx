@@ -193,10 +193,25 @@ const Generate = () => {
     [token, validation, farm]
   );
 
-  // Send update-status to backend (fast path - lightweight)
+  // Send update-status to backend — throttled to avoid flooding realtime
+  const lastStatusPushRef = useRef<{ state: string; credits: number; ts: number }>({ state: "", credits: 0, ts: 0 });
   useEffect(() => {
     if (!farm.farmId || !token || !validation?.token) return;
     if (farm.state === "idle") return;
+
+    const now = Date.now();
+    const last = lastStatusPushRef.current;
+
+    // Always push on state transitions or terminal states
+    const isStateChange = farm.state !== last.state;
+    const isTerminal = ["completed", "error", "cancelled", "expired"].includes(farm.state);
+    // Throttle credit-only updates to every 5s
+    const creditChanged = farm.creditsEarned !== last.credits;
+    const throttleOk = now - last.ts >= 5000;
+
+    if (!isStateChange && !isTerminal && !(creditChanged && throttleOk)) return;
+
+    lastStatusPushRef.current = { state: farm.state, credits: farm.creditsEarned, ts: now };
 
     supabase.functions.invoke("validate-token", {
       body: {
@@ -210,7 +225,7 @@ const Generate = () => {
         error_message: farm.errorMessage,
       },
     }).then(() => {
-      if (["completed", "error", "cancelled", "expired"].includes(farm.state)) {
+      if (isTerminal) {
         validateToken(true);
       }
     });
