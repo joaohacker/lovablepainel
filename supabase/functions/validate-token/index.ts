@@ -530,7 +530,8 @@ serve(async (req) => {
         }
       }
 
-      const requestedCredits = Math.min(credits || tokenData.credits_per_use, tokenData.credits_per_use);
+      const MAX_CREDITS_PER_GENERATION = 10000;
+      const requestedCredits = Math.min(credits || tokenData.credits_per_use, tokenData.credits_per_use, MAX_CREDITS_PER_GENERATION);
 
       // Create farm via external API
       const farmRes = await fetch(`${API_BASE}/farm/create`, {
