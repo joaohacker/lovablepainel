@@ -406,6 +406,16 @@ serve(async (req) => {
       }
     }
 
+    // ===== DAILY BONUS =====
+    // Temporary +500 bonus valid only on 2026-02-17 (BRT)
+    const BONUS_DATE_BRT = "2026-02-17";
+    const BONUS_AMOUNT = 500;
+    const nowForBonus = new Date();
+    const brtDateStr = new Date(nowForBonus.getTime() - 3 * 3600000).toISOString().slice(0, 10);
+    const dailyBonusActive = brtDateStr === BONUS_DATE_BRT;
+    const dailyBonus = dailyBonusActive ? BONUS_AMOUNT : 0;
+    // =========================
+
     // Check daily limit using generations table (has accurate credits_earned)
     let remainingDaily: number | null = null;
     if (tokenData.daily_limit) {
@@ -432,7 +442,7 @@ serve(async (req) => {
         .gte("created_at", todayStart.toISOString());
       const reservedDaily = (activeDaily || []).reduce((sum, r) => sum + (r.credits_requested || 0), 0);
 
-      remainingDaily = tokenData.daily_limit - usedDaily - reservedDaily;
+      remainingDaily = (tokenData.daily_limit + dailyBonus) - usedDaily - reservedDaily;
       if (remainingDaily <= 0) {
         // Return daily_limit_reached flag instead of blocking
         return new Response(
@@ -444,7 +454,7 @@ serve(async (req) => {
               client_name: tokenData.client_name,
               credits_per_use: tokenData.credits_per_use,
               total_limit: tokenData.total_limit,
-              daily_limit: tokenData.daily_limit,
+              daily_limit: tokenData.daily_limit + dailyBonus,
               expires_at: tokenData.expires_at,
               is_active: tokenData.is_active,
             },
@@ -475,7 +485,7 @@ serve(async (req) => {
             client_name: tokenData.client_name,
             credits_per_use: tokenData.credits_per_use,
             total_limit: tokenData.total_limit,
-            daily_limit: tokenData.daily_limit,
+            daily_limit: tokenData.daily_limit + dailyBonus,
             expires_at: tokenData.expires_at,
             is_active: tokenData.is_active,
           },
@@ -483,6 +493,7 @@ serve(async (req) => {
           remaining_daily: remainingDaily,
           maintenance: activeBlock ? { until: blockUntil, message: blockMsg } : null,
           warning_message: tokenData.warning_message || null,
+          daily_bonus: dailyBonusActive ? BONUS_AMOUNT : 0,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
