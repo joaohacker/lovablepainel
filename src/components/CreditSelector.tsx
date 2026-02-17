@@ -158,15 +158,17 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
       {onUpgradePerUse && (
         <button
           onClick={onUpgradePerUse}
-          className="w-full flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
+          className="group w-full flex items-center justify-between rounded-xl border-2 border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-emerald-400/5 to-transparent px-4 py-3.5 hover:border-emerald-400/60 hover:from-emerald-500/20 transition-all duration-300"
         >
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
+            <Zap className="h-4 w-4 text-emerald-400" />
             <span className="text-sm text-muted-foreground">
               Limite por vez: <span className="font-semibold text-foreground">{max}</span>
             </span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">Aumentar →</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-500/30 animate-pulse group-hover:shadow-emerald-500/50 transition-shadow">
+            50% OFF · Aumentar →
+          </span>
         </button>
       )}
 
@@ -174,15 +176,18 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
       {onUpgradeDaily && (
         <button
           onClick={onUpgradeDaily}
-          className="w-full flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 hover:bg-primary/10 transition-colors"
+          className="group w-full flex items-center justify-between rounded-xl border-2 border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-emerald-400/5 to-transparent px-4 py-3.5 hover:border-emerald-400/60 hover:from-emerald-500/20 transition-all duration-300"
         >
           <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-emerald-400" />
             <span className="text-sm text-muted-foreground">
               Limite diário: <span className="font-semibold text-foreground">{dailyLimit?.toLocaleString() ?? '∞'}</span>
               {remainingDaily != null && <span className="ml-1 text-xs">(restam {remainingDaily.toLocaleString()})</span>}
             </span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground animate-pulse">Aumentar →</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-500/30 animate-pulse group-hover:shadow-emerald-500/50 transition-shadow">
+            50% OFF · Aumentar →
+          </span>
         </button>
       )}
 
