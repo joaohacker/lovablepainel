@@ -9,12 +9,12 @@ const corsHeaders = {
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
-// Daily: R$15 per 1000, with progressive discounts
-const PRICE_PER_1000_DAILY = 15;
+// Daily: R$7.50 per 1000 (50% off original R$15)
+const PRICE_PER_1000_DAILY = 7.5;
 
 // Token-specific pricing overrides (token string -> pricing)
 const TOKEN_PRICING: Record<string, { dailyPer1k: number; perUsePer1k: number }> = {
-  "f35112c962407939853dc9db8de84013": { dailyPer1k: 2.5, perUsePer1k: 5 },
+  "f35112c962407939853dc9db8de84013": { dailyPer1k: 1.25, perUsePer1k: 2.5 },
 };
 
 function getDailyDiscount(credits: number): number {
@@ -33,7 +33,7 @@ function getDailyAmount(increment: number, tokenStr?: string): number {
   return originalPrice * (1 - discountPct / 100);
 }
 
-// Per-use: R$30 per 1000, with progressive discounts
+// Per-use: R$15 per 1000 (50% off original R$30), with progressive discounts
 function getPerUseDiscount(credits: number): number {
   if (credits >= 15000) return 25;
   if (credits > 10000) return 20;
@@ -44,7 +44,7 @@ function getPerUseDiscount(credits: number): number {
 }
 
 function getPerUseAmount(increment: number, tokenStr?: string): number {
-  const rate = TOKEN_PRICING[tokenStr || ""]?.perUsePer1k ?? 30;
+  const rate = TOKEN_PRICING[tokenStr || ""]?.perUsePer1k ?? 15;
   const originalPrice = increment * (rate / 1000);
   const discountPct = getPerUseDiscount(increment);
   return originalPrice * (1 - discountPct / 100);
