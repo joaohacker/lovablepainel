@@ -244,10 +244,32 @@ const Generate = () => {
   }
 
   if (!validation?.valid || !validation.token) {
+    // Special blocked image for specific tokens
+    const isBlockedWithImage = validation?.error?.includes("desativado");
+    
+    if (isBlockedWithImage) {
+      return (
+        <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
+          <div className="max-w-lg w-full flex flex-col items-center gap-6">
+            <img 
+              src="/images/blocked-token.png" 
+              alt="Token bloqueado" 
+              className="w-full rounded-2xl shadow-2xl"
+            />
+            <Card className="glass-card w-full">
+              <CardContent className="p-6 flex flex-col items-center gap-3 text-center">
+                <Ban className="h-12 w-12 text-destructive" />
+                <h2 className="text-xl font-bold text-foreground">Token Suspenso</h2>
+                <p className="text-sm text-muted-foreground">{validation?.error || "Este token foi desativado."}</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
     const icon = validation?.error?.includes("expirado") ? (
       <Clock className="h-16 w-16 text-destructive" />
-    ) : validation?.error?.includes("desativado") ? (
-      <Ban className="h-16 w-16 text-destructive" />
     ) : (
       <ShieldX className="h-16 w-16 text-destructive" />
     );
