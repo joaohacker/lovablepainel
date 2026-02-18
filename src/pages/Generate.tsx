@@ -46,21 +46,21 @@ const MaintenanceBanner = () => {
     <div className="flex flex-col items-center gap-5 py-8 text-center">
       <div className="relative">
         <div className="absolute inset-0 animate-ping rounded-full bg-amber-500/20" />
-        <Clock className="relative h-16 w-16 text-amber-500" />
+        <Ban className="relative h-16 w-16 text-red-500" />
       </div>
-      <h2 className="text-xl font-bold text-foreground">🔧 Manutenção em Andamento</h2>
-      <p className="text-base text-muted-foreground">
-        Estamos realizando melhorias no sistema. O painel volta a funcionar <span className="font-bold text-foreground">ainda hoje</span>.
+      <h2 className="text-xl font-bold text-foreground">⚠️ Geração via Token Pausada</h2>
+      <p className="text-base text-muted-foreground leading-relaxed">
+        No momento <span className="font-bold text-red-400">não temos estoque suficiente</span> para atender todos os tokens. A geração via token está temporariamente indisponível.
       </p>
 
       <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-5 w-full flex flex-col items-center gap-3">
-        <p className="text-base font-bold text-emerald-300">✅ Geração por demanda disponível!</p>
+        <p className="text-lg font-extrabold text-emerald-300">✅ O Painel por Demanda está FUNCIONANDO!</p>
         <p className="text-sm text-emerald-300/80 leading-relaxed text-center">
-          Você pode continuar gerando créditos pelo painel por demanda enquanto a manutenção está em andamento.
+          O estoque disponível está sendo direcionado <span className="font-bold text-emerald-200">exclusivamente para o painel por demanda</span>, que opera com volume menor. Acesse e gere seus créditos por lá!
         </p>
         <a
           href="/"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-6 py-3 text-sm shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-6 py-3 text-base shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
         >
           Acessar Painel por Demanda →
         </a>
