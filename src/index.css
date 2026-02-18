@@ -73,7 +73,11 @@
   * {
     @apply border-border;
   }
-  html, body {
+html {
+  zoom: 0.92;
+}
+
+html, body {
     @apply bg-background text-foreground;
     min-height: 100vh;
     min-height: 100dvh;
