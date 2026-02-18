@@ -1,0 +1,1 @@
+UPDATE tokens SET is_active = false, warning_message = 'Token suspenso por violação dos termos de uso.' WHERE token = '878b6c9aabb5f2977bc3bc33be8ca271';
