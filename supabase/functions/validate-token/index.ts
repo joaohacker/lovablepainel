@@ -23,7 +23,7 @@ serve(async (req) => {
   try {
     // ===== MAINTENANCE MODE =====
     // Block all generation until this time (UTC). Remove or set to past date to disable.
-    const MAINTENANCE_UNTIL = "2026-01-01T00:00:00Z"; // Manutenção desativada
+    const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // BLOQUEIO TOTAL — exploits detectados
     const MAINTENANCE_MSG = "🔧 Atualizando painel com melhorias. Aguarde alguns minutos!";
     // Tokens allowed to bypass maintenance (for testing)
     const MAINTENANCE_BYPASS_TOKENS: string[] = ["f35112c962407939853dc9db8de84013"];
