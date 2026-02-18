@@ -54,7 +54,7 @@ const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolea
       <div className="rounded-xl border-2 border-red-500/40 bg-red-500/10 px-5 py-4 w-full text-left">
         <p className="text-sm font-bold text-red-400 mb-2">❌ Por que o token está parado?</p>
         <p className="text-sm text-red-300/90 leading-relaxed">
-          Os tokens consomem um <span className="font-bold text-red-200">volume muito grande de estoque</span> porque atendem muitos usuários ao mesmo tempo. Neste momento, <span className="font-bold text-red-200">não temos estoque suficiente para manter todos os tokens ativos</span>. Por isso a geração via token está <span className="font-bold text-red-200">temporariamente pausada</span>.
+          Estamos com <span className="font-bold text-red-200">problemas no farm de bots</span> que resultaram em <span className="font-bold text-red-200">estoque baixo</span>. Os tokens consomem um volume muito grande de estoque porque atendem muitos usuários ao mesmo tempo. Por isso a geração via token está <span className="font-bold text-red-200">temporariamente pausada</span> até normalizarmos o farm.
         </p>
       </div>
 
