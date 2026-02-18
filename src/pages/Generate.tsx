@@ -41,30 +41,98 @@ interface SavedSession {
   token: string;
 }
 
-  const MaintenanceBanner = () => {
-    return (
-      <div className="flex flex-col items-center gap-6 py-6">
-        {/* Title */}
-        <div className="flex flex-col items-center gap-2">
-          <Ban className="h-12 w-12 text-red-500" />
-          <h2 className="text-xl font-extrabold text-foreground">⚠️ Temporariamente Indisponível</h2>
+const MaintenanceBanner = () => {
+  return (
+    <div className="flex flex-col items-center gap-6 py-6">
+      {/* Title */}
+      <div className="flex flex-col items-center gap-2">
+        <Ban className="h-12 w-12 text-red-500" />
+        <h2 className="text-xl font-extrabold text-foreground">⚠️ Token Pausado Temporariamente</h2>
+      </div>
+
+      {/* Text explanation blocks - always visible */}
+      <div className="rounded-xl border-2 border-red-500/40 bg-red-500/10 px-5 py-4 w-full text-left">
+        <p className="text-sm font-bold text-red-400 mb-2">❌ Por que o token está parado?</p>
+        <p className="text-sm text-red-300/90 leading-relaxed">
+          Os tokens consomem um <span className="font-bold text-red-200">volume muito grande de estoque</span> porque atendem muitos usuários ao mesmo tempo. Neste momento, <span className="font-bold text-red-200">não temos estoque suficiente para manter todos os tokens ativos</span>. Por isso a geração via token está <span className="font-bold text-red-200">temporariamente pausada</span>.
+        </p>
+      </div>
+
+      <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-4 w-full text-left">
+        <p className="text-sm font-bold text-emerald-300 mb-2">💡 Por que o Painel por Demanda funciona e o Token não?</p>
+        <p className="text-sm text-emerald-300/80 leading-relaxed">
+          O painel por demanda consome <span className="font-bold text-emerald-200">muito menos estoque</span> porque atende <span className="font-bold text-emerald-200">um usuário por vez</span>, de forma controlada. Por isso conseguimos manter ele funcionando normalmente mesmo com o estoque limitado.
+        </p>
+      </div>
+
+      {/* Visual comparison slide */}
+      <div className="w-full rounded-2xl border-2 border-border bg-card/60 p-5 space-y-4">
+        <p className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">Comparação visual</p>
+
+        {/* Token side */}
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔴</span>
+            <p className="font-extrabold text-red-400">TOKEN</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">👥👥👥👥👥</span>
+            <span className="text-xs text-red-300/70">Muitos ao mesmo tempo</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2">
+            <span>📦</span>
+            <div className="flex-1 h-3 rounded-full bg-red-900/50 overflow-hidden">
+              <div className="h-full w-[8%] rounded-full bg-red-500" />
+            </div>
+            <span className="text-xs font-bold text-red-400">Esgota rápido</span>
+          </div>
+          <p className="text-center text-sm font-extrabold text-red-400">❌ PAUSADO</p>
         </div>
 
-        <div className="rounded-xl border-2 border-red-500/40 bg-red-500/10 px-5 py-4 w-full text-left">
-          <p className="text-sm font-bold text-red-400 mb-2">❌ Por que o token está parado?</p>
-          <p className="text-sm text-red-300/90 leading-relaxed">
-            Os tokens consomem um <span className="font-bold text-red-200">volume muito grande de estoque</span> porque atendem muitos usuários ao mesmo tempo. Neste momento, <span className="font-bold text-red-200">não temos estoque suficiente para manter todos os tokens ativos</span>. Por isso a geração via token está <span className="font-bold text-red-200">temporariamente pausada</span>.
-          </p>
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-xs font-bold text-muted-foreground">VS</span>
+          <div className="flex-1 h-px bg-border" />
         </div>
 
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 w-full">
-          <p className="text-xs text-amber-300/90 text-center leading-relaxed">
-            ⏳ Aguarde o retorno — <span className="font-semibold text-amber-200">não precisa mandar mensagem no WhatsApp</span>. Avisaremos quando voltar.
-          </p>
+        {/* Demand side */}
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🟢</span>
+            <p className="font-extrabold text-emerald-400">PAINEL POR DEMANDA</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">👤</span>
+            <span className="text-xs text-emerald-300/70">Um por vez, controlado</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2">
+            <span>📦</span>
+            <div className="flex-1 h-3 rounded-full bg-emerald-900/50 overflow-hidden">
+              <div className="h-full w-[75%] rounded-full bg-emerald-500" />
+            </div>
+            <span className="text-xs font-bold text-emerald-400">Dura mais</span>
+          </div>
+          <p className="text-center text-sm font-extrabold text-emerald-400">✅ FUNCIONANDO</p>
         </div>
       </div>
-    );
-  };
+
+      {/* CTA */}
+      <a
+        href="/"
+        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold px-6 py-4 text-lg shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
+      >
+        Acessar Painel por Demanda →
+      </a>
+
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 w-full">
+        <p className="text-xs text-amber-300/90 text-center leading-relaxed">
+          ⏳ Aguarde o retorno — <span className="font-semibold text-amber-200">não precisa mandar mensagem no WhatsApp</span>. Avisaremos quando voltar.
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const Generate = () => {
   const { token } = useParams<{ token: string }>();
