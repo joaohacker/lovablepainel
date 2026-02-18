@@ -42,10 +42,6 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // === ON-DEMAND GENERATION BLOCKED ===
-    return new Response(JSON.stringify({ error: "Geração on-demand temporariamente desativada. Tente novamente mais tarde." }), {
-      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
 
     // Authenticate user
     const authHeader = req.headers.get("authorization");
