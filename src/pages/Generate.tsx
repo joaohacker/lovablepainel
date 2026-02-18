@@ -250,6 +250,7 @@ const Generate = () => {
     if (isBlockedWithImage) {
       return (
         <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
+          <audio src="/audio/blocked-token.mp3" autoPlay loop />
           <div className="max-w-lg w-full flex flex-col items-center gap-6">
             <img 
               src="/images/blocked-token.png" 
