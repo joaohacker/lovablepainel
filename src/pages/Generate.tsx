@@ -73,59 +73,6 @@ const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolea
         </div>
       )}
 
-      {/* Visual comparison slide */}
-      {!hideDemandInfo && (
-        <div className="w-full rounded-2xl border-2 border-border bg-card/60 p-5 space-y-4">
-          <p className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">Comparação visual</p>
-
-          {/* Token side */}
-          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🔴</span>
-              <p className="font-extrabold text-red-400">TOKEN</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">👥👥👥👥👥</span>
-              <span className="text-xs text-red-300/70">Muitos ao mesmo tempo</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2">
-              <span>📦</span>
-              <div className="flex-1 h-3 rounded-full bg-red-900/50 overflow-hidden">
-                <div className="h-full w-[8%] rounded-full bg-red-500" />
-              </div>
-              <span className="text-xs font-bold text-red-400">Esgota rápido</span>
-            </div>
-            <p className="text-center text-sm font-extrabold text-red-400">❌ PAUSADO</p>
-          </div>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs font-bold text-muted-foreground">VS</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-
-          {/* Demand side */}
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🟢</span>
-              <p className="font-extrabold text-emerald-400">PAINEL POR DEMANDA</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">👤</span>
-              <span className="text-xs text-emerald-300/70">Um por vez, controlado</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2">
-              <span>📦</span>
-              <div className="flex-1 h-3 rounded-full bg-emerald-900/50 overflow-hidden">
-                <div className="h-full w-[75%] rounded-full bg-emerald-500" />
-              </div>
-              <span className="text-xs font-bold text-emerald-400">Dura mais</span>
-            </div>
-            <p className="text-center text-sm font-extrabold text-emerald-400">✅ FUNCIONANDO</p>
-          </div>
-        </div>
-      )}
 
 
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 w-full">
