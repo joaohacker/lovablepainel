@@ -63,10 +63,6 @@ serve(async (req) => {
 
     // Handle __public__ token for on-demand update-status action
     if (token === "__public__" && action === "update-status") {
-      // Skip token lookup — handled inside update-status block below
-      // We create a dummy tokenData to pass through
-      const tokenData = { id: null } as any;
-
       const farmId = bodyFarmId;
       const status = bodyStatus;
 
@@ -77,37 +73,36 @@ serve(async (req) => {
         );
       }
 
-      // Authenticate the user to match generation by user_id
-      let genFound = false;
+      // SECURITY: Require authentication — no anonymous fallback
       const authHeader = req.headers.get("authorization");
-      if (authHeader) {
-        const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-        const userClient = createClient(supabaseUrl, anonKey, {
-          global: { headers: { Authorization: authHeader } },
-        });
-        const { data: { user } } = await userClient.auth.getUser();
-        if (user) {
-          const { data: gen } = await supabase
-            .from("generations")
-            .select("id")
-            .eq("farm_id", farmId)
-            .eq("user_id", user.id)
-            .maybeSingle();
-          genFound = !!gen;
-        }
-      }
-      if (!genFound) {
-        // Fallback: match by farm_id where token_id is null
-        const { data: gen } = await supabase
-          .from("generations")
-          .select("id")
-          .eq("farm_id", farmId)
-          .is("token_id", null)
-          .maybeSingle();
-        genFound = !!gen;
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Auth required" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
-      if (!genFound) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid user" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // SECURITY: Only allow updating YOUR OWN generation
+      const { data: gen } = await supabase
+        .from("generations")
+        .select("id")
+        .eq("farm_id", farmId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!gen) {
         return new Response(
           JSON.stringify({ success: false, error: "Generation not found" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -121,16 +116,18 @@ serve(async (req) => {
 
       // Never overwrite credits_earned with a lower value, cap at credits_requested
       if (credits_earned !== undefined && credits_earned > 0) {
-        const { data: currentGen } = await supabase.from("generations").select("credits_earned, credits_requested").eq("farm_id", farmId).maybeSingle();
+        const { data: currentGen } = await supabase.from("generations").select("credits_earned, credits_requested").eq("farm_id", farmId).eq("user_id", user.id).maybeSingle();
         const dbCredits = currentGen?.credits_earned ?? 0;
         const capCredits = currentGen?.credits_requested ?? Infinity;
         updateData.credits_earned = Math.min(Math.max(credits_earned, dbCredits), capCredits);
       }
 
+      // SECURITY: Only update YOUR OWN generation
       await supabase
         .from("generations")
         .update(updateData)
-        .eq("farm_id", farmId);
+        .eq("farm_id", farmId)
+        .eq("user_id", user.id);
 
       return new Response(
         JSON.stringify({ success: true }),

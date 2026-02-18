@@ -43,34 +43,30 @@ serve(async (req) => {
       });
     }
 
-    // Find the paid deposit order without a user_id
-    const { data: order, error: orderError } = await supabase
+    // SECURITY FIX: Atomic claim — UPDATE with WHERE user_id IS NULL
+    // Only one concurrent request can succeed because the UPDATE locks the row.
+    const { data: claimedOrder, error: claimError } = await supabase
       .from("orders")
-      .select("*")
+      .update({ user_id: user.id })
       .eq("id", order_id)
       .eq("status", "paid")
       .eq("order_type", "deposit")
       .is("user_id", null)
+      .select("id, amount")
       .maybeSingle();
 
-    if (orderError || !order) {
+    if (claimError || !claimedOrder) {
       return new Response(JSON.stringify({ error: "Order not found or already claimed" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Assign user to order
-    await supabase
-      .from("orders")
-      .update({ user_id: user.id })
-      .eq("id", order.id);
-
-    // Credit wallet
+    // Credit wallet — only runs if the atomic claim succeeded
     const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
       p_user_id: user.id,
-      p_amount: Number(order.amount),
+      p_amount: Number(claimedOrder.amount),
       p_description: `Depósito via PIX`,
-      p_reference_id: order.id,
+      p_reference_id: claimedOrder.id,
     });
 
     if (creditError) {
@@ -80,11 +76,11 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[claim-deposit] User ${user.id} claimed order ${order.id}, R$${order.amount} credited`);
+    console.log(`[claim-deposit] User ${user.id} claimed order ${claimedOrder.id}, R$${claimedOrder.amount} credited`);
 
     return new Response(JSON.stringify({
       success: true,
-      amount: Number(order.amount),
+      amount: Number(claimedOrder.amount),
       new_balance: (creditResult as any)?.new_balance,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
