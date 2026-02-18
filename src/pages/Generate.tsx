@@ -48,19 +48,26 @@ const MaintenanceBanner = () => {
         <div className="absolute inset-0 animate-ping rounded-full bg-amber-500/20" />
         <Ban className="relative h-16 w-16 text-red-500" />
       </div>
-      <h2 className="text-xl font-bold text-foreground">⚠️ Geração via Token Pausada</h2>
-      <p className="text-base text-muted-foreground leading-relaxed">
-        No momento <span className="font-bold text-red-400">não temos estoque suficiente</span> para atender todos os tokens. A geração via token está temporariamente indisponível.
-      </p>
+      <h2 className="text-xl font-bold text-foreground">⚠️ Geração via Token Pausada Temporariamente</h2>
+
+      <div className="rounded-xl border-2 border-red-500/40 bg-red-500/10 px-5 py-4 w-full text-left">
+        <p className="text-sm font-bold text-red-400 mb-2">❌ Por que o token está parado?</p>
+        <p className="text-sm text-red-300/90 leading-relaxed">
+          Os tokens consomem um <span className="font-bold text-red-200">volume muito grande de estoque</span> porque atendem muitos usuários ao mesmo tempo. Neste momento, <span className="font-bold text-red-200">não temos estoque suficiente para manter todos os tokens ativos</span>. Por isso a geração via token está <span className="font-bold text-red-200">temporariamente pausada</span>.
+        </p>
+      </div>
 
       <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-5 w-full flex flex-col items-center gap-3">
         <p className="text-lg font-extrabold text-emerald-300">✅ O Painel por Demanda está FUNCIONANDO!</p>
-        <p className="text-sm text-emerald-300/80 leading-relaxed text-center">
-          O estoque disponível está sendo direcionado <span className="font-bold text-emerald-200">exclusivamente para o painel por demanda</span>, que opera com volume menor. Acesse e gere seus créditos por lá!
-        </p>
+        <div className="rounded-lg bg-emerald-500/10 px-4 py-3 w-full text-left">
+          <p className="text-sm font-bold text-emerald-300 mb-1">💡 Por que a demanda funciona e o token não?</p>
+          <p className="text-sm text-emerald-300/80 leading-relaxed">
+            O painel por demanda consome <span className="font-bold text-emerald-200">muito menos estoque</span> porque atende um usuário por vez, de forma controlada. Por isso conseguimos manter ele funcionando normalmente mesmo com o estoque limitado.
+          </p>
+        </div>
         <a
           href="/"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-6 py-3 text-base shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
+          className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-6 py-3 text-base shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
         >
           Acessar Painel por Demanda →
         </a>
