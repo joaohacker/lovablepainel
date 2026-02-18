@@ -33,12 +33,16 @@ const Auth = () => {
     try {
       if (isLogin) {
         await signIn(email, password);
+        // After successful login, navigate immediately
+        // The useEffect will also handle it, but this ensures snappy redirect
+        navigate("/");
       } else {
         await signUp(email, password);
         toast({
           title: "Conta criada!",
           description: "Verifique seu email para confirmar o cadastro.",
         });
+        navigate("/");
       }
     } catch (err: any) {
       toast({
