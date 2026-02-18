@@ -46,8 +46,8 @@ const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolea
     <div className="flex flex-col items-center gap-6 py-6">
       {/* Title */}
       <div className="flex flex-col items-center gap-2">
-        <Ban className="h-12 w-12 text-red-500" />
-        <h2 className="text-xl font-extrabold text-foreground">⚠️ Token Pausado Temporariamente</h2>
+        <Ban className="h-12 w-12 text-amber-500" />
+        <h2 className="text-xl font-extrabold text-foreground">⚠️ Em Manutenção</h2>
       </div>
 
       {/* Text explanation blocks - always visible */}
@@ -59,11 +59,17 @@ const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolea
       </div>
 
       {!hideDemandInfo && (
-        <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-4 w-full text-left">
+        <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-4 w-full text-left space-y-3">
           <p className="text-sm font-bold text-emerald-300 mb-2">💡 Por que o Painel por Demanda funciona e o Token não?</p>
           <p className="text-sm text-emerald-300/80 leading-relaxed">
             O painel por demanda consome <span className="font-bold text-emerald-200">muito menos estoque</span> porque atende <span className="font-bold text-emerald-200">um usuário por vez</span>, de forma controlada. Por isso conseguimos manter ele funcionando normalmente mesmo com o estoque limitado.
           </p>
+          <a
+            href="/"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold px-6 py-3 text-base shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
+          >
+            Acessar Painel por Demanda →
+          </a>
         </div>
       )}
 
@@ -121,15 +127,6 @@ const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolea
         </div>
       )}
 
-      {/* CTA */}
-      {!hideDemandInfo && (
-        <a
-          href="/"
-          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold px-6 py-4 text-lg shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
-        >
-          Acessar Painel por Demanda →
-        </a>
-      )}
 
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 w-full">
         <p className="text-xs text-amber-300/90 text-center leading-relaxed">
