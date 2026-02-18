@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   Infinity,
@@ -22,6 +23,7 @@ import { BackgroundEffects } from "@/components/public/BackgroundEffects";
 const Landing = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
@@ -53,14 +55,25 @@ const Landing = () => {
             <a href="https://wa.me/5521992046054" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
               Contato
             </a>
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full h-7 md:h-8 text-[10px] md:text-sm px-2.5 md:px-3"
-              onClick={() => navigate("/auth")}
-            >
-              Acessar
-            </Button>
+            {user ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full h-7 md:h-8 text-[10px] md:text-sm px-2.5 md:px-3"
+                onClick={() => signOut()}
+              >
+                Sair
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full h-7 md:h-8 text-[10px] md:text-sm px-2.5 md:px-3"
+                onClick={() => navigate("/auth")}
+              >
+                Acessar
+              </Button>
+            )}
           </div>
         </div>
       </nav>

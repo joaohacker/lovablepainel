@@ -22,8 +22,8 @@ const Auth = () => {
   }, []);
 
   useEffect(() => {
-    if (!loading && user && isAdmin) {
-      navigate("/admin");
+    if (!loading && user) {
+      navigate(isAdmin ? "/admin" : "/");
     }
   }, [user, loading, isAdmin, navigate]);
 
@@ -73,9 +73,9 @@ const Auth = () => {
               <Shield className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Painel Admin</h1>
+          <h1 className="text-2xl font-bold text-foreground">Acessar Painel</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {isLogin ? "Faça login para acessar" : "Crie sua conta de administrador"}
+            {isLogin ? "Faça login para acessar seu saldo" : "Crie sua conta"}
           </p>
         </div>
 
