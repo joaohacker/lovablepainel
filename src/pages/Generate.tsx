@@ -50,35 +50,43 @@ const MaintenanceBanner = () => {
         <h2 className="text-xl font-extrabold text-foreground">⚠️ Token Pausado Temporariamente</h2>
       </div>
 
+      {/* Text explanation blocks - always visible */}
+      <div className="rounded-xl border-2 border-red-500/40 bg-red-500/10 px-5 py-4 w-full text-left">
+        <p className="text-sm font-bold text-red-400 mb-2">❌ Por que o token está parado?</p>
+        <p className="text-sm text-red-300/90 leading-relaxed">
+          Os tokens consomem um <span className="font-bold text-red-200">volume muito grande de estoque</span> porque atendem muitos usuários ao mesmo tempo. Neste momento, <span className="font-bold text-red-200">não temos estoque suficiente para manter todos os tokens ativos</span>. Por isso a geração via token está <span className="font-bold text-red-200">temporariamente pausada</span>.
+        </p>
+      </div>
+
+      <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-4 w-full text-left">
+        <p className="text-sm font-bold text-emerald-300 mb-2">💡 Por que o Painel por Demanda funciona e o Token não?</p>
+        <p className="text-sm text-emerald-300/80 leading-relaxed">
+          O painel por demanda consome <span className="font-bold text-emerald-200">muito menos estoque</span> porque atende <span className="font-bold text-emerald-200">um usuário por vez</span>, de forma controlada. Por isso conseguimos manter ele funcionando normalmente mesmo com o estoque limitado.
+        </p>
+      </div>
+
       {/* Visual comparison slide */}
-      <div className="w-full rounded-2xl border-2 border-border bg-card/60 p-5 space-y-5">
-        <p className="text-center text-sm font-bold text-muted-foreground uppercase tracking-wider">Entenda a diferença</p>
+      <div className="w-full rounded-2xl border-2 border-border bg-card/60 p-5 space-y-4">
+        <p className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider">Comparação visual</p>
 
         {/* Token side */}
-        <div className="rounded-xl border-2 border-red-500/40 bg-red-500/5 p-4 space-y-3">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
-              <span className="text-2xl">🔴</span>
-            </div>
-            <div>
-              <p className="font-extrabold text-red-400 text-base">TOKEN</p>
-              <p className="text-xs text-red-300/70">Geração via link do token</p>
-            </div>
+            <span className="text-2xl">🔴</span>
+            <p className="font-extrabold text-red-400">TOKEN</p>
           </div>
-          <div className="flex items-center gap-3 pl-2">
-            <span className="text-3xl">👥👥👥👥👥</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">👥👥👥👥👥</span>
+            <span className="text-xs text-red-300/70">Muitos ao mesmo tempo</span>
           </div>
-          <p className="text-sm text-red-300/90 leading-relaxed">
-            <span className="font-bold text-red-200">Muitos usuários usam ao mesmo tempo</span>, então consome uma <span className="font-bold text-red-200">quantidade ENORME de estoque</span> muito rápido.
-          </p>
           <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2">
-            <span className="text-lg">📦</span>
+            <span>📦</span>
             <div className="flex-1 h-3 rounded-full bg-red-900/50 overflow-hidden">
               <div className="h-full w-[8%] rounded-full bg-red-500" />
             </div>
-            <span className="text-xs font-bold text-red-400">Estoque esgota rápido</span>
+            <span className="text-xs font-bold text-red-400">Esgota rápido</span>
           </div>
-          <p className="text-center text-sm font-extrabold text-red-400">❌ PAUSADO até reabastecer</p>
+          <p className="text-center text-sm font-extrabold text-red-400">❌ PAUSADO</p>
         </div>
 
         {/* Divider */}
@@ -89,30 +97,23 @@ const MaintenanceBanner = () => {
         </div>
 
         {/* Demand side */}
-        <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-500/5 p-4 space-y-3">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <span className="text-2xl">🟢</span>
-            </div>
-            <div>
-              <p className="font-extrabold text-emerald-400 text-base">PAINEL POR DEMANDA</p>
-              <p className="text-xs text-emerald-300/70">Geração pelo site principal</p>
-            </div>
+            <span className="text-2xl">🟢</span>
+            <p className="font-extrabold text-emerald-400">PAINEL POR DEMANDA</p>
           </div>
-          <div className="flex items-center gap-3 pl-2">
-            <span className="text-3xl">👤</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">👤</span>
+            <span className="text-xs text-emerald-300/70">Um por vez, controlado</span>
           </div>
-          <p className="text-sm text-emerald-300/90 leading-relaxed">
-            <span className="font-bold text-emerald-200">Um usuário por vez</span>, de forma controlada. Consome <span className="font-bold text-emerald-200">muito MENOS estoque</span>.
-          </p>
           <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2">
-            <span className="text-lg">📦</span>
+            <span>📦</span>
             <div className="flex-1 h-3 rounded-full bg-emerald-900/50 overflow-hidden">
               <div className="h-full w-[75%] rounded-full bg-emerald-500" />
             </div>
-            <span className="text-xs font-bold text-emerald-400">Estoque dura mais</span>
+            <span className="text-xs font-bold text-emerald-400">Dura mais</span>
           </div>
-          <p className="text-center text-sm font-extrabold text-emerald-400">✅ FUNCIONANDO NORMALMENTE</p>
+          <p className="text-center text-sm font-extrabold text-emerald-400">✅ FUNCIONANDO</p>
         </div>
       </div>
 
