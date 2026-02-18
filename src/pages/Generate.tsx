@@ -41,23 +41,7 @@ interface SavedSession {
   token: string;
 }
 
-const MaintenanceBanner = ({ message, until }: { message: string; until: string }) => {
-  const [timeLeft, setTimeLeft] = useState("");
-
-  useEffect(() => {
-    const target = new Date(until).getTime();
-    const update = () => {
-      const diff = Math.max(0, target - Date.now());
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
-    };
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [until]);
-
+const MaintenanceBanner = () => {
   return (
     <div className="flex flex-col items-center gap-5 py-8 text-center">
       <div className="relative">
@@ -65,25 +49,14 @@ const MaintenanceBanner = ({ message, until }: { message: string; until: string 
         <Clock className="relative h-16 w-16 text-amber-500" />
       </div>
       <h2 className="text-xl font-bold text-foreground">🔧 Manutenção em Andamento</h2>
-      <p className="text-base text-muted-foreground">{message}</p>
-      <div className="rounded-lg border border-border bg-muted/50 px-6 py-4 w-full">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Voltamos em</p>
-        <p className="text-5xl font-bold tabular-nums font-mono text-foreground">
-          {timeLeft}
-        </p>
-      </div>
+      <p className="text-base text-muted-foreground">
+        Estamos realizando melhorias no sistema. O painel volta a funcionar <span className="font-bold text-foreground">ainda hoje</span>.
+      </p>
 
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 w-full text-center">
-        <p className="text-sm font-semibold text-emerald-400 mb-1">⚡ Quer gerar agora?</p>
-        <p className="text-xs text-emerald-300/80 mb-3">
-          O painel por demanda funciona <span className="font-bold text-emerald-300">24 horas por dia</span>, sem bloqueio noturno!
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-5 py-4 w-full">
+        <p className="text-sm text-amber-300/90 leading-relaxed">
+          ⏳ Aguarde o retorno — <span className="font-semibold text-amber-200">não é necessário enviar mensagem no WhatsApp</span> perguntando sobre a manutenção. Avisaremos assim que estiver liberado.
         </p>
-        <a
-          href="/"
-          className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-all"
-        >
-          🚀 Ir para o Painel por Demanda
-        </a>
       </div>
     </div>
   );
@@ -351,7 +324,7 @@ const Generate = () => {
         <Card className="glass-card">
           <CardContent className="p-5 sm:p-6 md:p-8">
             {validation?.maintenance ? (
-              <MaintenanceBanner message={validation.maintenance.message} until={validation.maintenance.until} />
+              <MaintenanceBanner />
             ) : isDailyLimitReached ? (
               <div className="flex flex-col items-center gap-5 py-4 text-center">
                 <TrendingUp className="h-14 w-14 text-amber-500" />
@@ -415,7 +388,7 @@ const Generate = () => {
           />
         )}
       </div>
-      <WhatsAppButton />
+      {!validation?.maintenance && <WhatsAppButton />}
     </div>
   );
 };
