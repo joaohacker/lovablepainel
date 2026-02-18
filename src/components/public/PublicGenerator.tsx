@@ -221,7 +221,7 @@ export function PublicGenerator() {
                       value={[credits]}
                       onValueChange={handleSliderChange}
                       min={5}
-                      max={20000}
+                      max={10000}
                       step={5}
                       className="w-full"
                     />
@@ -274,11 +274,7 @@ export function PublicGenerator() {
                     size="lg"
                     className="w-full h-16 text-xl font-semibold gap-2"
                   >
-                    {submitting ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Zap className="h-5 w-5" />
-                    )}
+                    {submitting && <Loader2 className="h-5 w-5 animate-spin" />}
                     {submitting ? "Iniciando..." : `Gerar ${credits} Créditos`}
                   </Button>
 
