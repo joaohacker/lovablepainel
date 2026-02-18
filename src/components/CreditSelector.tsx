@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { fetchStock, type StockResponse } from "@/lib/farm-api";
-import { Zap, Bot, Package, Loader2, Monitor, TrendingUp } from "lucide-react";
+import { Zap, Bot, Loader2, Monitor, TrendingUp } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CreditSelectorProps {
@@ -20,13 +19,10 @@ interface CreditSelectorProps {
 export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLimit, remainingDaily, onUpgradePerUse, onUpgradeDaily }: CreditSelectorProps) {
   const max = maxCredits;
   const [credits, setCredits] = useState(Math.min(100, max));
-  const [stock, setStock] = useState<StockResponse | null>(null);
-  const [stockLoading, setStockLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
   const handleGenerate = async () => {
-    // Synchronous ref guard prevents double-tap on mobile
     if (submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
@@ -38,24 +34,7 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
     }
   };
 
-  const stockDepleted = stock !== null && stock.activeWithBonus < 100000;
-  const isDisabled = disabled || submitting || stockDepleted;
-
-  useEffect(() => {
-    const loadStock = async () => {
-      try {
-        const data = await fetchStock();
-        setStock(data);
-      } catch {
-        // Stock unavailable
-      } finally {
-        setStockLoading(false);
-      }
-    };
-    loadStock();
-    const interval = setInterval(loadStock, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const isDisabled = disabled || submitting;
 
   const handleSliderChange = (value: number[]) => {
     const rounded = Math.round(value[0] / 5) * 5;
@@ -81,30 +60,6 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
           <span>Recomendamos usar no computador para evitar erros.</span>
         </div>
       )}
-
-      {/* Stock indicator */}
-      <div className="flex items-center justify-center gap-2 text-sm">
-        <Package className="h-4 w-4 text-muted-foreground" />
-        {stockLoading ? (
-          <span className="text-muted-foreground">Verificando estoque...</span>
-        ) : stock ? (
-          <span className="text-muted-foreground">
-            <span className="font-semibold text-success">{(stock.activeWithBonus + 200000).toLocaleString()}</span> bots disponíveis
-          </span>
-        ) : (
-          <span className="text-muted-foreground">Estoque indisponível</span>
-      )}
-
-      {/* Stock depleted - maintenance screen */}
-      {stockDepleted && (
-        <div className="flex flex-col items-center gap-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-5 py-6 text-center">
-          <Package className="h-10 w-10 text-amber-400 animate-pulse" />
-          <p className="text-base font-bold text-amber-300">🔧 Manutenção — Aguardando Bots</p>
-          <p className="text-sm text-amber-300/80">O estoque de bots está sendo reabastecido. A geração será liberada automaticamente assim que houver bots disponíveis.</p>
-          <p className="text-xs text-muted-foreground">Sem previsão de tempo. Tente novamente em alguns minutos.</p>
-        </div>
-      )}
-      </div>
 
       {/* Credit amount */}
       <div className="text-center space-y-2">
