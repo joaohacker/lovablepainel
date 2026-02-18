@@ -47,7 +47,7 @@ const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolea
       {/* Title */}
       <div className="flex flex-col items-center gap-2">
         <Ban className="h-12 w-12 text-amber-500" />
-        <h2 className="text-xl font-extrabold text-foreground">⚠️ Em Manutenção</h2>
+        <h2 className="text-xl font-extrabold text-foreground">⚠️ Manutenção — Estoque Baixo</h2>
       </div>
 
       {/* Text explanation blocks - always visible */}
