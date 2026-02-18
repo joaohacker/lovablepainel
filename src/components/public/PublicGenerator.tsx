@@ -294,12 +294,13 @@ export function PublicGenerator() {
                   )}
 
                   {!user && (
-                    <p className="text-xs text-center text-muted-foreground/60 mt-1">
-                      Já tem conta?{" "}
-                      <button onClick={() => setShowAuth(true)} className="text-primary/70 hover:text-primary hover:underline transition-colors">
-                        Entrar
-                      </button>
-                    </p>
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => setShowAuth(true)}
+                    >
+                      Já tem conta? Entrar
+                    </Button>
                   )}
                 </div>
               ) : (
