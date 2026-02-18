@@ -15,7 +15,7 @@ import {
 import lovableHeart from "@/assets/lovable-heart.png";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PublicGenerator } from "@/components/public/PublicGenerator";
-import { PlansSection } from "@/components/public/PlansSection";
+
 import { WhatsAppButton } from "@/components/public/WhatsAppButton";
 import { BackgroundEffects } from "@/components/public/BackgroundEffects";
 
@@ -46,9 +46,6 @@ const Landing = () => {
           <div className="flex items-center gap-1.5 md:gap-6 text-[10px] md:text-sm text-muted-foreground ml-2">
             <a href="#beneficios" className="hover:text-foreground transition-colors hidden sm:inline">
               Benefícios
-            </a>
-            <a href="#planos" className="hover:text-foreground transition-colors">
-              Planos
             </a>
             <a href="#como-funciona" className="hover:text-foreground transition-colors whitespace-nowrap hidden sm:inline">
               Como Funciona
@@ -86,8 +83,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Plans Section */}
-      <PlansSection />
 
       {/* Trust Bar */}
       <section className="relative z-10 border-y border-border/40 py-5">
