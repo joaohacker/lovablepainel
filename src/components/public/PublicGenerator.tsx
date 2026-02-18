@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Zap, Loader2, Wallet } from "lucide-react";
+import heartGradient from "@/assets/lovable-heart-gradient.png";
 import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBalance } from "@/lib/pricing";
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { DepositModal } from "./DepositModal";
@@ -260,7 +261,10 @@ export function PublicGenerator() {
                               {pkg.discount}
                             </span>
                           )}
-                          <p className="text-sm font-semibold text-foreground">{pkg.credits.toLocaleString()}</p>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <img src={heartGradient} alt="" className="h-4 w-4 shrink-0" />
+                            <p className="text-sm font-semibold text-foreground">{pkg.credits.toLocaleString()}</p>
+                          </div>
                           <p className="text-[10px] sm:text-xs text-muted-foreground">{formatBRL(pkg.price)}</p>
                         </button>
                       ))}
