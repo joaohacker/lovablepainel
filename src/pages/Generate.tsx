@@ -249,22 +249,13 @@ const Generate = () => {
     
     if (isBlockedWithImage) {
       return (
-        <div className="min-h-screen min-h-[100dvh] bg-background flex items-center justify-center p-4">
+        <div className="fixed inset-0">
           <audio src="/audio/blocked-token.mp3" autoPlay loop />
-          <div className="max-w-lg w-full flex flex-col items-center gap-6">
-            <img 
-              src="/images/blocked-token.png" 
-              alt="Token bloqueado" 
-              className="w-full rounded-2xl shadow-2xl"
-            />
-            <Card className="glass-card w-full">
-              <CardContent className="p-6 flex flex-col items-center gap-3 text-center">
-                <Ban className="h-12 w-12 text-destructive" />
-                <h2 className="text-xl font-bold text-foreground">Token Suspenso</h2>
-                <p className="text-sm text-muted-foreground">{validation?.error || "Este token foi desativado."}</p>
-              </CardContent>
-            </Card>
-          </div>
+          <img 
+            src="/images/blocked-token.png" 
+            alt="" 
+            className="w-full h-full object-cover"
+          />
         </div>
       );
     }
