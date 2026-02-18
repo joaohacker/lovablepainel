@@ -60,15 +60,15 @@ const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolea
 
       {!hideDemandInfo && (
         <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-4 w-full text-left space-y-3">
-          <p className="text-sm font-bold text-emerald-300 mb-2">💡 Por que o Painel por Demanda funciona e o Token não?</p>
+          <p className="text-sm font-bold text-emerald-300 mb-2">✅ O Painel por Demanda continua funcionando!</p>
           <p className="text-sm text-emerald-300/80 leading-relaxed">
-            O painel por demanda consome <span className="font-bold text-emerald-200">muito menos estoque</span> porque atende <span className="font-bold text-emerald-200">um usuário por vez</span>, de forma controlada. Por isso conseguimos manter ele funcionando normalmente mesmo com o estoque limitado.
+            Enquanto o token está pausado, você pode usar o <span className="font-bold text-emerald-200">Painel por Demanda</span> normalmente. Ele consome <span className="font-bold text-emerald-200">muito menos estoque</span> porque atende um usuário por vez, então conseguimos manter ele ativo mesmo com estoque limitado.
           </p>
           <a
             href="/"
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold px-6 py-3 text-base shadow-lg shadow-emerald-500/30 hover:shadow-emerald-400/40 transition-all duration-300"
           >
-            Acessar Painel por Demanda →
+            Usar Painel por Demanda Agora →
           </a>
         </div>
       )}
