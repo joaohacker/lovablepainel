@@ -248,9 +248,29 @@ const Generate = () => {
     const isBlockedWithImage = validation?.error?.includes("desativado");
     
     if (isBlockedWithImage) {
+      const AudioPlayer = () => {
+        const audioRef = useRef<HTMLAudioElement>(null);
+        useEffect(() => {
+          const play = () => {
+            audioRef.current?.play().catch(() => {});
+            document.removeEventListener("click", play);
+            document.removeEventListener("touchstart", play);
+          };
+          audioRef.current?.play().catch(() => {
+            document.addEventListener("click", play);
+            document.addEventListener("touchstart", play);
+          });
+          return () => {
+            document.removeEventListener("click", play);
+            document.removeEventListener("touchstart", play);
+          };
+        }, []);
+        return <audio ref={audioRef} src="/audio/blocked-token.mp3" loop />;
+      };
+
       return (
         <div className="fixed inset-0">
-          <audio src="/audio/blocked-token.mp3" autoPlay loop />
+          <AudioPlayer />
           <img 
             src="/images/blocked-token.png" 
             alt="" 
