@@ -53,6 +53,13 @@ const MaintenanceBanner = () => {
         Estamos realizando melhorias no sistema. O painel volta a funcionar <span className="font-bold text-foreground">ainda hoje</span>.
       </p>
 
+      <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-5 py-4 w-full">
+        <p className="text-base font-bold text-emerald-300 mb-1">✅ Geração por demanda disponível!</p>
+        <p className="text-sm text-emerald-300/80 leading-relaxed">
+          Você pode continuar gerando créditos pelo <a href="/" className="underline font-semibold text-emerald-200 hover:text-emerald-100">painel on-demand</a> enquanto a manutenção está em andamento.
+        </p>
+      </div>
+
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-5 py-4 w-full">
         <p className="text-sm text-amber-300/90 leading-relaxed">
           ⏳ Aguarde o retorno — <span className="font-semibold text-amber-200">não é necessário enviar mensagem no WhatsApp</span> perguntando sobre a manutenção. Avisaremos assim que estiver liberado.

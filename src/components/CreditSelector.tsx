@@ -101,6 +101,12 @@ export function CreditSelector({ onGenerate, disabled, maxCredits = 900, dailyLi
           <Package className="h-10 w-10 text-amber-400 animate-pulse" />
           <p className="text-base font-bold text-amber-300">🔧 Manutenção — Aguardando Bots</p>
           <p className="text-sm text-amber-300/80">O estoque de bots está sendo reabastecido. A geração será liberada automaticamente assim que houver bots disponíveis.</p>
+          <div className="rounded-xl border-2 border-emerald-500/50 bg-emerald-500/10 px-4 py-3 w-full mt-2">
+            <p className="text-sm font-bold text-emerald-300">✅ Geração por demanda disponível!</p>
+            <p className="text-xs text-emerald-300/80 mt-1">
+              Gere créditos pelo <a href="/" className="underline font-semibold text-emerald-200 hover:text-emerald-100">painel on-demand</a> enquanto isso.
+            </p>
+          </div>
           <p className="text-xs text-muted-foreground">Sem previsão de tempo. Tente novamente em alguns minutos.</p>
         </div>
       )}
