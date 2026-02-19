@@ -136,7 +136,7 @@ export function useFarmGeneration(accessToken?: string) {
         try {
           const status = await getFarmStatus(farmId, accessToken);
           consecutive404Ref.current = 0;
-          console.log(`[POLLING] status=${status.status}, logs=${status.logs?.length ?? 0}`);
+          console.log(`[POLLING] status=${status.status}, logs=${status.logs?.length ?? 0}, credits_field=${status.credits}, result_credits=${status.result?.credits ?? 'N/A'}`);
 
           // Terminal states
           if (status.status === "completed") {
@@ -146,10 +146,15 @@ export function useFarmGeneration(accessToken?: string) {
 
             // Process any remaining logs before marking completed
             const finalEntries: FeedEntry[] = [];
+            let totalCreditsFromLogs = 0;
             if (status.logs && status.logs.length > 0) {
               for (const log of status.logs) {
                 const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
-                finalEntries.push(parseLogToFeedEntry(log.message, log.type, log.timestamp, eid));
+                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
+                finalEntries.push(entry);
+                if (entry.kind === "credit" && entry.credits) {
+                  totalCreditsFromLogs += entry.credits;
+                }
               }
             }
 
@@ -169,6 +174,13 @@ export function useFarmGeneration(accessToken?: string) {
               }));
               const merged = [...prev.feed, ...staggered].slice(-150);
 
+              // Calculate actual credits earned from logs (most reliable source)
+              const apiResultCredits = status.result?.credits || 0;
+              const actualCredits = Math.min(
+                Math.max(totalCreditsFromLogs, apiResultCredits, prev.creditsEarned),
+                prev.totalCreditsRequested
+              );
+
               // Delay the completed state so drip animation can play out
               const drainMs = Math.min(staggered.length * 250, 3000) + 500;
               setTimeout(() => {
@@ -176,7 +188,10 @@ export function useFarmGeneration(accessToken?: string) {
                   ...p,
                   state: "completed",
                   result: status.result || null,
-                  creditsEarned: Math.min(status.result?.credits || p.creditsEarned, p.totalCreditsRequested),
+                  creditsEarned: Math.min(
+                    Math.max(apiResultCredits, totalCreditsFromLogs, p.creditsEarned),
+                    p.totalCreditsRequested
+                  ),
                 }));
               }, drainMs);
 
@@ -185,7 +200,7 @@ export function useFarmGeneration(accessToken?: string) {
                 state: "running",
                 workspaceName: status.workspaceName || prev.workspaceName,
                 masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: status.result?.credits || prev.creditsEarned,
+                creditsEarned: actualCredits,
                 feed: merged,
               };
             });
@@ -216,7 +231,8 @@ export function useFarmGeneration(accessToken?: string) {
 
           // Running — append only NEW entries to avoid batch appearance
           if (status.status === "running" || status.status === "workspace_detected") {
-            let pollingCredits = 0;
+            // Count TOTAL credits from full log history (API returns all logs each poll)
+            let totalCreditsFromLogs = 0;
             const incomingEntries: FeedEntry[] = [];
 
             if (status.logs && status.logs.length > 0) {
@@ -225,13 +241,13 @@ export function useFarmGeneration(accessToken?: string) {
                 const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
                 incomingEntries.push(entry);
                 if (entry.kind === "credit" && entry.credits) {
-                  pollingCredits += entry.credits;
+                  totalCreditsFromLogs += entry.credits;
                 }
               }
             }
 
             setGen((prev) => {
-              // Find entries that are truly new (not ever processed)
+              // Find entries that are truly new (not ever processed) — for feed display only
               const brandNew = incomingEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
               brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
 
@@ -250,15 +266,15 @@ export function useFarmGeneration(accessToken?: string) {
 
               const merged = [...prev.feed, ...staggered].slice(-150);
 
-              // Accumulate only NEW credit entries (not replace total)
-              const newCredits = brandNew
-                .filter((e) => e.kind === "credit" && e.credits)
-                .reduce((sum, e) => sum + (e.credits || 0), 0);
-
-              // Use result.credits (actual earned) as floor — status.credits is the REQUESTED amount, not earned
+              // Credits: use the TOTAL from this poll's full log history (not accumulated deltas)
+              // This prevents double-counting when eventId hashes vary between polls.
+              // Use Math.max with prev for monotonicity (never decrease).
+              // Also use result.credits as fallback if available.
               const apiEarned = status.result?.credits || 0;
-              const accumulated = prev.creditsEarned + newCredits;
-              const bestCredits = Math.min(Math.max(accumulated, apiEarned), prev.totalCreditsRequested);
+              const bestCredits = Math.min(
+                Math.max(totalCreditsFromLogs, apiEarned, prev.creditsEarned),
+                prev.totalCreditsRequested
+              );
 
               return {
                 ...prev,
