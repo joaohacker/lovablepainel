@@ -141,7 +141,16 @@ export function DepositModal({
       if (data?.status === "paid") {
         clearInterval(interval);
         if (isLoggedIn) {
-          // Already logged in — wallet was credited by webhook
+          // Logged in — try to claim-deposit in case the order was created
+          // without user_id (race condition where user logged in after creating PIX).
+          // If webhook already credited (order has user_id), claim will fail silently — that's fine.
+          try {
+            await supabase.functions.invoke("claim-deposit", {
+              body: { order_id: orderId },
+            });
+          } catch {
+            // Ignore — webhook already handled it
+          }
           setStep("done");
           onSuccess();
         } else {

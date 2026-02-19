@@ -56,6 +56,22 @@ serve(async (req) => {
       .maybeSingle();
 
     if (claimError || !claimedOrder) {
+      // Check if order was already credited by webhook (user_id already set)
+      const { data: existingOrder } = await supabase
+        .from("orders")
+        .select("id, user_id")
+        .eq("id", order_id)
+        .eq("status", "paid")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (existingOrder) {
+        // Already credited by webhook — return success silently
+        return new Response(JSON.stringify({ success: true, already_credited: true }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       return new Response(JSON.stringify({ error: "Order not found or already claimed" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
