@@ -61,8 +61,16 @@ serve(async (req) => {
         const verifyRes = await fetch(`${BRPIX_BASE}/payments/${order.transaction_id}`, {
           headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
         });
+        
+        if (!verifyRes.ok) {
+          console.error(`[reconcile] BrPix API error for ${order.transaction_id}: HTTP ${verifyRes.status}`);
+          continue;
+        }
+        
         const verifyData = await verifyRes.json();
         const paymentStatus = verifyData.data?.status || verifyData.status;
+        
+        console.log(`[reconcile] Order ${order.id} (${order.transaction_id}): BrPix status = ${paymentStatus}, paid = ${verifyData.paid || verifyData.data?.paid}`);
 
         if (paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
           continue; // Not paid yet, skip
