@@ -329,8 +329,9 @@ export function PublicGenerator() {
                           if (error) throw new Error("Falha ao criar link");
                           if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
                           const url = `${window.location.origin}/tokenclientes/${data.token}`;
-                          navigator.clipboard.writeText(url);
-                          toast({ title: "Link criado e copiado!", description: `${credits} créditos • ${formatBRL(data.cost)}` });
+                          const msg = `✅ Obrigado pela compra!\n\nPara receber seus créditos na Lovable, acesse o link de geração abaixo e siga o passo a passo:\n\n🔗 Link de geração: ${url}\n\n1️⃣ Abra o link e selecione a quantidade de créditos\n2️⃣ Clique em Gerar\n3️⃣ Vai aparecer o email do bot — convide ele como EDITOR na sua workspace\n4️⃣ Depois é só aguardar que os créditos serão depositados automaticamente\n\n⚠️ Importante:\n• Faça o processo em até 10 minutos (depois o bot expira)\n• Sua workspace não pode ter mais de 5 membros no momento do convite\n\nSe tiver qualquer dúvida, me chama.`;
+                          navigator.clipboard.writeText(msg);
+                          toast({ title: "Mensagem copiada!", description: `Link + instruções • ${credits} créditos • ${formatBRL(data.cost)}` });
                           refetchWallet();
                           setLinksRefreshKey((k) => k + 1);
                         } catch (err: any) {
