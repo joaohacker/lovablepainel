@@ -78,6 +78,7 @@ const ClientGenerate = () => {
           farmId,
           creditsEarned: farm.creditsEarned,
           status: farm.state,
+          workspaceName: farm.workspaceName,
         },
       }).then(({ data }) => {
         // Update remaining credits in UI
@@ -98,10 +99,11 @@ const ClientGenerate = () => {
           farmId,
           creditsEarned: farm.creditsEarned,
           status: farm.state,
+          workspaceName: farm.workspaceName,
         },
       });
     }
-  }, [farm.state, farm.creditsEarned, token]);
+  }, [farm.state, farm.creditsEarned, farm.workspaceName, token]);
 
   const maxCredits = tokenInfo?.remaining ?? 0;
 
