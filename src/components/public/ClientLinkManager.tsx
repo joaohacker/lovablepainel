@@ -140,11 +140,15 @@ export function ClientLinkManager({ userId, refreshKey }: Props) {
         body: { action: "deactivate", tokenId: selectedToken.id },
       });
       if (error) throw error;
-      toast({ title: "Link desativado com sucesso" });
+      if (data?.refunded) {
+        toast({ title: "Link desativado e reembolsado", description: `R$ ${Number(data.refund_amount).toFixed(2)} devolvidos ao saldo` });
+      } else {
+        toast({ title: "Link desativado com sucesso" });
+      }
       setSelectedToken((prev) => prev ? { ...prev, is_active: false } : null);
       fetchTokens();
-    } catch {
-      toast({ title: "Erro ao desativar", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Erro ao desativar", description: err?.message, variant: "destructive" });
     } finally {
       setDeactivating(false);
     }
@@ -231,7 +235,7 @@ export function ClientLinkManager({ userId, refreshKey }: Props) {
                     </Badge>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {remaining}/{tok.total_credits} créditos • {format(new Date(tok.created_at), "dd/MM/yy")}
+                    {tok.credits_used}/{tok.total_credits} usados • {format(new Date(tok.created_at), "dd/MM/yy")}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -316,19 +320,33 @@ export function ClientLinkManager({ userId, refreshKey }: Props) {
 
               {/* Deactivate button */}
               {selectedToken.is_active && (
-                <Button
-                  variant="destructive"
-                  className="w-full gap-2"
-                  onClick={handleDeactivate}
-                  disabled={deactivating}
-                >
-                  {deactivating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
+                <>
+                  <Button
+                    variant="destructive"
+                    className="w-full gap-2"
+                    onClick={handleDeactivate}
+                    disabled={deactivating}
+                  >
+                    {deactivating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <XCircle className="h-4 w-4" />
+                    )}
+                    {selectedToken.credits_used === 0
+                      ? "Desativar e Reembolsar"
+                      : "Desativar Link"}
+                  </Button>
+                  {selectedToken.credits_used === 0 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Nenhum crédito usado — o valor será devolvido ao seu saldo
+                    </p>
                   )}
-                  Desativar Link
-                </Button>
+                  {selectedToken.credits_used > 0 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      Créditos já foram usados — reembolso não disponível
+                    </p>
+                  )}
+                </>
               )}
 
               {/* Generations history */}

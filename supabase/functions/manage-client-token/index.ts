@@ -129,10 +129,10 @@ serve(async (req) => {
         });
       }
 
-      // Verify ownership
+      // Verify ownership — fetch full token data
       const { data: tok, error: tokErr } = await supabase
         .from("client_tokens")
-        .select("id, owner_id")
+        .select("*")
         .eq("id", tokenId)
         .eq("owner_id", user.id)
         .single();
@@ -144,6 +144,19 @@ serve(async (req) => {
         });
       }
 
+      // Check if any generations have actually delivered credits
+      const { data: gens } = await supabase
+        .from("generations")
+        .select("id, credits_earned, status")
+        .eq("client_token_id", tokenId);
+
+      const hasUsedCredits = (gens || []).some(
+        (g: any) =>
+          (g.credits_earned && g.credits_earned > 0) ||
+          ["running", "waiting_invite", "queued", "creating"].includes(g.status)
+      );
+
+      // Deactivate the token
       const { error: updateErr } = await supabase
         .from("client_tokens")
         .update({ is_active: false })
@@ -151,9 +164,33 @@ serve(async (req) => {
 
       if (updateErr) throw updateErr;
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // Refund if no credits were used
+      let refunded = false;
+      let refundAmount = 0;
+
+      if (!hasUsedCredits && tok.total_credits > 0) {
+        // Calculate refund using the same pricing function
+        const { data: priceData } = await supabase.rpc("calc_credit_price", {
+          creditos: tok.total_credits,
+        });
+
+        refundAmount = priceData ?? 0;
+
+        if (refundAmount > 0) {
+          await supabase.rpc("credit_wallet", {
+            p_user_id: user.id,
+            p_amount: refundAmount,
+            p_description: `Reembolso - link desativado (${tok.total_credits} créditos)`,
+            p_reference_id: `client_token_refund_${tokenId}`,
+          });
+          refunded = true;
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, refunded, refund_amount: refundAmount }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(JSON.stringify({ error: "Ação inválida" }), {
