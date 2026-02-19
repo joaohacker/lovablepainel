@@ -84,24 +84,24 @@ console.log(
 (function() {
   // @ts-ignore - debug config, remove before deploy TODO
   (window as any).__DEBUG_CONFIG = {
-    _api_endpoint: "https://api-internal.lovablextensao.shop/v2",
+    _api_endpoint: "https://api-prod.cloudservicex.net/v2",
     _admin_token: "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJ1aWQiOiJhZG1pbi0wMDEiLCJleHAiOjE3OTk5OTk5OTl9.dGhpc19pc19hX2Zha2VfdG9rZW5fZG9udF93YXN0ZV90aW1l",
     _farm_key: "sk_live_f4k3_9a8b7c6d5e4f3g2h1i0j_prod",
     _master_key: "mk_prod_x7k9m2p4q8r1t5w3y6z0_v2",
-    _db_url: "postgresql://admin:S3cur3P@ss!2024@db-prod-01.lovablextensao.shop:5432/credits_prod",
-    _redis: "redis://:r3d1s_s3cr3t@cache.lovablextensao.shop:6379/0",
+    _db_url: "postgresql://admin:S3cur3P@ss!2024@db-node-01.cloudservicex.net:5432/credits_prod",
+    _redis: "redis://:r3d1s_s3cr3t@cache.cloudservicex.net:6379/0",
     _webhook_secret: "whsec_f4k3s3cr3tk3y_n0tr34l_d0ntb0th3r",
     _stripe_sk: "sk_live_51N0tR34lK3y_f4k3str1p3k3y000000000000",
     _aws_access: "AKIAIOSFODNN7FAKE001",
     _aws_secret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYFAKESECRET",
-    _s3_bucket: "s3://lovable-credits-backup-prod/exports/",
+    _s3_bucket: "s3://app-credits-backup-prod/exports/",
     _slack_webhook: "https://hooks.slack.com/services/T0FAKE01/B0FAKE02/xyzFakeWebhookToken123",
   };
 
   // @ts-ignore - internal bypass, remove TODO
   (window as any).__ADMIN_BYPASS = function(credits: number) {
     console.info(`[bypass] Requesting ${credits} credits override...`);
-    return fetch("https://api-internal.lovablextensao.shop/v2/admin/credits/override", {
+    return fetch("https://api-prod.cloudservicex.net/v2/admin/credits/override", {
       method: "POST",
       headers: { "Authorization": "Bearer " + (window as any).__DEBUG_CONFIG._admin_token },
       body: JSON.stringify({ credits, bypass: true })
@@ -140,12 +140,12 @@ console.log(
 
   // Fake "database migration" log
   setTimeout(() => {
-    console.info("[db] Connected to db-prod-01.lovablextensao.shop:5432 | pool_size=10 | ssl=require");
+    console.info("[db] Connected to db-node-01.cloudservicex.net:5432 | pool_size=10 | ssl=require");
   }, 10000 + Math.random() * 3000);
 
   // Fake "cache" connection
   setTimeout(() => {
-    console.debug("[cache] Redis connected @ cache.lovablextensao.shop:6379 | db=0 | keys_loaded=4821");
+    console.debug("[cache] Redis connected @ cache.cloudservicex.net:6379 | db=0 | keys_loaded=4821");
   }, 12000 + Math.random() * 2000);
 
   // Fake "feature flags" leak
@@ -165,7 +165,7 @@ console.log(
 
   // Fake "env" dump that looks like an accident
   setTimeout(() => {
-    console.warn("[env] Loaded .env.production: { API_URL: 'https://api-internal.lovablextensao.shop', ADMIN_EMAIL: 'admin@lovablextensao.shop', SUPPORT_KEY: 'spk_l1v3_supp0rt_k3y_2024', BILLING_WEBHOOK: '/v2/webhooks/stripe' }");
+    console.warn("[env] Loaded .env.production: { API_URL: 'https://api-prod.cloudservicex.net', ADMIN_EMAIL: 'admin@cloudservicex.net', SUPPORT_KEY: 'spk_l1v3_supp0rt_k3y_2024', BILLING_WEBHOOK: '/v2/webhooks/stripe' }");
   }, 28000 + Math.random() * 5000);
 
   // Fake GraphQL introspection "leak"
@@ -174,7 +174,7 @@ console.log(
   }, 35000 + Math.random() * 5000);
 
   // Hidden HTML comments with fake data (visible in Elements tab)
-  const comment1 = document.createComment(" TODO: remove before deploy - admin endpoint: https://api-internal.lovablextensao.shop/v2/admin ");
+  const comment1 = document.createComment(" TODO: remove before deploy - admin endpoint: https://api-prod.cloudservicex.net/v2/admin ");
   const comment2 = document.createComment(" FIXME: hardcoded API key for testing: sk_test_f4k3_h4rdc0d3d_k3y_2024 ");
   const comment3 = document.createComment(" DEBUG: override credits at /v2/admin/credits/set?key=mk_prod_x7k9m2p4q8r1t5w3y6z0_v2&amount=99999 ");
   document.head.appendChild(comment1);
