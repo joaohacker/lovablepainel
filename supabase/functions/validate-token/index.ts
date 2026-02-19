@@ -81,8 +81,8 @@ serve(async (req) => {
       );
     }
 
-    // Handle __public__ token for on-demand update-status action
-    if (token === "__public__" && action === "update-status") {
+    // Handle __public__ token for on-demand actions
+    if (token === "__public__" && (action === "update-status" || action === "refund-expired")) {
       const farmId = bodyFarmId;
       const status = bodyStatus;
 
@@ -117,7 +117,7 @@ serve(async (req) => {
       // SECURITY: Only allow updating YOUR OWN generation
       const { data: gen } = await supabase
         .from("generations")
-        .select("id")
+        .select("id, credits_requested, credits_earned, status")
         .eq("farm_id", farmId)
         .eq("user_id", user.id)
         .maybeSingle();
@@ -129,6 +129,74 @@ serve(async (req) => {
         );
       }
 
+      // === REFUND-EXPIRED: refund wallet if generation never started running ===
+      if (action === "refund-expired") {
+        // Only refund if generation never earned credits (never ran)
+        if ((gen.credits_earned || 0) > 0) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Generation already earned credits, cannot refund" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // Only refund if status is still pre-running
+        if (!["waiting_invite", "queued", "creating", "expired"].includes(gen.status)) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Generation already started, cannot refund" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Calculate refund amount using same pricing as public-generate
+        const TIERS = [
+          { credits: 100, price: 3.50 },
+          { credits: 1000, price: 24.50 },
+          { credits: 5000, price: 105.00 },
+          { credits: 10000, price: 196.00 },
+        ];
+        const creditos = gen.credits_requested;
+        let refundAmount = 0;
+        if (creditos <= TIERS[0].credits) {
+          refundAmount = +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
+        } else if (creditos >= TIERS[TIERS.length - 1].credits) {
+          refundAmount = +(creditos * (TIERS[TIERS.length - 1].price / TIERS[TIERS.length - 1].credits)).toFixed(2);
+        } else {
+          for (let i = 0; i < TIERS.length - 1; i++) {
+            if (creditos >= TIERS[i].credits && creditos <= TIERS[i + 1].credits) {
+              const t = (creditos - TIERS[i].credits) / (TIERS[i + 1].credits - TIERS[i].credits);
+              const unitLow = TIERS[i].price / TIERS[i].credits;
+              const unitHigh = TIERS[i + 1].price / TIERS[i + 1].credits;
+              const unit = unitLow + t * (unitHigh - unitLow);
+              refundAmount = +(creditos * unit).toFixed(2);
+              break;
+            }
+          }
+        }
+
+        if (refundAmount > 0) {
+          await supabase.rpc("credit_wallet", {
+            p_user_id: user.id,
+            p_amount: refundAmount,
+            p_description: `Reembolso automático - geração de ${creditos} créditos expirou sem iniciar`,
+            p_reference_id: farmId,
+          });
+        }
+
+        // Mark generation as expired
+        await supabase
+          .from("generations")
+          .update({ status: "expired", error_message: "Expirou sem detectar workspace - créditos reembolsados" })
+          .eq("farm_id", farmId)
+          .eq("user_id", user.id);
+
+        console.log(`[refund-expired] Refunded R$${refundAmount} for ${creditos} credits, farmId=${farmId}, userId=${user.id}`);
+
+        return new Response(
+          JSON.stringify({ success: true, refunded: refundAmount, credits: creditos }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // === UPDATE-STATUS (original logic) ===
       const updateData: Record<string, unknown> = { status };
       if (master_email !== undefined) updateData.master_email = master_email;
       if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
@@ -136,9 +204,8 @@ serve(async (req) => {
 
       // Never overwrite credits_earned with a lower value, cap at credits_requested
       if (credits_earned !== undefined && credits_earned > 0) {
-        const { data: currentGen } = await supabase.from("generations").select("credits_earned, credits_requested").eq("farm_id", farmId).eq("user_id", user.id).maybeSingle();
-        const dbCredits = currentGen?.credits_earned ?? 0;
-        const capCredits = currentGen?.credits_requested ?? Infinity;
+        const dbCredits = gen.credits_earned ?? 0;
+        const capCredits = gen.credits_requested ?? Infinity;
         updateData.credits_earned = Math.min(Math.max(credits_earned, dbCredits), capCredits);
       }
 

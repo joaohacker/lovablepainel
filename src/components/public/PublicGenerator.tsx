@@ -132,20 +132,34 @@ export function PublicGenerator() {
 
   // Send update-status to backend on state transitions
   const farmStateRef = useRef(farm.state);
+  const refundedRef = useRef<string | null>(null);
   if (farm.farmId && farm.state !== farmStateRef.current) {
     farmStateRef.current = farm.state;
-    supabase.functions.invoke("validate-token", {
-      body: {
-        token: "__public__",
-        action: "update-status",
-        farmId: farm.farmId,
-        status: farm.state,
-        credits_earned: farm.creditsEarned,
-        master_email: farm.masterEmail,
-        workspace_name: farm.workspaceName,
-        error_message: farm.errorMessage,
-      },
-    }).catch(() => {});
+
+    // Auto-refund when expired without running
+    if (farm.state === "expired" && farm.creditsEarned === 0 && refundedRef.current !== farm.farmId) {
+      refundedRef.current = farm.farmId;
+      supabase.functions.invoke("validate-token", {
+        body: {
+          token: "__public__",
+          action: "refund-expired",
+          farmId: farm.farmId,
+        },
+      }).then(() => refetchWallet()).catch(() => {});
+    } else {
+      supabase.functions.invoke("validate-token", {
+        body: {
+          token: "__public__",
+          action: "update-status",
+          farmId: farm.farmId,
+          status: farm.state,
+          credits_earned: farm.creditsEarned,
+          master_email: farm.masterEmail,
+          workspace_name: farm.workspaceName,
+          error_message: farm.errorMessage,
+        },
+      }).catch(() => {});
+    }
   }
 
   // Periodically push credits_earned to DB while running (so admin dashboard updates live)
