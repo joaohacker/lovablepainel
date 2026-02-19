@@ -144,6 +144,14 @@ serve(async (req) => {
         });
       }
 
+      // SECURITY: Block if already deactivated (prevents double-refund)
+      if (!tok.is_active) {
+        return new Response(
+          JSON.stringify({ error: "Link já está desativado" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Check if any generations have actually delivered credits
       const { data: gens } = await supabase
         .from("generations")
@@ -156,13 +164,21 @@ serve(async (req) => {
           ["running", "waiting_invite", "queued", "creating"].includes(g.status)
       );
 
-      // Deactivate the token
-      const { error: updateErr } = await supabase
+      // Atomic deactivate: only update if still active (race condition guard)
+      const { data: updated, error: updateErr } = await supabase
         .from("client_tokens")
         .update({ is_active: false })
-        .eq("id", tokenId);
+        .eq("id", tokenId)
+        .eq("is_active", true)
+        .select("id")
+        .single();
 
-      if (updateErr) throw updateErr;
+      if (updateErr || !updated) {
+        return new Response(
+          JSON.stringify({ error: "Link já foi desativado" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       // Refund if no credits were used
       let refunded = false;
