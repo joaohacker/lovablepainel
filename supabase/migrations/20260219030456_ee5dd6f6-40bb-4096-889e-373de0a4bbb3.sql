@@ -1,0 +1,1 @@
+DELETE FROM public.orders WHERE id = 'd2e3474a-e225-40e7-b92c-05578a7f7e29' AND status = 'paid' AND user_id IS NULL AND order_type = 'deposit';
