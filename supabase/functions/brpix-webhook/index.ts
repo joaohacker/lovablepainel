@@ -35,18 +35,32 @@ serve(async (req) => {
     const rawBody = await req.text();
     console.log("[brpix-webhook] Raw body:", rawBody);
 
-    // Validate webhook signature (only if header is present)
+    // SECURITY: Validate webhook signature — MANDATORY
     const webhookSecret = Deno.env.get("BRPIX_WEBHOOK_SECRET");
+    if (!webhookSecret) {
+      console.error("[brpix-webhook] BRPIX_WEBHOOK_SECRET not configured");
+      return new Response(JSON.stringify({ error: "Webhook secret not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const signature = req.headers.get("x-webhook-signature");
-    if (webhookSecret && signature) {
-      const valid = await verifySignature(rawBody, signature, webhookSecret);
-      if (!valid) {
-        console.error("[brpix-webhook] Invalid signature");
-        return new Response(JSON.stringify({ error: "Invalid signature" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    if (!signature) {
+      console.error("[brpix-webhook] Missing x-webhook-signature header — rejecting");
+      return new Response(JSON.stringify({ error: "Missing signature" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const valid = await verifySignature(rawBody, signature, webhookSecret);
+    if (!valid) {
+      console.error("[brpix-webhook] Invalid signature — rejecting");
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const body = JSON.parse(rawBody);
