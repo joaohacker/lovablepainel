@@ -82,21 +82,23 @@ serve(async (req) => {
         discountAmount = +Math.min(coupon.discount_value, amount).toFixed(2);
       }
 
+      // Ensure final amount is at least R$5 (BrPix minimum)
+      const tentativeFinal = +(amount - discountAmount).toFixed(2);
+      if (tentativeFinal < 5) {
+        return new Response(JSON.stringify({ 
+          error: `Com esse cupom o valor mínimo do depósito é ${(5 + discountAmount).toFixed(2).replace('.', ',')}. O PIX exige no mínimo R$ 5,00.` 
+        }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       couponId = coupon.id;
 
-      // Increment usage
-      await supabase
-        .from("coupons")
-        .update({ times_used: coupon.times_used + 1 })
-        .eq("id", coupon.id);
+      // DON'T increment usage here — only increment after PIX is confirmed
+      // This prevents users from "burning" coupons without paying
     }
 
     const finalAmount = +(amount - discountAmount).toFixed(2);
-    if (finalAmount < 0.01) {
-      return new Response(JSON.stringify({ error: "Valor final inválido com desconto" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const customer = { name: "Cliente Lovable", document: "12345678909" };
 
