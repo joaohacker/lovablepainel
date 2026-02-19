@@ -1,0 +1,1 @@
+UPDATE coupons SET is_active = false WHERE code = 'LANÇAMENTO20';
