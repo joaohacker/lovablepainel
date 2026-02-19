@@ -335,34 +335,32 @@ serve(async (req) => {
       let genFound = false;
 
       if (isPublic) {
-        // Authenticate the user to match generation by user_id
+        // SECURITY: Always require authentication for __public__ token updates
         const authHeader = req.headers.get("authorization");
-        if (authHeader) {
-          const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-          const userClient = createClient(supabaseUrl, anonKey, {
-            global: { headers: { Authorization: authHeader } },
-          });
-          const { data: { user } } = await userClient.auth.getUser();
-          if (user) {
-            const { data: gen } = await supabase
-              .from("generations")
-              .select("id")
-              .eq("farm_id", farmId)
-              .eq("user_id", user.id)
-              .maybeSingle();
-            genFound = !!gen;
-          }
+        if (!authHeader) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Auth required" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
-        if (!genFound) {
-          // Fallback: match by farm_id only for on-demand (token_id is null)
-          const { data: gen } = await supabase
-            .from("generations")
-            .select("id")
-            .eq("farm_id", farmId)
-            .is("token_id", null)
-            .maybeSingle();
-          genFound = !!gen;
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+        const userClient = createClient(supabaseUrl, anonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await userClient.auth.getUser();
+        if (!user) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Invalid user" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
+        const { data: gen } = await supabase
+          .from("generations")
+          .select("id")
+          .eq("farm_id", farmId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        genFound = !!gen;
       } else {
         const { data: gen } = await supabase
           .from("generations")
