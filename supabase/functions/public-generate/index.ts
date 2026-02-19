@@ -56,6 +56,7 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user } } = await userClient.auth.getUser();
+    console.log("[public-generate] user:", user?.id, user?.email);
     if (!user) {
       return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas." }), {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -74,7 +75,10 @@ serve(async (req) => {
     const ALLOWED_USERS = [
       "b5501c63-4484-47a3-8d9d-7f3b129f7ab4", // admin
       "3259c909-edd2-4ef5-b637-4450fd2abf99", // fifagostoso34542112@gmail.com
+      "69df85ad-950d-48f6-9432-9ae1d7ee21c6", // fifagostoso3454222@gmail.com
     ];
+
+    console.log("[public-generate] adminRole:", !!adminRole, "inAllowed:", ALLOWED_USERS.includes(user.id));
 
     if (!adminRole && !ALLOWED_USERS.includes(user.id)) {
       return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
