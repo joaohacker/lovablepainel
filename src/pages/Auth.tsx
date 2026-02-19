@@ -38,10 +38,7 @@ const Auth = () => {
         navigate("/");
       } else {
         await signUp(email, password);
-        toast({
-          title: "Conta criada!",
-          description: "Sua conta foi criada com sucesso.",
-        });
+        toast({ title: "Conta criada!" });
         navigate("/");
       }
     } catch (err: any) {
