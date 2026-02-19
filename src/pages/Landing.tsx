@@ -19,6 +19,7 @@ import { PublicGenerator } from "@/components/public/PublicGenerator";
 
 import { WhatsAppButton } from "@/components/public/WhatsAppButton";
 import { BackgroundEffects } from "@/components/public/BackgroundEffects";
+import { SocialProof } from "@/components/public/SocialProof";
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -174,6 +175,9 @@ const Landing = () => {
           })()}
         </div>
       </section>
+
+      {/* Social Proof */}
+      <SocialProof />
 
       {/* How it Works */}
       <section id="como-funciona" className="relative z-10 py-14 md:py-24 px-4">
