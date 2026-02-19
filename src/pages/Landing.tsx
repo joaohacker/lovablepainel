@@ -89,9 +89,17 @@ const Landing = () => {
                 Lovable
               </span>
             </h1>
-            <p className="mx-auto max-w-xl text-sm md:text-lg text-muted-foreground">
-              Escolha a quantidade, pague via PIX e seus créditos são gerados automaticamente.
+            <p className="mx-auto max-w-2xl text-sm md:text-lg text-muted-foreground">
+              Feito para <span className="font-semibold text-foreground">revendedores de créditos</span> que querem escalar suas vendas — mas qualquer pessoa pode usar para gerar créditos próprios também.
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+                👥 Ideal para Revendedores
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-xs font-medium text-emerald-400">
+                ✅ Clientes também podem usar
+              </span>
+            </div>
           </div>
           <PublicGenerator />
         </div>
