@@ -35,7 +35,8 @@ serve(async (req) => {
       .not("transaction_id", "is", null)
       .lt("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
       .gt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-      .limit(20);
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (fetchError) {
       console.error("[reconcile] DB fetch error:", fetchError);
@@ -68,11 +69,14 @@ serve(async (req) => {
         }
         
         const verifyData = await verifyRes.json();
-        const paymentStatus = verifyData.data?.status || verifyData.status;
+        console.log(`[reconcile] Order ${order.id} (${order.transaction_id}): FULL BrPix response = ${JSON.stringify(verifyData).substring(0, 500)}`);
         
-        console.log(`[reconcile] Order ${order.id} (${order.transaction_id}): BrPix status = ${paymentStatus}, paid = ${verifyData.paid || verifyData.data?.paid}`);
+        const paymentStatus = verifyData.data?.status || verifyData.status;
+        const isPaidBoolean = verifyData.paid === true || verifyData.data?.paid === true;
+        
+        console.log(`[reconcile] Order ${order.id}: parsed status = ${paymentStatus}, paid flag = ${isPaidBoolean}`);
 
-        if (paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+        if (!isPaidBoolean && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
           continue; // Not paid yet, skip
         }
 
