@@ -37,7 +37,12 @@ export function useWallet(user: User | null) {
 
   useEffect(() => {
     fetchWallet();
-  }, [fetchWallet]);
+
+    // Polling fallback: re-fetch every 15s to catch missed realtime events
+    if (!user) return;
+    const interval = setInterval(fetchWallet, 15000);
+    return () => clearInterval(interval);
+  }, [fetchWallet, user]);
 
   // Realtime: atualiza saldo automaticamente quando muda no banco
   useEffect(() => {
