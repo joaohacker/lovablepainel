@@ -43,6 +43,11 @@ serve(async (req) => {
 
   try {
 
+    // BLOQUEIO TEMPORÁRIO
+    return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
+      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
     // Authenticate user
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
