@@ -203,7 +203,38 @@ serve(async (req) => {
     }
 
     if (action === "reset-account") {
-      // Admin-only: delete token_account and auth user
+      // SECURITY: Require admin authentication
+      const authHeader = req.headers.get("authorization");
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Autenticação necessária" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user: adminUser } } = await userClient.auth.getUser();
+      if (!adminUser) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Usuário inválido" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const { data: roleCheck } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", adminUser.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (!roleCheck) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Apenas administradores podem resetar contas" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const { data: account } = await supabase
         .from("token_accounts")
         .select("user_id, email")
