@@ -46,37 +46,7 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
 
 function VideoSlide({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [playing, setPlaying] = useState(false);
-  const [posterUrl, setPosterUrl] = useState<string | null>(null);
-
-  // Generate thumbnail from first frame
-  useEffect(() => {
-    const video = document.createElement("video");
-    video.src = src;
-    video.crossOrigin = "anonymous";
-    video.preload = "metadata";
-    video.muted = true;
-    video.playsInline = true;
-    const handleLoaded = () => {
-      video.currentTime = 0.5;
-    };
-    const handleSeeked = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      canvas.getContext("2d")?.drawImage(video, 0, 0);
-      setPosterUrl(canvas.toDataURL("image/jpeg", 0.8));
-      video.remove();
-    };
-    video.addEventListener("loadedmetadata", handleLoaded);
-    video.addEventListener("seeked", handleSeeked);
-    video.load();
-    return () => {
-      video.removeEventListener("loadedmetadata", handleLoaded);
-      video.removeEventListener("seeked", handleSeeked);
-    };
-  }, [src]);
 
   const toggle = () => {
     if (!videoRef.current) return;
@@ -91,17 +61,14 @@ function VideoSlide({ src }: { src: string }) {
 
   return (
     <div className="relative w-full h-full cursor-pointer" onClick={toggle}>
-      {/* Poster thumbnail */}
-      {!playing && posterUrl && (
-        <img src={posterUrl} alt="Thumbnail" className="absolute inset-0 w-full h-full object-cover z-10" />
-      )}
       <video
         ref={videoRef}
         src={src}
         className="w-full h-full object-cover"
         loop
+        muted
         playsInline
-        preload="metadata"
+        preload="auto"
         onEnded={() => setPlaying(false)}
       />
       {!playing && (
