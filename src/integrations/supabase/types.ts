@@ -514,6 +514,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_refund_cron: { Args: never; Returns: undefined }
+      calc_credit_price: { Args: { creditos: number }; Returns: number }
       credit_wallet: {
         Args: {
           p_amount: number
