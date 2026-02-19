@@ -95,11 +95,9 @@ export function DepositModal({
     if (step !== "pix" || !orderId) return;
 
     const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from("orders")
-        .select("status")
-        .eq("id", orderId)
-        .maybeSingle();
+      const { data } = await supabase.functions.invoke("check-order-status", {
+        body: { order_id: orderId },
+      });
 
       if (data?.status === "paid") {
         clearInterval(interval);
