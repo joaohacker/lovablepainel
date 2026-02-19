@@ -21,7 +21,15 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { action, token, credits, farmId, creditsEarned, status, workspaceName } = await req.json();
+    const body = await req.json();
+    const { action, token, credits, farmId, creditsEarned, status, workspaceName } = body;
+
+    // BLOQUEIO TEMPORÁRIO - permite validate mas bloqueia create
+    if (action === "create") {
+      return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!token || typeof token !== "string") {
       return new Response(
