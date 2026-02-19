@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.token-auth]
 verify_jwt = false
+
+[functions.create-client-token]
+verify_jwt = false
+
+[functions.client-generate]
+verify_jwt = false

@@ -3,21 +3,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Zap, Loader2, Wallet } from "lucide-react";
+import { Zap, Loader2, Wallet, Link2 } from "lucide-react";
 import heartGradient from "@/assets/lovable-heart-gradient.png";
 import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBalance } from "@/lib/pricing";
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { DepositModal } from "./DepositModal";
 import { AuthModal } from "./AuthModal";
+import { MyClientLinks } from "./MyClientLinks";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export function PublicGenerator() {
   const { user, session } = useAuth();
   const { wallet, refetch: refetchWallet } = useWallet(user);
   const farm = useFarmGeneration();
+  const { toast } = useToast();
 
   const [credits, setCredits] = useState(100);
   const [creditInput, setCreditInput] = useState("100");
@@ -27,6 +30,8 @@ export function PublicGenerator() {
   const [showAuth, setShowAuth] = useState(false);
   const [pendingCredits, setPendingCredits] = useState<number | null>(null);
   const [depositAmount, setDepositAmount] = useState<number | null>(null);
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [linksRefreshKey, setLinksRefreshKey] = useState(0);
 
   const price = calcularPreco(credits);
   const pricePer100 = getPricePer100(credits);
@@ -302,6 +307,44 @@ export function PublicGenerator() {
                     {submitting ? "Iniciando..." : `Gerar ${credits} Créditos`}
                   </Button>
 
+                  {/* Generate Link button */}
+                  {user && (
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 h-12"
+                      disabled={creatingLink || credits < 5}
+                      onClick={async () => {
+                        const cost = calcularPreco(credits);
+                        if (balance < cost) {
+                          setPendingCredits(null);
+                          setDepositAmount(Math.ceil((cost - balance) * 100) / 100);
+                          setShowDeposit(true);
+                          return;
+                        }
+                        setCreatingLink(true);
+                        try {
+                          const { data, error } = await supabase.functions.invoke("create-client-token", {
+                            body: { credits },
+                          });
+                          if (error) throw new Error("Falha ao criar link");
+                          if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
+                          const url = `${window.location.origin}/tokenclientes/${data.token}`;
+                          navigator.clipboard.writeText(url);
+                          toast({ title: "Link criado e copiado!", description: `${credits} créditos • ${formatBRL(data.cost)}` });
+                          refetchWallet();
+                          setLinksRefreshKey((k) => k + 1);
+                        } catch (err: any) {
+                          toast({ title: "Erro", description: err.message, variant: "destructive" });
+                        } finally {
+                          setCreatingLink(false);
+                        }
+                      }}
+                    >
+                      {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                      Gerar Link ({formatBRL(calcularPreco(credits))})
+                    </Button>
+                  )}
+
                   {/* Add balance button */}
                   {user && (
                     <Button
@@ -322,6 +365,9 @@ export function PublicGenerator() {
                       Já tem conta? Entrar
                     </Button>
                   )}
+
+                  {/* My Links */}
+                  <MyClientLinks userId={user?.id} refreshKey={linksRefreshKey} />
                 </div>
               ) : (
                 <GenerationStatus
