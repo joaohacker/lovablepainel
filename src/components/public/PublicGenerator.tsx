@@ -138,6 +138,7 @@ export function PublicGenerator() {
 
     // Auto-refund when expired without running
     if (farm.state === "expired" && farm.creditsEarned === 0 && refundedRef.current !== farm.farmId) {
+
       refundedRef.current = farm.farmId;
       supabase.functions.invoke("validate-token", {
         body: {
@@ -159,6 +160,11 @@ export function PublicGenerator() {
           error_message: farm.errorMessage,
         },
       }).catch(() => {});
+
+      // Refetch wallet on completion — backend auto-settle may have issued a partial refund
+      if (farm.state === "completed") {
+        setTimeout(() => refetchWallet(), 2000);
+      }
     }
   }
 

@@ -25,6 +25,7 @@ export type Database = {
           farm_id: string
           id: string
           master_email: string | null
+          settled_at: string | null
           status: string
           token_id: string | null
           updated_at: string
@@ -41,6 +42,7 @@ export type Database = {
           farm_id: string
           id?: string
           master_email?: string | null
+          settled_at?: string | null
           status?: string
           token_id?: string | null
           updated_at?: string
@@ -57,6 +59,7 @@ export type Database = {
           farm_id?: string
           id?: string
           master_email?: string | null
+          settled_at?: string | null
           status?: string
           token_id?: string | null
           updated_at?: string

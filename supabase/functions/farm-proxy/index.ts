@@ -9,9 +9,99 @@ const corsHeaders = {
 
 const API_BASE = "https://api.lovablextensao.shop";
 
+// Same pricing tiers used in public-generate for consistency
+const TIERS = [
+  { credits: 100, price: 3.50 },
+  { credits: 1000, price: 24.50 },
+  { credits: 5000, price: 105.00 },
+  { credits: 10000, price: 196.00 },
+];
+
+function calcularPreco(creditos: number): number {
+  if (creditos <= 0) return 0;
+  if (creditos <= TIERS[0].credits) return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
+  if (creditos >= TIERS[TIERS.length - 1].credits) return +(creditos * (TIERS[TIERS.length - 1].price / TIERS[TIERS.length - 1].credits)).toFixed(2);
+  for (let i = 0; i < TIERS.length - 1; i++) {
+    if (creditos >= TIERS[i].credits && creditos <= TIERS[i + 1].credits) {
+      const t = (creditos - TIERS[i].credits) / (TIERS[i + 1].credits - TIERS[i].credits);
+      const unitLow = TIERS[i].price / TIERS[i].credits;
+      const unitHigh = TIERS[i + 1].price / TIERS[i + 1].credits;
+      const unit = unitLow + t * (unitHigh - unitLow);
+      return +(creditos * unit).toFixed(2);
+    }
+  }
+  return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
+}
+
+/**
+ * Auto-settle: when a generation completes, refund the difference between
+ * what was reserved (credits_requested) and what was actually earned.
+ * Uses settled_at IS NULL as atomic guard against double-refunds.
+ */
+async function autoSettle(
+  supabase: ReturnType<typeof createClient>,
+  farmId: string,
+  upstreamCreditsEarned: number
+) {
+  // Find the generation — only on-demand (user_id IS NOT NULL) and not yet settled
+  const { data: gen } = await supabase
+    .from("generations")
+    .select("id, user_id, credits_requested, credits_earned, status, settled_at")
+    .eq("farm_id", farmId)
+    .not("user_id", "is", null)
+    .is("settled_at", null)
+    .maybeSingle();
+
+  if (!gen || !gen.user_id) return;
+
+  // Cap earned credits at requested
+  const finalEarned = Math.min(
+    Math.max(upstreamCreditsEarned, gen.credits_earned ?? 0),
+    gen.credits_requested
+  );
+
+  // Atomically mark as settled to prevent double-refund
+  const { data: updated, error: updateError } = await supabase
+    .from("generations")
+    .update({
+      status: "completed",
+      credits_earned: finalEarned,
+      settled_at: new Date().toISOString(),
+    })
+    .eq("farm_id", farmId)
+    .is("settled_at", null)
+    .select("id")
+    .maybeSingle();
+
+  // If no row was updated, another process already settled it
+  if (updateError || !updated) {
+    console.log(`[auto-settle] Already settled or error for farmId=${farmId}`);
+    return;
+  }
+
+  // Calculate refund if earned < requested
+  const undelivered = gen.credits_requested - finalEarned;
+  if (undelivered > 0) {
+    const fullCost = calcularPreco(gen.credits_requested);
+    const deliveredCost = calcularPreco(finalEarned);
+    const refundAmount = +(fullCost - deliveredCost).toFixed(2);
+
+    if (refundAmount > 0) {
+      await supabase.rpc("credit_wallet", {
+        p_user_id: gen.user_id,
+        p_amount: refundAmount,
+        p_description: `Reembolso parcial - ${finalEarned}/${gen.credits_requested} créditos entregues`,
+        p_reference_id: farmId,
+      });
+      console.log(`[auto-settle] Refunded R$${refundAmount} for farmId=${farmId} (${finalEarned}/${gen.credits_requested} credits)`);
+    }
+  } else {
+    console.log(`[auto-settle] Full delivery for farmId=${farmId} (${finalEarned}/${gen.credits_requested})`);
+  }
+}
+
 /**
  * Validates that the request has a valid token+farmId pair or is an authenticated admin.
- * Returns { authorized: true } or a Response to send back.
  */
 async function authorizeRequest(
   req: Request,
@@ -19,13 +109,11 @@ async function authorizeRequest(
   farmId: string | null,
   token: string | null
 ): Promise<{ authorized: true } | { authorized: false; response: Response }> {
-  // Path 1: Admin auth via JWT
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const jwt = authHeader.replace("Bearer ", "");
     const { data, error } = await supabase.auth.getUser(jwt);
     if (!error && data?.user) {
-      // Check if admin
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
@@ -38,7 +126,6 @@ async function authorizeRequest(
     }
   }
 
-  // Path 2: Token + farmId validation (client accessing their own session)
   if (token && farmId) {
     const { data: tokenData } = await supabase
       .from("tokens")
@@ -48,7 +135,6 @@ async function authorizeRequest(
       .maybeSingle();
 
     if (tokenData) {
-      // Verify this farmId belongs to this token
       const { data: gen } = await supabase
         .from("generations")
         .select("id")
@@ -102,7 +188,6 @@ serve(async (req) => {
       );
     }
 
-    // SSE endpoint removed — return immediately without auth queries to save costs
     if (action === "events") {
       return new Response(
         JSON.stringify({ error: "SSE endpoint deprecated. Use action=status for polling." }),
@@ -110,7 +195,7 @@ serve(async (req) => {
       );
     }
 
-    // === PUBLIC: stock and status are read-only, farmId is UUID (not guessable) ===
+    // === PUBLIC: stock and status are read-only ===
     // === PROTECTED: cancel requires authorization ===
     if (action !== "stock" && action !== "status") {
       const auth = await authorizeRequest(req, supabase, farmId, token);
@@ -119,7 +204,6 @@ serve(async (req) => {
       }
     }
 
-    // Regular API proxy endpoints
     let upstreamUrl: string;
     let method = "GET";
     let body: string | undefined;
@@ -154,7 +238,7 @@ serve(async (req) => {
 
       default:
         return new Response(
-          JSON.stringify({ error: "Invalid action. Use: stock, status, cancel, events" }),
+          JSON.stringify({ error: "Invalid action. Use: stock, status, cancel" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
@@ -174,6 +258,31 @@ serve(async (req) => {
 
     const data = await upstreamRes.text();
     console.log(`[farm-proxy] upstream responded: ${upstreamRes.status}`);
+
+    // === AUTO-SETTLE: when status returns "completed", settle the generation ===
+    if (action === "status" && farmId && upstreamRes.ok) {
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.status === "completed") {
+          // Count credits from result or logs
+          let creditsEarned = parsed.result?.credits ?? parsed.creditsEarned ?? 0;
+          if (creditsEarned === 0 && Array.isArray(parsed.logs)) {
+            for (const log of parsed.logs) {
+              if (log.type === "credit") {
+                const match = log.message?.match(/^\+(\d+)\s/);
+                if (match) creditsEarned += parseInt(match[1], 10);
+              }
+            }
+          }
+          // Fire-and-forget settlement — don't block the response
+          autoSettle(supabase, farmId, creditsEarned).catch((err) => {
+            console.error(`[auto-settle] Error:`, err);
+          });
+        }
+      } catch {
+        // Parsing failed — not a JSON response, skip settlement
+      }
+    }
 
     return new Response(data, {
       status: upstreamRes.status,
