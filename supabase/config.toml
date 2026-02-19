@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.client-generate]
 verify_jwt = false
+
+[functions.auto-refund]
+verify_jwt = false
