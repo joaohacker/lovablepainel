@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Link2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +12,6 @@ interface ClientToken {
   total_credits: number;
   credits_used: number;
   is_active: boolean;
-  expires_at: string;
   created_at: string;
 }
 
@@ -38,7 +36,7 @@ export function MyClientLinks({ userId, refreshKey }: MyClientLinksProps) {
       setLoading(true);
       const { data } = await supabase
         .from("client_tokens")
-        .select("*")
+        .select("id, token, total_credits, credits_used, is_active, created_at")
         .eq("owner_id", userId)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -74,7 +72,6 @@ export function MyClientLinks({ userId, refreshKey }: MyClientLinksProps) {
       <div className="space-y-2">
         {tokens.map((t) => {
           const remaining = t.total_credits - t.credits_used;
-          const expired = new Date(t.expires_at) < new Date();
           const exhausted = remaining <= 0;
 
           return (
@@ -88,8 +85,8 @@ export function MyClientLinks({ userId, refreshKey }: MyClientLinksProps) {
                   <span className="text-sm font-medium text-foreground truncate">
                     {t.credits_used}/{t.total_credits} créditos usados
                   </span>
-                  {expired ? (
-                    <Badge variant="secondary" className="text-[10px]">Expirado</Badge>
+                  {!t.is_active ? (
+                    <Badge variant="secondary" className="text-[10px]">Desativado</Badge>
                   ) : exhausted ? (
                     <Badge variant="secondary" className="text-[10px]">Esgotado</Badge>
                   ) : (
@@ -97,7 +94,7 @@ export function MyClientLinks({ userId, refreshKey }: MyClientLinksProps) {
                   )}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Expira: {format(new Date(t.expires_at), "dd/MM/yyyy HH:mm")}
+                  Criado: {format(new Date(t.created_at), "dd/MM/yyyy HH:mm")}
                 </p>
               </div>
               <Button

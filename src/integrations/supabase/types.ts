@@ -51,6 +51,7 @@ export type Database = {
         Row: {
           client_ip: string | null
           client_name: string
+          client_token_id: string | null
           created_at: string
           credits_earned: number | null
           credits_requested: number
@@ -68,6 +69,7 @@ export type Database = {
         Insert: {
           client_ip?: string | null
           client_name: string
+          client_token_id?: string | null
           created_at?: string
           credits_earned?: number | null
           credits_requested: number
@@ -85,6 +87,7 @@ export type Database = {
         Update: {
           client_ip?: string | null
           client_name?: string
+          client_token_id?: string | null
           created_at?: string
           credits_earned?: number | null
           credits_requested?: number
@@ -100,6 +103,13 @@ export type Database = {
           workspace_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "generations_client_token_id_fkey"
+            columns: ["client_token_id"]
+            isOneToOne: false
+            referencedRelation: "client_tokens"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "generations_token_id_fkey"
             columns: ["token_id"]
@@ -484,6 +494,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      refund_client_token_credits: {
+        Args: { p_credits: number; p_token_id: string }
+        Returns: Json
       }
       reserve_credits: {
         Args: {
