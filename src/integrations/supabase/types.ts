@@ -158,10 +158,12 @@ export type Database = {
       orders: {
         Row: {
           amount: number
+          coupon_id: string | null
           created_at: string
           customer_document: string
           customer_email: string
           customer_name: string
+          discount_amount: number | null
           id: string
           order_type: string
           paid_at: string | null
@@ -177,10 +179,12 @@ export type Database = {
         }
         Insert: {
           amount: number
+          coupon_id?: string | null
           created_at?: string
           customer_document: string
           customer_email: string
           customer_name: string
+          discount_amount?: number | null
           id?: string
           order_type?: string
           paid_at?: string | null
@@ -196,10 +200,12 @@ export type Database = {
         }
         Update: {
           amount?: number
+          coupon_id?: string | null
           created_at?: string
           customer_document?: string
           customer_email?: string
           customer_name?: string
+          discount_amount?: number | null
           id?: string
           order_type?: string
           paid_at?: string | null
