@@ -15,6 +15,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/pricing";
 import { PixStep } from "./PixStep";
 
+const PENDING_DEPOSIT_KEY = "pending_deposit";
+
+export function savePendingDeposit(orderId: string, amount: number) {
+  localStorage.setItem(PENDING_DEPOSIT_KEY, JSON.stringify({ order_id: orderId, amount }));
+}
+
+export function loadPendingDeposit(): { order_id: string; amount: number } | null {
+  try {
+    const raw = localStorage.getItem(PENDING_DEPOSIT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingDeposit() {
+  localStorage.removeItem(PENDING_DEPOSIT_KEY);
+}
+
 interface DepositModalProps {
   open: boolean;
   onClose: () => void;
@@ -23,6 +43,9 @@ interface DepositModalProps {
   pendingCredits: number | null;
   onGenerateAfterDeposit: () => void;
   isLoggedIn: boolean;
+  /** If set, open directly in "paid" step to resume claiming */
+  resumeOrderId?: string | null;
+  resumeAmount?: number | null;
 }
 
 export function DepositModal({
@@ -33,6 +56,8 @@ export function DepositModal({
   pendingCredits,
   onGenerateAfterDeposit,
   isLoggedIn,
+  resumeOrderId,
+  resumeAmount,
 }: DepositModalProps) {
   // Steps: form → pix → paid → signup (if not logged in) → done
   const [step, setStep] = useState<"form" | "pix" | "paid" | "signup" | "claiming" | "done">("form");
@@ -57,6 +82,20 @@ export function DepositModal({
 
   useEffect(() => {
     if (open) {
+      // If resuming a pending deposit, go straight to signup step
+      if (resumeOrderId && resumeAmount) {
+        setStep("paid");
+        setOrderId(resumeOrderId);
+        setAmount(resumeAmount);
+        setAmountInput(String(resumeAmount));
+        setPixCode(null);
+        setError(null);
+        setAuthError(null);
+        setEmail("");
+        setPassword("");
+        setAuthMode("signup");
+        return;
+      }
       setStep("form");
       setPixCode(null);
       setOrderId(null);
@@ -74,7 +113,7 @@ export function DepositModal({
       setAmount(val);
       setAmountInput(String(val));
     }
-  }, [open, suggestedAmount]);
+  }, [open, suggestedAmount, resumeOrderId, resumeAmount]);
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -158,7 +197,8 @@ export function DepositModal({
           setStep("done");
           onSuccess();
         } else {
-          // Not logged in — show signup form
+          // Not logged in — save to localStorage and show signup form
+          savePendingDeposit(orderId, amount);
           setStep("paid");
         }
       }
@@ -177,6 +217,7 @@ export function DepositModal({
       if (error || !data?.success) {
         throw new Error(data?.error || "Erro ao creditar saldo");
       }
+      clearPendingDeposit();
       setStep("done");
       onSuccess();
     } catch (err: any) {
