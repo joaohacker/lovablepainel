@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, QrCode, Wallet, CheckCircle2, UserPlus } from "lucide-react";
+import { Loader2, QrCode, Wallet, CheckCircle2, UserPlus, Tag } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/pricing";
@@ -42,6 +42,8 @@ export function DepositModal({
   const [pixCode, setPixCode] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [showCoupon, setShowCoupon] = useState(false);
 
   // Signup fields
   const [email, setEmail] = useState("");
@@ -60,6 +62,8 @@ export function DepositModal({
       setEmail("");
       setPassword("");
       setAuthMode("signup");
+      setCouponCode("");
+      setShowCoupon(false);
       const val = suggestedAmount && suggestedAmount >= 5 ? suggestedAmount : 5;
       setAmount(val);
       setAmountInput(String(val));
@@ -73,7 +77,7 @@ export function DepositModal({
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("wallet-deposit", {
-        body: { amount },
+        body: { amount, coupon_code: couponCode.trim() || undefined },
       });
 
       if (fnError || !data?.success) {
@@ -215,6 +219,30 @@ export function DepositModal({
                 step={0.01}
               />
             </div>
+
+            {/* Coupon */}
+            {!showCoupon ? (
+              <button
+                type="button"
+                onClick={() => setShowCoupon(true)}
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+              >
+                <Tag className="h-3.5 w-3.5" />
+                Tenho um cupom de desconto
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <Label>Cupom de desconto</Label>
+                <Input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="CODIGO DO CUPOM"
+                  className="uppercase"
+                />
+              </div>
+            )}
+
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <Button onClick={handleSubmit} disabled={loading || amount < 5} className="w-full gap-2">

@@ -38,10 +38,62 @@ serve(async (req) => {
       if (user) userId = user.id;
     }
 
-    const { amount } = await req.json();
+    const { amount, coupon_code } = await req.json();
 
     if (!amount || amount < 5) {
       return new Response(JSON.stringify({ error: "Valor mínimo é R$ 5,00" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate coupon if provided
+    let discountAmount = 0;
+    let couponId: string | null = null;
+    if (coupon_code && typeof coupon_code === "string" && coupon_code.trim()) {
+      const code = coupon_code.trim().toUpperCase();
+      const { data: coupon } = await supabase
+        .from("coupons")
+        .select("*")
+        .eq("code", code)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (!coupon) {
+        return new Response(JSON.stringify({ error: "Cupom inválido ou expirado" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+        return new Response(JSON.stringify({ error: "Cupom expirado" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (coupon.max_uses !== null && coupon.times_used >= coupon.max_uses) {
+        return new Response(JSON.stringify({ error: "Cupom esgotado" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (coupon.discount_type === "percentage") {
+        discountAmount = +(amount * (coupon.discount_value / 100)).toFixed(2);
+      } else {
+        discountAmount = +Math.min(coupon.discount_value, amount).toFixed(2);
+      }
+
+      couponId = coupon.id;
+
+      // Increment usage
+      await supabase
+        .from("coupons")
+        .update({ times_used: coupon.times_used + 1 })
+        .eq("id", coupon.id);
+    }
+
+    const finalAmount = +(amount - discountAmount).toFixed(2);
+    if (finalAmount < 0.01) {
+      return new Response(JSON.stringify({ error: "Valor final inválido com desconto" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -56,7 +108,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        amount: Number(amount),
+        amount: finalAmount,
         payment_method: "pix",
         customer: {
           name: customer.name,
@@ -95,7 +147,7 @@ serve(async (req) => {
       .from("orders")
       .insert({
         product_id: product.id,
-        amount: Number(amount),
+        amount: Number(amount), // Store original amount for wallet credit
         customer_name: customer.name,
         customer_email: "cliente@lovable.com",
         customer_document: customer.document,
@@ -122,6 +174,8 @@ serve(async (req) => {
       transaction_id: pixData.transaction_id,
       pix_code: pixData.pix?.qr_code || null,
       amount: Number(amount),
+      final_amount: finalAmount,
+      discount: discountAmount,
       expires_at: pixData.pix?.expiration_date || pixData.expires_at || null,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
