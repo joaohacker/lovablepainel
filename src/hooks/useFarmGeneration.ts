@@ -97,6 +97,30 @@ export function useFarmGeneration(accessToken?: string) {
 
   useEffect(() => cleanup, [cleanup]);
 
+  // Auto-expire if expiresAt passes and generation never started running
+  const expirationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startExpirationTimer = useCallback((expiresAt: number) => {
+    if (expirationTimerRef.current) clearTimeout(expirationTimerRef.current);
+    const delay = Math.max(0, expiresAt - Date.now());
+    expirationTimerRef.current = setTimeout(() => {
+      setGen((prev) => {
+        if (prev.state === "waiting_invite" || prev.state === "queued") {
+          cleanup();
+          completedRef.current = true;
+          return { ...prev, state: "expired", errorMessage: "Tempo esgotado sem detectar workspace. Seus créditos serão reembolsados automaticamente." };
+        }
+        return prev;
+      });
+    }, delay);
+  }, [cleanup]);
+
+  useEffect(() => {
+    return () => {
+      if (expirationTimerRef.current) clearTimeout(expirationTimerRef.current);
+    };
+  }, []);
+
   // Polling-only approach (no SSE — avoids API key exposure and edge function timeouts)
   const startPolling = useCallback(
     (farmId: string) => {
@@ -328,6 +352,7 @@ export function useFarmGeneration(accessToken?: string) {
             masterEmail: response.masterEmail || null,
             expiresAt,
           }));
+          startExpirationTimer(expiresAt);
           startPolling(response.farmId);
         }
       } catch (err) {
@@ -338,7 +363,7 @@ export function useFarmGeneration(accessToken?: string) {
         }));
       }
     },
-    [cleanup, startPolling]
+    [cleanup, startPolling, startExpirationTimer]
   );
 
   const startGenerationWithFarmId = useCallback(
@@ -381,10 +406,11 @@ export function useFarmGeneration(accessToken?: string) {
           feed: [],
           expiresAt,
         });
+        startExpirationTimer(expiresAt);
         startPolling(farmId);
       }
     },
-    [cleanup, startPolling]
+    [cleanup, startPolling, startExpirationTimer]
   );
 
   const setError = useCallback((message: string) => {
