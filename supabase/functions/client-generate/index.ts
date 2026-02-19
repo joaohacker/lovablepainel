@@ -53,14 +53,44 @@ serve(async (req) => {
 
     const remaining = clientToken.total_credits - clientToken.credits_used;
 
+    // Helper: calculate REAL remaining by accounting for credits reserved in
+    // active generations that haven't delivered yet (waiting_invite, queued, pending, creating).
+    // These will be refunded by the cron, so the client shouldn't see them as "used".
+    async function getRealRemaining(): Promise<{ realRemaining: number; hasActiveGen: boolean }> {
+      const { data: activeGens } = await supabase
+        .from("generations")
+        .select("credits_requested, credits_earned, status")
+        .eq("client_token_id", clientToken.id)
+        .in("status", ["waiting_invite", "queued", "pending", "creating", "active"])
+        .is("settled_at", null);
+
+      let reservedNotDelivered = 0;
+      const hasActiveGen = (activeGens && activeGens.length > 0) || false;
+
+      if (activeGens) {
+        for (const g of activeGens) {
+          const earned = g.credits_earned ?? 0;
+          reservedNotDelivered += g.credits_requested - earned;
+        }
+      }
+
+      return {
+        realRemaining: remaining + reservedNotDelivered,
+        hasActiveGen,
+      };
+    }
+
     // === VALIDATE ===
     if (action === "validate") {
+      const { realRemaining, hasActiveGen } = await getRealRemaining();
+
       return new Response(
         JSON.stringify({
           success: true,
           total_credits: clientToken.total_credits,
           credits_used: clientToken.credits_used,
-          remaining,
+          remaining: realRemaining,
+          has_active_generation: hasActiveGen,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -191,15 +221,25 @@ serve(async (req) => {
         );
       }
 
-      if (remaining <= 0) {
+      // Check real remaining (accounting for reserved credits that will be refunded)
+      const { realRemaining, hasActiveGen } = await getRealRemaining();
+
+      if (hasActiveGen) {
+        return new Response(
+          JSON.stringify({ error: "Você já tem uma geração ativa. Aguarde ela finalizar antes de iniciar outra." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (realRemaining <= 0) {
         return new Response(
           JSON.stringify({ error: "Créditos esgotados" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Clamp to remaining
-      const actualCredits = Math.min(credits, remaining);
+      // Clamp to real remaining
+      const actualCredits = Math.min(credits, realRemaining);
 
       // Atomic debit from client token
       const { data: useResult, error: useError } = await supabase.rpc("use_client_token_credits", {
