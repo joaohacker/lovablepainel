@@ -50,9 +50,73 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Find all on-demand generations that expired/cancelled without settlement
-    // Only process generations older than 10 minutes (avoid racing with active sessions)
-    const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const results: Array<{ id: string; user_id: string; refund: number; credits: number; reason: string }> = [];
+
+    // ========================================================
+    // 1) Auto-cancel waiting_invite stuck for > 10 minutes
+    // ========================================================
+    const waitingCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+    const { data: stuckWaiting, error: stuckError } = await supabase
+      .from("generations")
+      .select("id, farm_id, user_id, credits_requested, credits_earned, status, created_at")
+      .not("user_id", "is", null)
+      .is("settled_at", null)
+      .eq("status", "waiting_invite")
+      .lt("created_at", waitingCutoff)
+      .limit(50);
+
+    if (stuckError) {
+      console.error("[auto-refund] Error fetching stuck waiting_invite:", stuckError);
+    }
+
+    if (stuckWaiting && stuckWaiting.length > 0) {
+      for (const gen of stuckWaiting) {
+        // Mark as cancelled + settled atomically
+        const { data: updated, error: updateError } = await supabase
+          .from("generations")
+          .update({
+            status: "cancelled",
+            settled_at: new Date().toISOString(),
+            error_message: "Cancelado automaticamente - waiting_invite por mais de 10 minutos sem atividade",
+          })
+          .eq("id", gen.id)
+          .is("settled_at", null)
+          .select("id")
+          .maybeSingle();
+
+        if (updateError || !updated) {
+          console.log(`[auto-refund] Already settled (waiting): ${gen.id}`);
+          continue;
+        }
+
+        // Full refund since nothing was delivered
+        const refundAmount = calcularPreco(gen.credits_requested);
+
+        if (refundAmount > 0) {
+          const { error: refundError } = await supabase.rpc("credit_wallet", {
+            p_user_id: gen.user_id,
+            p_amount: refundAmount,
+            p_description: `Reembolso automático - geração cancelada (waiting_invite > 10min, ${gen.credits_requested} créditos)`,
+            p_reference_id: gen.farm_id,
+          });
+
+          if (refundError) {
+            console.error(`[auto-refund] Refund failed for waiting ${gen.id}:`, refundError);
+            await supabase.from("generations").update({ settled_at: null, status: "waiting_invite", error_message: null }).eq("id", gen.id);
+            continue;
+          }
+        }
+
+        console.log(`[auto-refund] Cancelled waiting_invite & refunded R$${refundAmount} to ${gen.user_id} (${gen.credits_requested} credits, farm ${gen.farm_id})`);
+        results.push({ id: gen.id, user_id: gen.user_id, refund: refundAmount, credits: gen.credits_requested, reason: "waiting_invite_timeout" });
+      }
+    }
+
+    // ========================================================
+    // 2) Refund expired/cancelled/error generations (full refund)
+    // ========================================================
+    const expiredCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
     const { data: unsettled, error: fetchError } = await supabase
       .from("generations")
@@ -60,96 +124,134 @@ serve(async (req) => {
       .not("user_id", "is", null)
       .is("settled_at", null)
       .in("status", ["expired", "cancelled", "error"])
-      .lt("created_at", cutoff)
+      .lt("created_at", expiredCutoff)
       .limit(50);
 
-    if (fetchError) throw fetchError;
-
-    if (!unsettled || unsettled.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, message: "No pending refunds", processed: 0 }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (fetchError) {
+      console.error("[auto-refund] Error fetching unsettled:", fetchError);
     }
 
-    const results: Array<{ id: string; user_id: string; refund: number; credits: number }> = [];
+    if (unsettled && unsettled.length > 0) {
+      for (const gen of unsettled) {
+        const earned = gen.credits_earned ?? 0;
+        const requested = gen.credits_requested;
 
-    for (const gen of unsettled) {
-      const earned = gen.credits_earned ?? 0;
-      const requested = gen.credits_requested;
+        const fullCost = calcularPreco(requested);
+        const deliveredCost = earned > 0 ? calcularPreco(earned) : 0;
+        const refundAmount = +(fullCost - deliveredCost).toFixed(2);
 
-      // Calculate refund: full cost minus cost of what was actually delivered
-      const fullCost = calcularPreco(requested);
-      const deliveredCost = earned > 0 ? calcularPreco(earned) : 0;
-      const refundAmount = +(fullCost - deliveredCost).toFixed(2);
+        if (refundAmount <= 0) {
+          await supabase.from("generations").update({ settled_at: new Date().toISOString() }).eq("id", gen.id).is("settled_at", null);
+          continue;
+        }
 
-      if (refundAmount <= 0) {
-        // Nothing to refund, just mark as settled
-        await supabase
+        const { data: updated, error: updateError } = await supabase
+          .from("generations")
+          .update({ settled_at: new Date().toISOString(), credits_earned: earned })
+          .eq("id", gen.id)
+          .is("settled_at", null)
+          .select("id")
+          .maybeSingle();
+
+        if (updateError || !updated) {
+          console.log(`[auto-refund] Already settled: ${gen.id}`);
+          continue;
+        }
+
+        const description =
+          earned > 0
+            ? `Reembolso automático - ${earned}/${requested} créditos entregues (${gen.status})`
+            : `Reembolso automático - geração ${gen.status} (${requested} créditos)`;
+
+        const { error: refundError } = await supabase.rpc("credit_wallet", {
+          p_user_id: gen.user_id,
+          p_amount: refundAmount,
+          p_description: description,
+          p_reference_id: gen.farm_id,
+        });
+
+        if (refundError) {
+          console.error(`[auto-refund] Refund failed for ${gen.id}:`, refundError);
+          await supabase.from("generations").update({ settled_at: null }).eq("id", gen.id);
+          continue;
+        }
+
+        console.log(`[auto-refund] Refunded R$${refundAmount} to ${gen.user_id} for farm ${gen.farm_id} (${gen.status}, ${earned}/${requested} credits)`);
+        results.push({ id: gen.id, user_id: gen.user_id, refund: refundAmount, credits: requested - earned, reason: gen.status });
+      }
+    }
+
+    // ========================================================
+    // 3) Settle completed on-demand generations (partial refund)
+    //    Charge only for credits actually delivered
+    // ========================================================
+    const { data: completed, error: completedError } = await supabase
+      .from("generations")
+      .select("id, farm_id, user_id, credits_requested, credits_earned, status, created_at")
+      .not("user_id", "is", null)
+      .is("settled_at", null)
+      .eq("status", "completed")
+      .limit(50);
+
+    if (completedError) {
+      console.error("[auto-refund] Error fetching completed:", completedError);
+    }
+
+    if (completed && completed.length > 0) {
+      for (const gen of completed) {
+        const earned = gen.credits_earned ?? 0;
+        const requested = gen.credits_requested;
+
+        // If all credits delivered, just mark as settled (no refund needed)
+        if (earned >= requested) {
+          await supabase.from("generations").update({ settled_at: new Date().toISOString() }).eq("id", gen.id).is("settled_at", null);
+          continue;
+        }
+
+        const fullCost = calcularPreco(requested);
+        const deliveredCost = earned > 0 ? calcularPreco(earned) : 0;
+        const refundAmount = +(fullCost - deliveredCost).toFixed(2);
+
+        if (refundAmount <= 0) {
+          await supabase.from("generations").update({ settled_at: new Date().toISOString() }).eq("id", gen.id).is("settled_at", null);
+          continue;
+        }
+
+        const { data: updated, error: updateError } = await supabase
           .from("generations")
           .update({ settled_at: new Date().toISOString() })
           .eq("id", gen.id)
-          .is("settled_at", null);
-        continue;
+          .is("settled_at", null)
+          .select("id")
+          .maybeSingle();
+
+        if (updateError || !updated) {
+          console.log(`[auto-refund] Already settled (completed): ${gen.id}`);
+          continue;
+        }
+
+        const { error: refundError } = await supabase.rpc("credit_wallet", {
+          p_user_id: gen.user_id,
+          p_amount: refundAmount,
+          p_description: `Reembolso parcial - ${earned}/${requested} créditos entregues (completed)`,
+          p_reference_id: gen.farm_id,
+        });
+
+        if (refundError) {
+          console.error(`[auto-refund] Partial refund failed for ${gen.id}:`, refundError);
+          await supabase.from("generations").update({ settled_at: null }).eq("id", gen.id);
+          continue;
+        }
+
+        console.log(`[auto-refund] Partial refund R$${refundAmount} to ${gen.user_id} (${earned}/${requested} credits delivered, farm ${gen.farm_id})`);
+        results.push({ id: gen.id, user_id: gen.user_id, refund: refundAmount, credits: requested - earned, reason: "partial_delivery" });
       }
-
-      // Atomically mark as settled first (prevents double-refund)
-      const { data: updated, error: updateError } = await supabase
-        .from("generations")
-        .update({
-          settled_at: new Date().toISOString(),
-          credits_earned: earned,
-        })
-        .eq("id", gen.id)
-        .is("settled_at", null)
-        .select("id")
-        .maybeSingle();
-
-      if (updateError || !updated) {
-        console.log(`[auto-refund] Already settled: ${gen.id}`);
-        continue;
-      }
-
-      // Issue refund
-      const description =
-        earned > 0
-          ? `Reembolso automático - ${earned}/${requested} créditos entregues (${gen.status})`
-          : `Reembolso automático - geração ${gen.status} (${requested} créditos)`;
-
-      const { error: refundError } = await supabase.rpc("credit_wallet", {
-        p_user_id: gen.user_id,
-        p_amount: refundAmount,
-        p_description: description,
-        p_reference_id: gen.farm_id,
-      });
-
-      if (refundError) {
-        console.error(`[auto-refund] Refund failed for ${gen.id}:`, refundError);
-        // Revert settlement so it can be retried
-        await supabase
-          .from("generations")
-          .update({ settled_at: null })
-          .eq("id", gen.id);
-        continue;
-      }
-
-      console.log(
-        `[auto-refund] Refunded R$${refundAmount} to ${gen.user_id} for farm ${gen.farm_id} (${gen.status}, ${earned}/${requested} credits)`
-      );
-
-      results.push({
-        id: gen.id,
-        user_id: gen.user_id,
-        refund: refundAmount,
-        credits: requested - earned,
-      });
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         processed: results.length,
-        total_found: unsettled.length,
         refunds: results,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
