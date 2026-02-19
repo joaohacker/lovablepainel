@@ -26,7 +26,7 @@ serve(async (req) => {
     const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // BLOQUEIO TOTAL — exploits detectados
     const MAINTENANCE_MSG = "🔧 Atualizando painel com melhorias. Aguarde alguns minutos!";
     // Tokens allowed to bypass maintenance (for testing)
-    const MAINTENANCE_BYPASS_TOKENS: string[] = ["f35112c962407939853dc9db8de84013"];
+    const MAINTENANCE_BYPASS_TOKENS: string[] = ["f35112c962407939853dc9db8de84013", "68d07099101c4ea17befc46202497e94"];
     // Tokens that should NOT show "painel por demanda" info in maintenance banner
     const HIDE_DEMAND_INFO_TOKENS: string[] = [
       "98a1475498ba92e7c793344107724ff0",
