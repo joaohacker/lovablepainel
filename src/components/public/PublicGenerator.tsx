@@ -346,16 +346,14 @@ export function PublicGenerator() {
                     </Button>
                   )}
 
-                  {/* Add balance button */}
-                  {user && (
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2"
-                      onClick={() => { setDepositAmount(null); setShowDeposit(true); }}
-                    >
-                      <Wallet className="h-4 w-4" /> Adicionar Saldo
-                    </Button>
-                  )}
+                  {/* Add balance button — always visible */}
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => { setDepositAmount(null); setPendingCredits(null); setShowDeposit(true); }}
+                  >
+                    <Wallet className="h-4 w-4" /> Adicionar Saldo
+                  </Button>
 
                   {!user && (
                     <Button
