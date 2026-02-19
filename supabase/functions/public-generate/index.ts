@@ -82,25 +82,7 @@ serve(async (req) => {
       });
     }
     // FIM BLOQUEIO TEMPORÁRIO
-
-    // Authenticate user
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Auth required" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Invalid user" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // user já autenticado acima
 
     const { credits } = await req.json();
     if (!credits || credits < 5 || credits > 10000 || credits % 5 !== 0) {
