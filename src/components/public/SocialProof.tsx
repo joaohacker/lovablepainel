@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Play, Pause, Users, TrendingUp, Star } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight, Play, Pause, Users, TrendingUp, Star, Loader2 } from "lucide-react";
 
 interface ProofSlide {
   thumbnail?: string;
@@ -44,9 +44,36 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-function VideoSlide({ src }: { src: string }) {
+function VideoSlide({ src, isActive }: { src: string; isActive: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // Show first frame by seeking to 0.1s once metadata loads
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const handleLoaded = () => {
+      video.currentTime = 0.1;
+    };
+    const handleSeeked = () => {
+      setLoaded(true);
+    };
+    video.addEventListener("loadeddata", handleLoaded);
+    video.addEventListener("seeked", handleSeeked);
+    return () => {
+      video.removeEventListener("loadeddata", handleLoaded);
+      video.removeEventListener("seeked", handleSeeked);
+    };
+  }, [src]);
+
+  // Pause when navigating away
+  useEffect(() => {
+    if (!isActive && playing && videoRef.current) {
+      videoRef.current.pause();
+      setPlaying(false);
+    }
+  }, [isActive, playing]);
 
   const toggle = () => {
     if (!videoRef.current) return;
@@ -61,6 +88,12 @@ function VideoSlide({ src }: { src: string }) {
 
   return (
     <div className="relative w-full h-full cursor-pointer" onClick={toggle}>
+      {/* Loading spinner while video hasn't loaded */}
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black z-30">
+          <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+        </div>
+      )}
       <video
         ref={videoRef}
         src={src}
@@ -71,13 +104,33 @@ function VideoSlide({ src }: { src: string }) {
         preload="auto"
         onEnded={() => setPlaying(false)}
       />
-      {!playing && (
+      {!playing && loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
           <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
             <Play className="h-7 w-7 text-white ml-1" fill="white" />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ImageSlide({ src, alt, isActive }: { src: string; alt: string; isActive: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div className="relative w-full h-full">
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+          <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+      />
     </div>
   );
 }
@@ -149,13 +202,9 @@ export function SocialProof() {
           <div className="flex flex-col items-center gap-4">
             <PhoneFrame>
               {slide.type === "image" ? (
-                <img
-                  src={slide.src}
-                  alt={slide.caption}
-                  className="w-full h-full object-cover"
-                />
+                <ImageSlide src={slide.src} alt={slide.caption} isActive={true} />
               ) : (
-                <VideoSlide src={slide.src} />
+                <VideoSlide src={slide.src} isActive={true} />
               )}
             </PhoneFrame>
 
