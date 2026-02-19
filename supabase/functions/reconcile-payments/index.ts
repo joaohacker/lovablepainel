@@ -84,9 +84,27 @@ serve(async (req) => {
 
         // === DEPOSIT FLOW ===
         if (order.order_type === "deposit") {
+          // FIRST: Mark as paid BEFORE crediting to prevent duplicate credits
+          const { error: updateError, count: updateCount } = await supabase
+            .from("orders")
+            .update({ status: "paid", paid_at: new Date().toISOString() })
+            .eq("id", order.id)
+            .eq("status", "pending");
+
+          if (updateError) {
+            console.error(`[reconcile] UPDATE ERROR for order ${order.id}:`, updateError);
+            continue;
+          }
+
+          // If update affected 0 rows, another process already handled it
+          if (updateCount === 0) {
+            console.log(`[reconcile] Order ${order.id} already processed by another worker, skipping`);
+            continue;
+          }
+
           if (order.user_id) {
-            // Credit wallet
-            const { error: creditError } = await supabase.rpc("credit_wallet", {
+            // Credit wallet (now idempotent via reference_id check)
+            const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
               p_user_id: order.user_id,
               p_amount: Number(order.amount),
               p_description: "Depósito via PIX (reconciliação automática)",
@@ -94,24 +112,19 @@ serve(async (req) => {
             });
             if (creditError) {
               console.error(`[reconcile] Credit error for order ${order.id}:`, creditError);
+              // Don't revert status — credit_wallet is idempotent, next run will retry
               continue;
             }
-            console.log(`[reconcile] Credited R$${order.amount} to user ${order.user_id}`);
+            const alreadyCredited = creditResult?.already_credited;
+            console.log(`[reconcile] ${alreadyCredited ? 'SKIP (already credited)' : 'Credited'} R$${order.amount} to user ${order.user_id}`);
           } else {
-            console.log(`[reconcile] Anonymous deposit ${order.id} — marking paid, awaiting claim`);
+            console.log(`[reconcile] Anonymous deposit ${order.id} — marked paid, awaiting claim`);
           }
 
           // Increment coupon if used
           if (order.coupon_id) {
             await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
           }
-
-          // Mark as paid
-          await supabase
-            .from("orders")
-            .update({ status: "paid", paid_at: new Date().toISOString() })
-            .eq("id", order.id)
-            .eq("status", "pending"); // Idempotent — only update if still pending
 
           credited++;
           continue;

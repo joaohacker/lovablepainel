@@ -135,6 +135,24 @@ serve(async (req) => {
 
     // ======= WALLET DEPOSIT FLOW =======
     if (order.order_type === "deposit") {
+      // FIRST: Mark as paid BEFORE crediting to prevent race conditions with reconciliation
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({
+          status: "paid",
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", order.id)
+        .eq("status", "pending");
+
+      if (updateError) {
+        console.error("[brpix-webhook] Order update error:", updateError);
+        return new Response(JSON.stringify({ error: "Order update failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // If user_id is set, credit wallet immediately
       if (order.user_id) {
         console.log(`[brpix-webhook] Processing wallet deposit for user ${order.user_id}, amount ${order.amount}`);
@@ -154,7 +172,8 @@ serve(async (req) => {
           });
         }
 
-        console.log(`[brpix-webhook] Wallet deposit ${order.id} paid → R$${order.amount} credited for user ${order.user_id}`);
+        const alreadyCredited = creditResult?.already_credited;
+        console.log(`[brpix-webhook] Wallet deposit ${order.id} ${alreadyCredited ? '(already credited)' : 'paid'} → R$${order.amount} for user ${order.user_id}`);
       } else {
         // Anonymous deposit — just mark as paid. Balance will be credited when user creates account and claims the order.
         console.log(`[brpix-webhook] Anonymous deposit ${order.id} paid → R$${order.amount}. Awaiting account creation to credit.`);
@@ -166,15 +185,6 @@ serve(async (req) => {
           console.error("[brpix-webhook] Coupon increment error:", e);
         });
       }
-
-      // Update order as paid
-      await supabase
-        .from("orders")
-        .update({
-          status: "paid",
-          paid_at: new Date().toISOString(),
-        })
-        .eq("id", order.id);
 
       return new Response(
         JSON.stringify({ ok: true, type: "deposit" }),
