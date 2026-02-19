@@ -7,7 +7,7 @@ import { Zap, Loader2, Wallet, Link2 } from "lucide-react";
 import heartGradient from "@/assets/lovable-heart-gradient.png";
 import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBalance } from "@/lib/pricing";
 import { GenerationStatus } from "@/components/GenerationStatus";
-import { DepositModal } from "./DepositModal";
+import { DepositModal, loadPendingDeposit, clearPendingDeposit } from "./DepositModal";
 import { AuthModal } from "./AuthModal";
 import { MyClientLinks } from "./MyClientLinks";
 import { useWallet } from "@/hooks/useWallet";
@@ -32,6 +32,24 @@ export function PublicGenerator() {
   const [depositAmount, setDepositAmount] = useState<number | null>(null);
   const [creatingLink, setCreatingLink] = useState(false);
   const [linksRefreshKey, setLinksRefreshKey] = useState(0);
+  const [resumeOrder, setResumeOrder] = useState<{ order_id: string; amount: number } | null>(null);
+
+  // On mount, check if there's a pending deposit saved in localStorage
+  useEffect(() => {
+    const pending = loadPendingDeposit();
+    if (!pending) return;
+
+    if (user) {
+      // User is logged in — auto-claim silently
+      supabase.functions.invoke("claim-deposit", { body: { order_id: pending.order_id } })
+        .then(() => { clearPendingDeposit(); refetchWallet(); })
+        .catch(() => { clearPendingDeposit(); });
+    } else {
+      // Not logged in — show deposit modal in "paid" step
+      setResumeOrder(pending);
+      setShowDeposit(true);
+    }
+  }, [user, refetchWallet]);
 
   const price = calcularPreco(credits);
   const pricePer100 = getPricePer100(credits);
@@ -390,12 +408,14 @@ export function PublicGenerator() {
 
       <DepositModal
         open={showDeposit}
-        onClose={() => setShowDeposit(false)}
-        onSuccess={handleDepositSuccess}
+        onClose={() => { setShowDeposit(false); setResumeOrder(null); }}
+        onSuccess={() => { handleDepositSuccess(); setResumeOrder(null); }}
         suggestedAmount={depositAmount}
         pendingCredits={pendingCredits}
         onGenerateAfterDeposit={() => pendingCredits && handleGenerate(pendingCredits)}
         isLoggedIn={!!user}
+        resumeOrderId={resumeOrder?.order_id}
+        resumeAmount={resumeOrder?.amount}
       />
 
       <AuthModal
