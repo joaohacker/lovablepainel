@@ -21,7 +21,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { action, token, credits } = await req.json();
+    const { action, token, credits, farmId, creditsEarned, status } = await req.json();
 
     if (!token || typeof token !== "string") {
       return new Response(
@@ -33,7 +33,7 @@ serve(async (req) => {
     // Validate token
     const { data: clientToken, error: tokenError } = await supabase
       .from("client_tokens")
-      .select("id, token, total_credits, credits_used, is_active, expires_at, owner_id")
+      .select("id, token, total_credits, credits_used, is_active, owner_id")
       .eq("token", token)
       .maybeSingle();
 
@@ -51,13 +51,6 @@ serve(async (req) => {
       );
     }
 
-    if (new Date(clientToken.expires_at) < new Date()) {
-      return new Response(
-        JSON.stringify({ error: "Link expirado" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const remaining = clientToken.total_credits - clientToken.credits_used;
 
     // === VALIDATE ===
@@ -68,7 +61,121 @@ serve(async (req) => {
           total_credits: clientToken.total_credits,
           credits_used: clientToken.credits_used,
           remaining,
-          expires_at: clientToken.expires_at,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // === UPDATE STATUS (push from frontend) ===
+    if (action === "update-status") {
+      if (!farmId) {
+        return new Response(
+          JSON.stringify({ error: "farmId obrigatório" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const updateData: Record<string, any> = {};
+      if (status) updateData.status = status;
+      if (typeof creditsEarned === "number") updateData.credits_earned = creditsEarned;
+      updateData.updated_at = new Date().toISOString();
+
+      if (Object.keys(updateData).length > 1) {
+        await supabase
+          .from("generations")
+          .update(updateData)
+          .eq("farm_id", farmId)
+          .eq("client_token_id", clientToken.id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // === REFUND EXPIRED/CANCELLED (from frontend terminal states) ===
+    if (action === "refund-expired") {
+      if (!farmId) {
+        return new Response(
+          JSON.stringify({ error: "farmId obrigatório" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Find the generation
+      const { data: gen } = await supabase
+        .from("generations")
+        .select("id, credits_requested, credits_earned, status, settled_at, client_token_id")
+        .eq("farm_id", farmId)
+        .eq("client_token_id", clientToken.id)
+        .maybeSingle();
+
+      if (!gen || gen.settled_at) {
+        return new Response(
+          JSON.stringify({ success: true, already_settled: true }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const earned = gen.credits_earned ?? 0;
+      const requested = gen.credits_requested;
+      const refundCredits = requested - earned;
+
+      // Mark as settled
+      const { data: updated } = await supabase
+        .from("generations")
+        .update({
+          status: status || "expired",
+          settled_at: new Date().toISOString(),
+          credits_earned: earned,
+        })
+        .eq("id", gen.id)
+        .is("settled_at", null)
+        .select("id")
+        .maybeSingle();
+
+      if (!updated) {
+        return new Response(
+          JSON.stringify({ success: true, already_settled: true }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Refund unused credits back to client_token
+      if (refundCredits > 0) {
+        const { data: refundResult, error: refundError } = await supabase.rpc("refund_client_token_credits", {
+          p_token_id: clientToken.id,
+          p_credits: refundCredits,
+        });
+
+        if (refundError) {
+          console.error(`[client-generate] Refund failed:`, refundError);
+          // Rollback settlement
+          await supabase.from("generations").update({ settled_at: null, status: gen.status }).eq("id", gen.id);
+          throw new Error("Falha ao reembolsar créditos");
+        }
+
+        console.log(`[client-generate] Refunded ${refundCredits} credits to token ${clientToken.id} (${earned}/${requested} delivered)`);
+      }
+
+      // Also settle completed with full delivery
+      if (earned >= requested && refundCredits <= 0) {
+        console.log(`[client-generate] Settled completed generation, all ${requested} credits delivered`);
+      }
+
+      // Requery remaining
+      const { data: updatedToken } = await supabase
+        .from("client_tokens")
+        .select("credits_used, total_credits")
+        .eq("id", clientToken.id)
+        .single();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          refunded: refundCredits,
+          remaining: updatedToken ? updatedToken.total_credits - updatedToken.credits_used : remaining,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -124,14 +231,23 @@ serve(async (req) => {
 
         farmData = await farmRes.json();
       } catch (farmErr) {
-        // Refund on failure: reverse the credits_used
-        await supabase
-          .from("client_tokens")
-          .update({ credits_used: clientToken.credits_used })
-          .eq("id", clientToken.id);
-
+        // Refund on failure
+        await supabase.rpc("refund_client_token_credits", {
+          p_token_id: clientToken.id,
+          p_credits: actualCredits,
+        });
         throw farmErr;
       }
+
+      // Insert generation record linked to client_token
+      await supabase.from("generations").insert({
+        farm_id: farmData.farmId,
+        client_name: `client-link-${clientToken.id.slice(0, 8)}`,
+        credits_requested: actualCredits,
+        status: farmData.queued ? "queued" : "waiting_invite",
+        master_email: farmData.masterEmail,
+        client_token_id: clientToken.id,
+      });
 
       console.log(`[client-generate] Farm created: ${farmData.farmId} for client token ${clientToken.id}, ${actualCredits} credits`);
 
@@ -150,7 +266,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Ação inválida. Use: validate, create" }),
+      JSON.stringify({ error: "Ação inválida. Use: validate, create, update-status, refund-expired" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

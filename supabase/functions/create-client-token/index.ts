@@ -97,14 +97,14 @@ serve(async (req) => {
       );
     }
 
-    // Create client token
+    // Create client token (no expiration)
     const { data: token, error: tokenError } = await serviceSupabase
       .from("client_tokens")
       .insert({
         owner_id: user.id,
         total_credits: credits,
       })
-      .select("id, token, total_credits, expires_at")
+      .select("id, token, total_credits")
       .single();
 
     if (tokenError) {
@@ -124,7 +124,6 @@ serve(async (req) => {
         success: true,
         token: token.token,
         total_credits: token.total_credits,
-        expires_at: token.expires_at,
         cost: price,
         new_balance: debitResult.new_balance,
       }),
