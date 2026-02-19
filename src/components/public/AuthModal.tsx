@@ -24,7 +24,7 @@ export function AuthModal({ open, onClose, onSuccess }: AuthModalProps) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [signupDone, setSignupDone] = useState(false);
+  // signupDone state removed - auto-confirm enabled
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -42,7 +42,8 @@ export function AuthModal({ open, onClose, onSuccess }: AuthModalProps) {
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        setSignupDone(true);
+        // Auto-confirm habilitado, já loga direto
+        onSuccess();
       }
     } catch (err: any) {
       setError(err.message || "Erro na autenticação");
@@ -63,17 +64,7 @@ export function AuthModal({ open, onClose, onSuccess }: AuthModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        {signupDone ? (
-          <div className="text-center py-4 space-y-3">
-            <p className="text-sm text-success font-semibold">✅ Conta criada!</p>
-            <p className="text-xs text-muted-foreground">
-              Verifique seu email para confirmar sua conta, depois faça login.
-            </p>
-            <Button variant="outline" onClick={() => { setSignupDone(false); setMode("login"); }}>
-              Ir para Login
-            </Button>
-          </div>
-        ) : (
+        {(
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Email</Label>

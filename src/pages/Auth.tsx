@@ -40,7 +40,7 @@ const Auth = () => {
         await signUp(email, password);
         toast({
           title: "Conta criada!",
-          description: "Verifique seu email para confirmar o cadastro.",
+          description: "Sua conta foi criada com sucesso.",
         });
         navigate("/");
       }
