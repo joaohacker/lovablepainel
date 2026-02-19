@@ -1,0 +1,1 @@
+SELECT public.credit_wallet('a11c6f32-b822-4010-9f97-9905fb08875b'::uuid, 200, 'Crédito admin manual');
