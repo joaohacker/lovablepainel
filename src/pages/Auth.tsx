@@ -33,13 +33,12 @@ const Auth = () => {
     try {
       if (isLogin) {
         await signIn(email, password);
-        // After successful login, navigate immediately
-        // The useEffect will also handle it, but this ensures snappy redirect
-        navigate("/");
+        // Don't navigate here — let the useEffect handle redirect
+        // after admin check completes to avoid race condition
       } else {
         await signUp(email, password);
         toast({ title: "Conta criada!" });
-        navigate("/");
+        // Don't navigate here either — useEffect handles it
       }
     } catch (err: any) {
       toast({
