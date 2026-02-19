@@ -348,7 +348,7 @@ export function DepositModal({
         {step === "pix" && pixCode ? (
           <PixStep
             pixCode={pixCode}
-            amount={amount}
+            amount={couponApplied ? amount - couponApplied.discount : amount}
           />
         ) : step === "pix" && !pixCode ? (
           <div className="flex flex-col items-center gap-4 py-8">
