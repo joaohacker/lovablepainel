@@ -18,7 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           credits_used: number
-          expires_at: string
+          expires_at: string | null
           id: string
           is_active: boolean
           owner_id: string
@@ -28,7 +28,7 @@ export type Database = {
         Insert: {
           created_at?: string
           credits_used?: number
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           is_active?: boolean
           owner_id: string
@@ -38,7 +38,7 @@ export type Database = {
         Update: {
           created_at?: string
           credits_used?: number
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           is_active?: boolean
           owner_id?: string
