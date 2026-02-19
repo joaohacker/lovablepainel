@@ -39,5 +39,33 @@ export function useWallet(user: User | null) {
     fetchWallet();
   }, [fetchWallet]);
 
+  // Realtime: atualiza saldo automaticamente quando muda no banco
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`wallet-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "wallets",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.new && typeof payload.new === "object" && "id" in payload.new) {
+            const row = payload.new as { id: string; balance: number };
+            setWallet({ id: row.id, balance: Number(row.balance) });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   return { wallet, loading, refetch: fetchWallet };
 }
