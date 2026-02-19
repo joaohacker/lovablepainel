@@ -389,9 +389,59 @@ Se tiver qualquer dúvida, me chama.`;
 
         {expiresAt && <CountdownTimer expiresAt={expiresAt} />}
 
-        <p className="text-sm text-muted-foreground text-center max-w-md">
-          Vá até o Lovable, abra seu workspace e convide o email acima. O sistema detectará automaticamente.
-        </p>
+        {/* Tutorial visual passo a passo */}
+        <Card className="w-full border-border/50 bg-secondary/30">
+          <CardContent className="p-4 md:p-5 space-y-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">
+              📋 Passo a Passo
+            </p>
+
+            <div className="space-y-3">
+              {/* Step 1 */}
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-primary/15 text-primary text-xs font-bold">1</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Copie o email do bot</p>
+                  <p className="text-xs text-muted-foreground">Clique no botão "Copiar Email" acima para copiar o endereço.</p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-primary/15 text-primary text-xs font-bold">2</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Abra a página de convites</p>
+                  <a
+                    href="https://lovable.dev/settings?tab=people"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+                  >
+                    🔗 lovable.dev/settings → People
+                  </a>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-primary/15 text-primary text-xs font-bold">3</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Clique em "Invite members"</p>
+                  <p className="text-xs text-muted-foreground">Cole o email do bot e selecione a permissão <span className="font-bold text-yellow-300">EDITOR</span>.</p>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-primary/15 text-primary text-xs font-bold">4</div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Envie o convite e aguarde</p>
+                  <p className="text-xs text-muted-foreground">O sistema detectará automaticamente e começará a gerar os créditos.</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex items-center gap-2 rounded-lg border border-yellow-500/50 bg-yellow-500/15 px-4 py-2.5 text-sm font-semibold text-yellow-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
