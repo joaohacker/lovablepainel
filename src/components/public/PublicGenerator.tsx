@@ -9,7 +9,7 @@ import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBa
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { DepositModal, loadPendingDeposit, clearPendingDeposit } from "./DepositModal";
 import { AuthModal } from "./AuthModal";
-import { MyClientLinks } from "./MyClientLinks";
+import { ClientLinkManager } from "./ClientLinkManager";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
@@ -384,7 +384,7 @@ export function PublicGenerator() {
                   )}
 
                   {/* My Links */}
-                  <MyClientLinks userId={user?.id} refreshKey={linksRefreshKey} />
+                  <ClientLinkManager userId={user?.id} refreshKey={linksRefreshKey} />
                 </div>
               ) : (
                 <GenerationStatus

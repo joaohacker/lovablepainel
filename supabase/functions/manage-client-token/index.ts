@@ -1,0 +1,169 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Authenticate user
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { action, tokenId, search, filter } = await req.json();
+
+    // ACTION: list
+    if (action === "list") {
+      let query = supabase
+        .from("client_tokens")
+        .select("*")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (search) {
+        query = query.ilike("token", `%${search}%`);
+      }
+
+      if (filter === "active") {
+        query = query.eq("is_active", true).gt("total_credits", 0);
+      } else if (filter === "exhausted") {
+        query = query.eq("is_active", true);
+      } else if (filter === "disabled") {
+        query = query.eq("is_active", false);
+      }
+
+      const { data: tokens, error } = await query;
+      if (error) throw error;
+
+      // For "exhausted" filter, post-filter where credits_used >= total_credits
+      let filtered = tokens || [];
+      if (filter === "exhausted") {
+        filtered = filtered.filter((t: any) => t.credits_used >= t.total_credits);
+      } else if (filter === "active") {
+        filtered = filtered.filter((t: any) => t.credits_used < t.total_credits);
+      }
+
+      return new Response(JSON.stringify({ success: true, tokens: filtered }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ACTION: details
+    if (action === "details") {
+      if (!tokenId) {
+        return new Response(JSON.stringify({ error: "tokenId obrigatório" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify ownership
+      const { data: tok, error: tokErr } = await supabase
+        .from("client_tokens")
+        .select("*")
+        .eq("id", tokenId)
+        .eq("owner_id", user.id)
+        .single();
+
+      if (tokErr || !tok) {
+        return new Response(JSON.stringify({ error: "Token não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch generations linked to this client token
+      const { data: generations, error: genErr } = await supabase
+        .from("generations")
+        .select(
+          "id, status, credits_requested, credits_earned, workspace_name, master_email, created_at, updated_at, farm_id, error_message"
+        )
+        .eq("client_token_id", tokenId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (genErr) throw genErr;
+
+      return new Response(
+        JSON.stringify({ success: true, token: tok, generations: generations || [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ACTION: deactivate
+    if (action === "deactivate") {
+      if (!tokenId) {
+        return new Response(JSON.stringify({ error: "tokenId obrigatório" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify ownership
+      const { data: tok, error: tokErr } = await supabase
+        .from("client_tokens")
+        .select("id, owner_id")
+        .eq("id", tokenId)
+        .eq("owner_id", user.id)
+        .single();
+
+      if (tokErr || !tok) {
+        return new Response(JSON.stringify({ error: "Token não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error: updateErr } = await supabase
+        .from("client_tokens")
+        .update({ is_active: false })
+        .eq("id", tokenId);
+
+      if (updateErr) throw updateErr;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Ação inválida" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

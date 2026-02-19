@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.auto-refund]
 verify_jwt = false
+
+[functions.manage-client-token]
+verify_jwt = false
