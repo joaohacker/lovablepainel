@@ -49,7 +49,7 @@ export function MyClientLinks({ userId, refreshKey }: MyClientLinksProps) {
   if (!userId || (tokens.length === 0 && !loading)) return null;
 
   const copyLink = (token: string, id: string) => {
-    const url = `${window.location.origin}/tokenclientes/${token}`;
+    const url = `https://painelcreditoslovbl.lovable.app/tokenclientes/${token}`;
     navigator.clipboard.writeText(url);
     setCopiedId(id);
     toast({ title: "Link copiado!" });
