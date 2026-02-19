@@ -53,29 +53,34 @@ serve(async (req) => {
 
     const remaining = clientToken.total_credits - clientToken.credits_used;
 
-    // Helper: calculate REAL remaining by accounting for credits reserved in
-    // active generations that haven't delivered yet (waiting_invite, queued, pending, creating).
-    // These will be refunded by the cron, so the client shouldn't see them as "used".
+    // Helper: calculate REAL remaining based on actually delivered credits,
+    // ignoring credits_used which may include reservations not yet refunded.
     async function getRealRemaining(): Promise<{ realRemaining: number; hasActiveGen: boolean }> {
-      const { data: activeGens } = await supabase
+      // Get all non-settled generations for this token
+      const { data: allGens } = await supabase
         .from("generations")
-        .select("credits_requested, credits_earned, status")
-        .eq("client_token_id", clientToken.id)
-        .in("status", ["waiting_invite", "queued", "pending", "creating", "active"])
-        .is("settled_at", null);
+        .select("credits_requested, credits_earned, status, settled_at")
+        .eq("client_token_id", clientToken.id);
 
-      let reservedNotDelivered = 0;
-      const hasActiveGen = (activeGens && activeGens.length > 0) || false;
+      let totalDelivered = 0;
+      let hasActiveGen = false;
 
-      if (activeGens) {
-        for (const g of activeGens) {
+      if (allGens) {
+        for (const g of allGens) {
           const earned = g.credits_earned ?? 0;
-          reservedNotDelivered += g.credits_requested - earned;
+          // Count credits from completed/running generations as "actually used"
+          if (g.status === "completed" || g.status === "running") {
+            totalDelivered += earned;
+          }
+          // Check if there's an active generation in progress
+          if (!g.settled_at && ["waiting_invite", "queued", "pending", "creating", "active", "running"].includes(g.status)) {
+            hasActiveGen = true;
+          }
         }
       }
 
       return {
-        realRemaining: remaining + reservedNotDelivered,
+        realRemaining: clientToken.total_credits - totalDelivered,
         hasActiveGen,
       };
     }
