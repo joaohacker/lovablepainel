@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,49 @@ import { PublicGenerator } from "@/components/public/PublicGenerator";
 import { WhatsAppButton } from "@/components/public/WhatsAppButton";
 import { BackgroundEffects } from "@/components/public/BackgroundEffects";
 import { SocialProof } from "@/components/public/SocialProof";
+
+function LiteYouTube({ videoId }: { videoId: string }) {
+  const [active, setActive] = useState(false);
+  const thumbUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+  if (active) {
+    return (
+      <div className="relative w-full rounded-2xl overflow-hidden border border-border/50 shadow-2xl" style={{ paddingBottom: '56.25%' }}>
+        <iframe
+          className="absolute inset-0 w-full h-full"
+          src={`https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1`}
+          title="Como funciona o LovablePainel"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setActive(true)}
+      className="relative w-full rounded-2xl overflow-hidden border border-border/50 shadow-2xl cursor-pointer group"
+      style={{ paddingBottom: '56.25%' }}
+      aria-label="Reproduzir vídeo"
+    >
+      <img
+        src={thumbUrl}
+        alt="Thumbnail do vídeo"
+        className="absolute inset-0 w-full h-full object-cover"
+        loading="eager"
+        fetchPriority="high"
+      />
+      <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+        <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-red-600 flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+          <svg viewBox="0 0 24 24" fill="white" className="h-8 w-8 md:h-10 md:w-10 ml-1">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+      </div>
+    </button>
+  );
+}
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -126,16 +169,7 @@ const Landing = () => {
           <p className="text-muted-foreground text-sm md:text-lg">
             Assista como é simples gerar créditos com o LovablePainel.
           </p>
-          <div className="relative w-full rounded-2xl overflow-hidden border border-border/50 shadow-2xl" style={{ paddingBottom: '56.25%' }}>
-            <iframe
-              className="absolute inset-0 w-full h-full"
-              src="https://www.youtube.com/embed/-lZ0VMWbOe8?rel=0"
-              title="Como funciona o LovablePainel"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              loading="lazy"
-            />
-          </div>
+          <LiteYouTube videoId="-lZ0VMWbOe8" />
         </div>
       </section>
 
