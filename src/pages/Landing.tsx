@@ -119,6 +119,26 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Demo Video */}
+      <section className="relative z-10 py-14 md:py-24 px-4">
+        <div className="mx-auto max-w-4xl text-center space-y-4 md:space-y-6">
+          <h2 className="text-2xl md:text-5xl font-bold">Veja o Painel em Ação</h2>
+          <p className="text-muted-foreground text-sm md:text-lg">
+            Assista como é simples gerar créditos com o LovablePainel.
+          </p>
+          <div className="relative w-full rounded-2xl overflow-hidden border border-border/50 shadow-2xl" style={{ paddingBottom: '56.25%' }}>
+            <iframe
+              className="absolute inset-0 w-full h-full"
+              src="https://www.youtube.com/embed/-lZ0VMWbOe8?rel=0"
+              title="Como funciona o LovablePainel"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Benefits */}
       <section id="beneficios" className="relative z-10 py-14 md:py-24 px-4">
         <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-8 md:mb-16">
