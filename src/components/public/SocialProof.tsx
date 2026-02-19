@@ -21,7 +21,7 @@ const SLIDES: ProofSlide[] = [
 ];
 
 const STATS = [
-  { icon: TrendingUp, value: "200.220+", label: "Créditos gerados" },
+  { icon: TrendingUp, value: "3.200.000+", label: "Créditos gerados" },
   { icon: Users, value: "350+", label: "Usuários ativos" },
   { icon: Star, value: "4.9/5", label: "Satisfação" },
 ];
