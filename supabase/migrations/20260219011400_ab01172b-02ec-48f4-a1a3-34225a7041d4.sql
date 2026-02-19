@@ -1,0 +1,1 @@
+UPDATE generations SET status = 'completed', settled_at = now(), updated_at = now() WHERE farm_id = 'b8550001-efef-4b7c-8123-443805e4c30b' AND settled_at IS NULL;
