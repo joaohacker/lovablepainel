@@ -28,6 +28,12 @@ const Landing = () => {
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
+    // Capture ref param for tracking
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) {
+      sessionStorage.setItem("traffic_source", ref.toLowerCase());
+    }
   }, []);
 
   return (

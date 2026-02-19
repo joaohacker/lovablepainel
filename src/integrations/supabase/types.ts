@@ -170,6 +170,7 @@ export type Database = {
           pix_code: string | null
           pix_expires_at: string | null
           product_id: string
+          source: string | null
           status: string
           token_id: string | null
           transaction_id: string | null
@@ -191,6 +192,7 @@ export type Database = {
           pix_code?: string | null
           pix_expires_at?: string | null
           product_id: string
+          source?: string | null
           status?: string
           token_id?: string | null
           transaction_id?: string | null
@@ -212,6 +214,7 @@ export type Database = {
           pix_code?: string | null
           pix_expires_at?: string | null
           product_id?: string
+          source?: string | null
           status?: string
           token_id?: string | null
           transaction_id?: string | null
