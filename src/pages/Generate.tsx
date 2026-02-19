@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { CreditSelector } from "@/components/CreditSelector";
 import { GenerationStatus } from "@/components/GenerationStatus";
-import { UpgradeModal } from "@/components/public/UpgradeModal";
+
 
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,7 +82,7 @@ const Generate = () => {
   const { token } = useParams<{ token: string }>();
   const [validating, setValidating] = useState(true);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
-  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; type: "daily_limit" | "credits_per_use" }>({ open: false, type: "daily_limit" });
+  
   const farm = useFarmGeneration(token);
 
   useEffect(() => {
@@ -393,14 +393,7 @@ const Generate = () => {
                   <p className="text-sm text-muted-foreground">
                     Você atingiu seu limite diário de <span className="font-bold text-foreground">{tokenInfo.daily_limit?.toLocaleString()}</span> créditos.
                   </p>
-                  <p className="text-sm text-muted-foreground">Aumente seu limite para continuar gerando hoje!</p>
-                  <button
-                    onClick={() => setUpgradeModal({ open: true, type: "daily_limit" })}
-                    className="w-full h-14 text-lg font-semibold rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-500 hover:to-fuchsia-500 transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-600/25"
-                  >
-                    <TrendingUp className="h-5 w-5" />
-                    Aumentar Limite Diário
-                  </button>
+                  <p className="text-sm text-muted-foreground">Volte amanhã após o reset às 12:00 (horário de Brasília).</p>
                 </div>
               ) : isIdle ? (
                 <CreditSelector
@@ -409,8 +402,6 @@ const Generate = () => {
                   maxCredits={tokenInfo.credits_per_use}
                   dailyLimit={tokenInfo.daily_limit}
                   remainingDaily={validation.remaining_daily}
-                  onUpgradePerUse={() => setUpgradeModal({ open: true, type: "credits_per_use" })}
-                  onUpgradeDaily={() => setUpgradeModal({ open: true, type: "daily_limit" })}
                 />
               ) : (
                 <GenerationStatus
@@ -438,18 +429,6 @@ const Generate = () => {
           🕐 Os limites diários resetam todo dia às 12:00 (horário de Brasília)
         </p>
 
-        {/* Upgrade Modal */}
-        {token && validation?.token && (
-          <UpgradeModal
-            open={upgradeModal.open}
-            onOpenChange={(open) => setUpgradeModal((prev) => ({ ...prev, open }))}
-            token={token}
-            tokenString={token}
-            upgradeType={upgradeModal.type}
-            currentLimit={upgradeModal.type === "daily_limit" ? tokenInfo.daily_limit : tokenInfo.credits_per_use}
-            onUpgradeComplete={() => validateToken()}
-          />
-        )}
       </div>
       {!validation?.maintenance && <WhatsAppButton />}
     </div>
