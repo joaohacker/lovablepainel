@@ -75,6 +75,40 @@ serve(async (req) => {
       );
     }
 
+    // SECURITY: Double-check payment status directly with BrPix API
+    const BRPIX_API_KEY = Deno.env.get("BRPIX_API_KEY");
+    if (!BRPIX_API_KEY) {
+      console.error("[brpix-webhook] BRPIX_API_KEY not configured — cannot verify payment");
+      return new Response(JSON.stringify({ error: "Payment verification unavailable" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    try {
+      const verifyRes = await fetch(`https://finance.brpixpayments.com/api/payments/${transactionId}`, {
+        headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
+      });
+      const verifyData = await verifyRes.json();
+      console.log(`[brpix-webhook] BrPix verify response:`, JSON.stringify(verifyData));
+
+      const paymentStatus = verifyData.data?.status || verifyData.status;
+      if (paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+        console.error(`[brpix-webhook] Payment NOT confirmed by BrPix API. Status: ${paymentStatus} — rejecting`);
+        return new Response(JSON.stringify({ error: "Payment not confirmed by provider" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.log(`[brpix-webhook] ✓ Payment verified with BrPix API (status: ${paymentStatus})`);
+    } catch (verifyErr) {
+      console.error("[brpix-webhook] Failed to verify payment with BrPix API:", verifyErr);
+      return new Response(JSON.stringify({ error: "Payment verification failed" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Find the pending order
     const { data: order, error: orderError } = await supabase
       .from("orders")
