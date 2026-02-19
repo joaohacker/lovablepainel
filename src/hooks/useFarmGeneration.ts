@@ -255,10 +255,10 @@ export function useFarmGeneration(accessToken?: string) {
                 .filter((e) => e.kind === "credit" && e.credits)
                 .reduce((sum, e) => sum + (e.credits || 0), 0);
 
-              // Use status.credits as floor — the API may cap logs but still report correct total
-              const apiCredits = status.credits || 0;
+              // Use result.credits (actual earned) as floor — status.credits is the REQUESTED amount, not earned
+              const apiEarned = status.result?.credits || 0;
               const accumulated = prev.creditsEarned + newCredits;
-              const bestCredits = Math.min(Math.max(accumulated, apiCredits), prev.totalCreditsRequested);
+              const bestCredits = Math.min(Math.max(accumulated, apiEarned), prev.totalCreditsRequested);
 
               return {
                 ...prev,
