@@ -25,8 +25,8 @@ serve(async (req) => {
     // Block all generation until this time (UTC). Remove or set to past date to disable.
     const MAINTENANCE_UNTIL = "2099-12-31T23:59:59Z"; // BLOQUEIO TOTAL — exploits detectados
     const MAINTENANCE_MSG = "🔧 Atualizando painel com melhorias. Aguarde alguns minutos!";
-    // Tokens allowed to bypass maintenance (for testing)
-    const MAINTENANCE_BYPASS_TOKENS: string[] = ["f35112c962407939853dc9db8de84013", "68d07099101c4ea17befc46202497e94"];
+    // Tokens allowed to bypass maintenance (for testing) - loaded from env
+    const MAINTENANCE_BYPASS_TOKENS: string[] = (Deno.env.get("MAINTENANCE_BYPASS_TOKENS") || "").split(",").filter(Boolean);
     // Tokens that should NOT show "painel por demanda" info in maintenance banner
     const HIDE_DEMAND_INFO_TOKENS: string[] = [
       "98a1475498ba92e7c793344107724ff0",
@@ -73,6 +73,27 @@ serve(async (req) => {
 
     const body = await req.json();
     const { token, action, credits, farmId: bodyFarmId, status: bodyStatus, credits_earned, master_email, workspace_name, error_message } = body;
+
+    // Input validation
+    const VALID_ACTIONS = ["validate", "create", "update-status", "refund-expired", "sync-status"];
+    if (action && !VALID_ACTIONS.includes(action)) {
+      return new Response(
+        JSON.stringify({ error: "Ação inválida" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (token && token !== "__public__" && (typeof token !== "string" || !/^[a-f0-9]{32}$/.test(token))) {
+      return new Response(
+        JSON.stringify({ valid: false, error: "Token inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (credits !== undefined && (typeof credits !== "number" || credits < 5 || credits > 10000 || credits % 5 !== 0)) {
+      return new Response(
+        JSON.stringify({ error: "Créditos inválidos" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!token) {
       return new Response(
@@ -718,7 +739,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("[validate-token] error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "Erro interno do servidor" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
