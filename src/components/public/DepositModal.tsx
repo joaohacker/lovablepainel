@@ -119,6 +119,10 @@ export function DepositModal({
         throw new Error(data?.error || "Erro ao criar PIX");
       }
 
+      if (!data.pix_code) {
+        throw new Error("PIX não foi gerado. Tente novamente.");
+      }
+
       setPixCode(data.pix_code);
       setOrderId(data.order_id);
       setStep("pix");
@@ -216,7 +220,7 @@ export function DepositModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={() => onClose()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step === "done" ? (
@@ -341,12 +345,17 @@ export function DepositModal({
           </div>
         )}
 
-        {step === "pix" && pixCode && (
+        {step === "pix" && pixCode ? (
           <PixStep
             pixCode={pixCode}
             amount={amount}
           />
-        )}
+        ) : step === "pix" && !pixCode ? (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <p className="text-sm text-destructive">Erro ao gerar o PIX. Tente novamente.</p>
+            <Button onClick={() => setStep("form")} variant="outline">Voltar</Button>
+          </div>
+        ) : null}
 
         {(step === "paid" || step === "signup") && (
           <div className="space-y-4">
