@@ -5,7 +5,7 @@ export function WhatsAppButton() {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-1.5">
       <span className="text-[10px] md:text-xs font-semibold text-white bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1 whitespace-nowrap shadow">
-        Seja um revendedor
+        Dúvidas e Suporte
       </span>
       <a
         href={url}
