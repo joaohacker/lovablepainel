@@ -21,7 +21,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { action, token, credits, farmId, creditsEarned, status } = await req.json();
+    const { action, token, credits, farmId, creditsEarned, status, workspaceName } = await req.json();
 
     if (!token || typeof token !== "string") {
       return new Response(
@@ -78,6 +78,7 @@ serve(async (req) => {
       const updateData: Record<string, any> = {};
       if (status) updateData.status = status;
       if (typeof creditsEarned === "number") updateData.credits_earned = creditsEarned;
+      if (workspaceName) updateData.workspace_name = workspaceName;
       updateData.updated_at = new Date().toISOString();
 
       if (Object.keys(updateData).length > 1) {
