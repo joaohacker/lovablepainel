@@ -159,6 +159,8 @@ serve(async (req) => {
         status: "pending",
         user_id: userId,
         order_type: "deposit",
+        coupon_id: couponId,
+        discount_amount: discountAmount,
       })
       .select()
       .single();

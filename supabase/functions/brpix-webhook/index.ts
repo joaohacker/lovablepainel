@@ -136,6 +136,13 @@ serve(async (req) => {
         console.log(`[brpix-webhook] Anonymous deposit ${order.id} paid → R$${order.amount}. Awaiting account creation to credit.`);
       }
 
+      // Increment coupon usage if one was used
+      if (order.coupon_id) {
+        await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch((e: any) => {
+          console.error("[brpix-webhook] Coupon increment error:", e);
+        });
+      }
+
       // Update order as paid
       await supabase
         .from("orders")
