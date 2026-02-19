@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Play, Pause, Users, TrendingUp, Star } from "lucide-react";
 
 interface ProofSlide {
+  thumbnail?: string;
   type: "image" | "video";
   src: string;
   caption: string;
@@ -9,10 +10,10 @@ interface ProofSlide {
 
 const SLIDES: ProofSlide[] = [
   { type: "image", src: "/images/proof/proof-3.jpeg", caption: "\"Chegou 900 já\" — 900 créditos gerados" },
-  { type: "video", src: "/images/proof/proof-video-1.mp4", caption: "Geração ao vivo — créditos subindo em tempo real" },
+  { type: "video", src: "/images/proof/proof-video-1.mp4", thumbnail: "/images/proof/proof-1.jpeg", caption: "Geração ao vivo — créditos subindo em tempo real" },
   { type: "image", src: "/images/proof/proof-2.jpeg", caption: "\"Não durou 20 segundos\" — 200 créditos em instantes" },
   { type: "image", src: "/images/proof/proof-1.jpeg", caption: "500 créditos gerados — 500/500 completo" },
-  { type: "video", src: "/images/proof/proof-video-2.mp4", caption: "Vídeo: processo completo de geração" },
+  { type: "video", src: "/images/proof/proof-video-2.mp4", thumbnail: "/images/proof/proof-3.jpeg", caption: "Vídeo: processo completo de geração" },
   { type: "image", src: "/images/proof/proof-4.jpeg", caption: "\"Top de mais\" — cliente satisfeito" },
   { type: "image", src: "/images/proof/proof-6.jpeg", caption: "\"Cara, foi muito rapido\" — 11.535 créditos" },
   { type: "image", src: "/images/proof/proof-5.jpeg", caption: "\"Creditou certinho\" — 900 créditos com sucesso" },
@@ -43,33 +44,40 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-function VideoSlide({ src }: { src: string }) {
+function VideoSlide({ src, thumbnail }: { src: string; thumbnail?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [started, setStarted] = useState(false);
 
   const toggle = () => {
     if (!videoRef.current) return;
     if (playing) {
       videoRef.current.pause();
+      setPlaying(false);
     } else {
       videoRef.current.play();
+      setPlaying(true);
+      setStarted(true);
     }
-    setPlaying(!playing);
   };
 
   return (
     <div className="relative w-full h-full cursor-pointer" onClick={toggle}>
+      {/* Thumbnail before first play */}
+      {!started && thumbnail && (
+        <img src={thumbnail} alt="Thumbnail" className="absolute inset-0 w-full h-full object-cover z-10" />
+      )}
       <video
         ref={videoRef}
         src={src}
         className="w-full h-full object-cover"
         loop
         playsInline
-        muted
+        preload="metadata"
         onEnded={() => setPlaying(false)}
       />
       {!playing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
           <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
             <Play className="h-7 w-7 text-white ml-1" fill="white" />
           </div>
@@ -136,7 +144,7 @@ export function SocialProof() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <VideoSlide src={slide.src} />
+                <VideoSlide src={slide.src} thumbnail={slide.thumbnail} />
               )}
             </PhoneFrame>
 
