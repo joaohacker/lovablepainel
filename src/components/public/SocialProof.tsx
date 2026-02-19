@@ -10,10 +10,10 @@ interface ProofSlide {
 
 const SLIDES: ProofSlide[] = [
   { type: "image", src: "/images/proof/proof-3.jpeg", caption: "\"Chegou 900 já\" — 900 créditos gerados" },
-  { type: "video", src: "/images/proof/proof-video-1.mp4", thumbnail: "/images/proof/proof-1.jpeg", caption: "Geração ao vivo — créditos subindo em tempo real" },
+  { type: "video", src: "/images/proof/proof-video-1.mp4", caption: "Geração ao vivo — créditos subindo em tempo real" },
   { type: "image", src: "/images/proof/proof-2.jpeg", caption: "\"Não durou 20 segundos\" — 200 créditos em instantes" },
   { type: "image", src: "/images/proof/proof-1.jpeg", caption: "500 créditos gerados — 500/500 completo" },
-  { type: "video", src: "/images/proof/proof-video-2.mp4", thumbnail: "/images/proof/proof-3.jpeg", caption: "Vídeo: processo completo de geração" },
+  { type: "video", src: "/images/proof/proof-video-2.mp4", caption: "Vídeo: processo completo de geração" },
   { type: "image", src: "/images/proof/proof-4.jpeg", caption: "\"Top de mais\" — cliente satisfeito" },
   { type: "image", src: "/images/proof/proof-6.jpeg", caption: "\"Cara, foi muito rapido\" — 11.535 créditos" },
   { type: "image", src: "/images/proof/proof-5.jpeg", caption: "\"Creditou certinho\" — 900 créditos com sucesso" },
@@ -44,10 +44,39 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-function VideoSlide({ src, thumbnail }: { src: string; thumbnail?: string }) {
+function VideoSlide({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [playing, setPlaying] = useState(false);
-  const [started, setStarted] = useState(false);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+
+  // Generate thumbnail from first frame
+  useEffect(() => {
+    const video = document.createElement("video");
+    video.src = src;
+    video.crossOrigin = "anonymous";
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+    const handleLoaded = () => {
+      video.currentTime = 0.5;
+    };
+    const handleSeeked = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext("2d")?.drawImage(video, 0, 0);
+      setPosterUrl(canvas.toDataURL("image/jpeg", 0.8));
+      video.remove();
+    };
+    video.addEventListener("loadedmetadata", handleLoaded);
+    video.addEventListener("seeked", handleSeeked);
+    video.load();
+    return () => {
+      video.removeEventListener("loadedmetadata", handleLoaded);
+      video.removeEventListener("seeked", handleSeeked);
+    };
+  }, [src]);
 
   const toggle = () => {
     if (!videoRef.current) return;
@@ -57,15 +86,14 @@ function VideoSlide({ src, thumbnail }: { src: string; thumbnail?: string }) {
     } else {
       videoRef.current.play();
       setPlaying(true);
-      setStarted(true);
     }
   };
 
   return (
     <div className="relative w-full h-full cursor-pointer" onClick={toggle}>
-      {/* Thumbnail before first play */}
-      {!started && thumbnail && (
-        <img src={thumbnail} alt="Thumbnail" className="absolute inset-0 w-full h-full object-cover z-10" />
+      {/* Poster thumbnail */}
+      {!playing && posterUrl && (
+        <img src={posterUrl} alt="Thumbnail" className="absolute inset-0 w-full h-full object-cover z-10" />
       )}
       <video
         ref={videoRef}
@@ -144,7 +172,7 @@ export function SocialProof() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <VideoSlide src={slide.src} thumbnail={slide.thumbnail} />
+                <VideoSlide src={slide.src} />
               )}
             </PhoneFrame>
 
