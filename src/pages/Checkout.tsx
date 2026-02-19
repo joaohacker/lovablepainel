@@ -125,6 +125,7 @@ const Checkout = () => {
         body: JSON.stringify({
           product_id: product.id,
           email,
+          source: sessionStorage.getItem("traffic_source") || "direto",
         }),
       });
 

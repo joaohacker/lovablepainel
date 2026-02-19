@@ -27,7 +27,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    const { product_id, email } = await req.json();
+    const { product_id, email, source } = await req.json();
 
     if (!product_id) {
       return new Response(

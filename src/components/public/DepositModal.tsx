@@ -110,8 +110,9 @@ export function DepositModal({
     setError(null);
 
     try {
+      const source = sessionStorage.getItem("traffic_source") || "direto";
       const { data, error: fnError } = await supabase.functions.invoke("wallet-deposit", {
-        body: { amount, coupon_code: couponCode.trim() || undefined },
+        body: { amount, coupon_code: couponCode.trim() || undefined, source },
       });
 
       if (fnError || !data?.success) {
