@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_tokens: {
+        Row: {
+          created_at: string
+          credits_used: number
+          expires_at: string
+          id: string
+          is_active: boolean
+          owner_id: string
+          token: string
+          total_credits: number
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          owner_id: string
+          token?: string
+          total_credits: number
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          owner_id?: string
+          token?: string
+          total_credits?: number
+        }
+        Relationships: []
+      }
       generations: {
         Row: {
           client_ip: string | null
@@ -463,6 +496,10 @@ export type Database = {
           p_status?: string
           p_token_id: string
         }
+        Returns: Json
+      }
+      use_client_token_credits: {
+        Args: { p_credits: number; p_token_id: string }
         Returns: Json
       }
     }
