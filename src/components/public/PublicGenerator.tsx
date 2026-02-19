@@ -341,7 +341,7 @@ export function PublicGenerator() {
                       }}
                     >
                       {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                      Gerar Link pro cliente
+                      Gerar Link pro cliente • {credits} créditos
                     </Button>
                   )}
 
