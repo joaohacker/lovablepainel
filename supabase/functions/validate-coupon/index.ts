@@ -40,7 +40,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!coupon) {
-      return new Response(JSON.stringify({ valid: false, error: "Cupom inválido" }), {
+      return new Response(JSON.stringify({ valid: false, error: "Cupom inválido ou já foi desativado. Promoção encerrada!" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
