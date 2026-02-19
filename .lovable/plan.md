@@ -1,65 +1,70 @@
 
 
-## Planos de Licenca - Basico / Pro / Premium
+# Painel de Gerenciamento de Links de Cliente
 
-### Resumo
+## Objetivo
+Transformar a seção "Meus Links" em um painel completo onde o revendedor pode pesquisar, filtrar, ver detalhes, cancelar links e acompanhar em tempo real o que o cliente está fazendo.
 
-Criar um sistema de planos de licenca com pagamento unico via PIX que libera um token automaticamente. Os planos aparecem em dois lugares: na landing page (abaixo do gerador por demanda) e em uma pagina dedicada `/planos`.
+## O que muda
 
-### Planos
+### 1. Novo componente: ClientLinkManager
+Substitui o atual `MyClientLinks` simples por um painel expandido com:
 
-| Plano    | Preco    | Limite Diario | Creditos/Geracao | Token Expira? |
-|----------|----------|---------------|------------------|---------------|
-| Basico   | R$ 49,00 | 500/dia       | 100/geracao      | Nao           |
-| Pro      | R$ 99,00 | 1.500/dia     | 200/geracao      | Nao           |
-| Premium  | R$ 199,00| 5.000/dia     | 500/geracao      | Nao           |
+- **Barra de pesquisa** por token (parcial)
+- **Filtros** por status: Todos / Ativo / Esgotado / Desativado
+- **Lista expandida** com mais informações por link
+- **Modal de detalhes** ao clicar em um link
 
-O pagamento e unico e o token nao expira. So tem os limites diarios configurados.
+### 2. Detalhes de cada link (modal/sheet)
+Ao clicar num link, abre um painel lateral (Sheet) mostrando:
 
-### O que sera construido
+- Token (parcial, com botao copiar)
+- Status (Ativo/Esgotado/Desativado)
+- Creditos: usados / total / restantes
+- Data de criacao
+- **Historico de geracoes** vinculadas (da tabela `generations` via `client_token_id`):
+  - Status de cada geracao (running, completed, waiting_invite, etc.)
+  - Creditos solicitados vs entregues
+  - Workspace detectado
+  - Data/hora
+- **Botao "Desativar Link"** (seta `is_active = false` via edge function)
 
-**1. Produtos no banco de dados**
-- Inserir 3 produtos na tabela `products` com os nomes, precos e limites acima
-- Cada produto tera `is_active = true` para aparecer na listagem publica
+### 3. Status em tempo real do cliente
+Para geracoes com status ativo (`running`, `waiting_invite`, `queued`), mostra:
+- Estado atual (ex: "Aguardando convite", "Gerando creditos...")
+- Creditos ja gerados
+- Workspace name (se detectado)
 
-**2. Componente de cards de planos (`PlansSection`)**
-- 3 cards lado a lado (empilhados no mobile)
-- Cada card mostra: nome, preco, limite diario, creditos por geracao, botao "Assinar"
-- O plano Pro tera destaque visual ("Mais Popular")
-- Botao leva para `/checkout?product=<id>`
+### 4. Edge Function: manage-client-token
+Nova edge function que suporta:
+- `action: "details"` -- retorna token + geracoes vinculadas
+- `action: "deactivate"` -- desativa o link (verifica ownership)
+- `action: "list"` -- lista com filtros e busca
 
-**3. Landing page - secao abaixo do gerador**
-- Nova secao com titulo "Planos de Licenca" logo apos o gerador por demanda
-- Usa o mesmo componente `PlansSection`
-- Link na navbar: "Planos" aponta para `#planos` na landing ou para `/planos`
+## Detalhes Tecnicos
 
-**4. Pagina dedicada `/planos`**
-- Rota nova no App.tsx
-- Reutiliza o componente `PlansSection` centralizado com navbar simplificada
-- Mesmos cards e mesmo fluxo de checkout
+### Consulta de geracoes por client_token_id
+A tabela `generations` ja tem a coluna `client_token_id`. A edge function usa service role para buscar:
+```sql
+SELECT status, credits_requested, credits_earned, workspace_name, 
+       master_email, created_at, updated_at, farm_id
+FROM generations 
+WHERE client_token_id = '<token_uuid>'
+ORDER BY created_at DESC
+```
 
-**5. Navbar atualizada**
-- Novo link "Planos" na navbar da landing page
-- Aponta para a secao `#planos` quando na landing, ou `/planos` como link direto
+### Desativacao de link
+Via edge function (service role), verifica que o `owner_id` do token pertence ao usuario autenticado, depois faz `UPDATE client_tokens SET is_active = false`.
 
-**6. Fluxo de compra**
-- O checkout atual (`/checkout?product=<id>`) ja funciona:
-  - Gera PIX, aguarda pagamento, webhook cria o token automaticamente
-  - Mostra link de acesso ao token na tela de sucesso
-- Nenhuma alteracao necessaria no checkout ou nas edge functions existentes
+### Componentes UI utilizados
+- `Sheet` (painel lateral) para detalhes
+- `Input` para busca
+- `Badge` para status
+- `Tabs` para filtros
+- Icones do `lucide-react`
 
-### Detalhes Tecnicos
-
-**Arquivos novos:**
-- `src/components/public/PlansSection.tsx` - componente reutilizavel com os 3 cards
-- `src/pages/Plans.tsx` - pagina dedicada `/planos`
-
-**Arquivos modificados:**
-- `src/App.tsx` - adicionar rota `/planos`
-- `src/pages/Landing.tsx` - adicionar secao de planos abaixo do gerador + link na navbar
-
-**Migracao SQL:**
-- INSERT de 3 produtos na tabela `products` com os valores definidos
-
-**Nenhuma alteracao em edge functions** - o fluxo de checkout e webhook existente ja lida com a criacao automatica do token apos pagamento.
+### Arquivos modificados/criados
+1. **Novo**: `supabase/functions/manage-client-token/index.ts`
+2. **Novo**: `src/components/public/ClientLinkManager.tsx` (substitui MyClientLinks)
+3. **Editado**: `src/components/public/PublicGenerator.tsx` (troca MyClientLinks pelo novo componente)
 
