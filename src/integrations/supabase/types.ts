@@ -537,6 +537,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_coupon_usage: {
+        Args: { p_coupon_id: string }
+        Returns: undefined
+      }
       refund_client_token_credits: {
         Args: { p_credits: number; p_token_id: string }
         Returns: Json

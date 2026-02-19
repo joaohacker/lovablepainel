@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, QrCode, Wallet, CheckCircle2, UserPlus, Tag } from "lucide-react";
+import { Loader2, QrCode, Wallet, CheckCircle2, UserPlus, Tag, Check, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/pricing";
@@ -44,6 +44,9 @@ export function DepositModal({
   const [error, setError] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState("");
   const [showCoupon, setShowCoupon] = useState(false);
+  const [couponApplied, setCouponApplied] = useState<{ discount: number; description: string } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Signup fields
   const [email, setEmail] = useState("");
@@ -64,11 +67,42 @@ export function DepositModal({
       setAuthMode("signup");
       setCouponCode("");
       setShowCoupon(false);
+      setCouponApplied(null);
+      setCouponError(null);
+      setCouponLoading(false);
       const val = suggestedAmount && suggestedAmount >= 5 ? suggestedAmount : 5;
       setAmount(val);
       setAmountInput(String(val));
     }
   }, [open, suggestedAmount]);
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError(null);
+    setCouponApplied(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("validate-coupon", {
+        body: { code: couponCode.trim(), amount },
+      });
+      if (fnError) throw new Error("Erro ao validar cupom");
+      if (!data?.valid) {
+        setCouponError(data?.error || "Cupom inválido");
+      } else {
+        setCouponApplied({ discount: data.discount, description: data.description });
+      }
+    } catch (err: any) {
+      setCouponError(err.message || "Erro ao validar cupom");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCouponApplied(null);
+    setCouponCode("");
+    setCouponError(null);
+  };
 
   const handleSubmit = async () => {
     if (amount < 5) return;
@@ -221,7 +255,7 @@ export function DepositModal({
             </div>
 
             {/* Coupon */}
-            {!showCoupon ? (
+            {!showCoupon && !couponApplied ? (
               <button
                 type="button"
                 onClick={() => setShowCoupon(true)}
@@ -230,16 +264,61 @@ export function DepositModal({
                 <Tag className="h-3.5 w-3.5" />
                 Tenho um cupom de desconto
               </button>
+            ) : couponApplied ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-300">{couponApplied.description}</p>
+                    <p className="text-[10px] text-emerald-300/60">Cupom: {couponCode}</p>
+                  </div>
+                </div>
+                <button onClick={removeCoupon} className="text-emerald-300/60 hover:text-red-400 transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             ) : (
               <div className="space-y-2">
                 <Label>Cupom de desconto</Label>
-                <Input
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="CODIGO DO CUPOM"
-                  className="uppercase"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); }}
+                    placeholder="CODIGO DO CUPOM"
+                    className="uppercase flex-1"
+                    disabled={couponLoading}
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={applyCoupon} 
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="shrink-0"
+                  >
+                    {couponLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Aplicar"}
+                  </Button>
+                </div>
+                {couponError && <p className="text-xs text-destructive">{couponError}</p>}
+              </div>
+            )}
+
+            {/* Discount summary */}
+            {couponApplied && (
+              <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>{formatBRL(amount)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-emerald-400">
+                  <span>Desconto</span>
+                  <span>-{formatBRL(couponApplied.discount)}</span>
+                </div>
+                <div className="border-t border-white/10 pt-1 flex justify-between text-sm font-bold text-foreground">
+                  <span>Total PIX</span>
+                  <span>{formatBRL(amount - couponApplied.discount)}</span>
+                </div>
               </div>
             )}
 
@@ -247,7 +326,7 @@ export function DepositModal({
 
             <Button onClick={handleSubmit} disabled={loading || amount < 5} className="w-full gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-              Gerar PIX de {formatBRL(amount)}
+              Gerar PIX de {formatBRL(couponApplied ? amount - couponApplied.discount : amount)}
             </Button>
           </div>
         )}
