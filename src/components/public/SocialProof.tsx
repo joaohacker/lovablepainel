@@ -119,6 +119,22 @@ export function SocialProof() {
   const [current, setCurrent] = useState(0);
   const total = SLIDES.length;
 
+  // Preload adjacent images for smooth transitions
+  useEffect(() => {
+    const toPreload = [
+      (current + 1) % total,
+      (current - 1 + total) % total,
+      (current + 2) % total,
+    ];
+    toPreload.forEach((i) => {
+      const s = SLIDES[i];
+      if (s.type === "image") {
+        const img = new Image();
+        img.src = s.src;
+      }
+    });
+  }, [current, total]);
+
   const prev = () => setCurrent((c) => (c - 1 + total) % total);
   const next = () => setCurrent((c) => (c + 1) % total);
 
