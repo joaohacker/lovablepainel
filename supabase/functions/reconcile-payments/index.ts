@@ -34,9 +34,9 @@ serve(async (req) => {
       .eq("status", "pending")
       .not("transaction_id", "is", null)
       .lt("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
-      .gt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .gt("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: true })
+      .limit(200);
 
     if (fetchError) {
       console.error("[reconcile] DB fetch error:", fetchError);
