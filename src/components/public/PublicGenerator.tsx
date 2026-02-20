@@ -238,6 +238,14 @@ export function PublicGenerator() {
               )}
 
 
+              {/* Maintenance banner */}
+              <div className="rounded-xl border border-border bg-secondary/50 p-5 mb-6 text-center space-y-2">
+                <p className="text-lg font-semibold text-foreground">⚠️ Estamos em manutenção</p>
+                <p className="text-sm text-muted-foreground">
+                  Não se preocupe, já iremos voltar! Você será avisado assim que as gerações estiverem disponíveis novamente.
+                </p>
+              </div>
+
               {isIdle ? (
                 <div className="space-y-8">
                   {/* Credit selector */}
