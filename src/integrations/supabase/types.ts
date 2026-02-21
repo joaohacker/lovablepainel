@@ -656,6 +656,27 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_events: {
+        Row: {
+          event_type: string
+          id: string
+          received_at: string
+          transaction_id: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          received_at?: string
+          transaction_id: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          received_at?: string
+          transaction_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -682,6 +703,7 @@ export type Database = {
         }
         Returns: Json
       }
+      daily_reconciliation: { Args: never; Returns: undefined }
       debit_wallet: {
         Args: {
           p_amount: number

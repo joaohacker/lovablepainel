@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://painelcreditoslovbl.lovable.app",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
@@ -32,7 +32,6 @@ function calcularPreco(creditos: number): number {
   return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
 }
 
-// Settle a generation: mark settled, refund wallet (on-demand) or client_token credits
 async function settleGeneration(
   supabase: ReturnType<typeof createClient>,
   gen: any,
@@ -44,16 +43,13 @@ async function settleGeneration(
   const isClientToken = !!gen.client_token_id;
   const isOnDemand = !!gen.user_id && !isClientToken;
 
-  // For completed with full delivery, just mark settled
   if (!forceStatus && gen.status === "completed" && earned >= requested) {
     await supabase.from("generations").update({ settled_at: new Date().toISOString() }).eq("id", gen.id).is("settled_at", null);
     return null;
   }
 
-  // Calculate refund
   const refundCredits = requested - earned;
 
-  // Mark as settled (with optional status override)
   const updateData: Record<string, any> = {
     settled_at: new Date().toISOString(),
     credits_earned: earned,
@@ -76,9 +72,7 @@ async function settleGeneration(
     return null;
   }
 
-  // Refund based on type
   if (isOnDemand && gen.user_id) {
-    // On-demand: refund wallet money
     const fullCost = calcularPreco(requested);
     const deliveredCost = earned > 0 ? calcularPreco(earned) : 0;
     const refundAmount = +(fullCost - deliveredCost).toFixed(2);
@@ -105,7 +99,6 @@ async function settleGeneration(
   }
 
   if (isClientToken && gen.client_token_id) {
-    // Client link: refund credits back to client_token
     if (refundCredits > 0) {
       const { error: refundError } = await supabase.rpc("refund_client_token_credits", {
         p_token_id: gen.client_token_id,
@@ -123,7 +116,6 @@ async function settleGeneration(
     return { id: gen.id, user_id: gen.client_token_id, refund: refundCredits, credits: refundCredits, reason };
   }
 
-  // No user_id and no client_token_id - just mark settled
   return null;
 }
 
@@ -137,11 +129,10 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // Check if called with service role key (cron job)
-  const isServiceRole = authHeader?.includes(supabaseServiceKey);
+  // SECURITY FIX: Exact comparison instead of includes()
+  const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
 
   if (!isServiceRole) {
-    // If not service role, require admin auth
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Auth required" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -176,11 +167,8 @@ serve(async (req) => {
   try {
     const results: Array<{ id: string; user_id: string | null; refund: number; credits: number; reason: string }> = [];
 
-    // ========================================================
     // 1) Auto-cancel waiting_invite stuck for > 10 minutes
-    // ========================================================
     const waitingCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-
     const { data: stuckWaiting, error: stuckError } = await supabase
       .from("generations")
       .select("id, farm_id, user_id, credits_requested, credits_earned, status, created_at, client_token_id")
@@ -198,11 +186,8 @@ serve(async (req) => {
       }
     }
 
-    // ========================================================
     // 2) Refund expired/cancelled/error generations
-    // ========================================================
     const expiredCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-
     const { data: unsettled, error: fetchError } = await supabase
       .from("generations")
       .select("id, farm_id, user_id, credits_requested, credits_earned, status, created_at, client_token_id")
@@ -220,9 +205,7 @@ serve(async (req) => {
       }
     }
 
-    // ========================================================
     // 3) Settle completed generations (partial refund if needed)
-    // ========================================================
     const { data: completed, error: completedError } = await supabase
       .from("generations")
       .select("id, farm_id, user_id, credits_requested, credits_earned, status, created_at, client_token_id")

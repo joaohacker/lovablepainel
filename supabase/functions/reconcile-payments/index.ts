@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://painelcreditoslovbl.lovable.app",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
@@ -26,8 +26,6 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Find pending orders older than 2 minutes (give webhook time to arrive first)
-    // but younger than 24 hours (PIX expiration)
     const { data: pendingOrders, error: fetchError } = await supabase
       .from("orders")
       .select("id, transaction_id, amount, user_id, order_type, coupon_id, token_id, upgrade_increment, product_id, customer_name")
@@ -46,7 +44,6 @@ serve(async (req) => {
     }
 
     if (!pendingOrders || pendingOrders.length === 0) {
-      console.log("[reconcile] No pending orders to check");
       return new Response(JSON.stringify({ ok: true, checked: 0, credited: 0 }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -58,33 +55,30 @@ serve(async (req) => {
 
     for (const order of pendingOrders) {
       try {
-        // Check payment status on BrPix API
         const verifyRes = await fetch(`${BRPIX_BASE}/payments/${order.transaction_id}`, {
           headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
         });
         
         if (!verifyRes.ok) {
-          console.error(`[reconcile] BrPix API error for ${order.transaction_id}: HTTP ${verifyRes.status}`);
+          console.error(`[reconcile] BrPix API error for order ${order.id}: HTTP ${verifyRes.status}`);
           continue;
         }
         
         const verifyData = await verifyRes.json();
-        console.log(`[reconcile] Order ${order.id} (${order.transaction_id}): FULL BrPix response = ${JSON.stringify(verifyData).substring(0, 500)}`);
-        
+        // SECURITY FIX: Only log order ID and status, not full JSON
         const paymentStatus = verifyData.data?.status || verifyData.status;
         const isPaidBoolean = verifyData.paid === true || verifyData.data?.paid === true;
         
-        console.log(`[reconcile] Order ${order.id}: parsed status = ${paymentStatus}, paid flag = ${isPaidBoolean}`);
+        console.log(`[reconcile] Order ${order.id}: status=${paymentStatus}, paid=${isPaidBoolean}`);
 
         if (!isPaidBoolean && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
-          continue; // Not paid yet, skip
+          continue;
         }
 
-        console.log(`[reconcile] Order ${order.id} is PAID on BrPix (status: ${paymentStatus}). Processing...`);
+        console.log(`[reconcile] Order ${order.id} is PAID. Processing...`);
 
         // === DEPOSIT FLOW ===
         if (order.order_type === "deposit") {
-          // FIRST: Mark as paid BEFORE crediting to prevent duplicate credits
           const { data: updatedRows, error: updateError } = await supabase
             .from("orders")
             .update({ status: "paid", paid_at: new Date().toISOString() })
@@ -97,14 +91,12 @@ serve(async (req) => {
             continue;
           }
 
-          // If update affected 0 rows, another process already handled it
           if (!updatedRows || updatedRows.length === 0) {
-            console.log(`[reconcile] Order ${order.id} already processed by another worker, skipping`);
+            console.log(`[reconcile] Order ${order.id} already processed, skipping`);
             continue;
           }
 
           if (order.user_id) {
-            // Credit wallet (now idempotent via reference_id check)
             const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
               p_user_id: order.user_id,
               p_amount: Number(order.amount),
@@ -113,16 +105,12 @@ serve(async (req) => {
             });
             if (creditError) {
               console.error(`[reconcile] Credit error for order ${order.id}:`, creditError);
-              // Don't revert status — credit_wallet is idempotent, next run will retry
               continue;
             }
             const alreadyCredited = creditResult?.already_credited;
             console.log(`[reconcile] ${alreadyCredited ? 'SKIP (already credited)' : 'Credited'} R$${order.amount} to user ${order.user_id}`);
-          } else {
-            console.log(`[reconcile] Anonymous deposit ${order.id} — marked paid, awaiting claim`);
           }
 
-          // Increment coupon if used
           if (order.coupon_id) {
             await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
           }
@@ -201,7 +189,7 @@ serve(async (req) => {
           .eq("id", order.id)
           .eq("status", "pending");
 
-        console.log(`[reconcile] Token order ${order.id} → token ${token.token} created`);
+        console.log(`[reconcile] Token order ${order.id} → token created`);
         credited++;
       } catch (err) {
         console.error(`[reconcile] Error processing order ${order.id}:`, err);
