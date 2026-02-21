@@ -43,7 +43,8 @@ export function AuthModal({ open, onClose, onSuccess }: AuthModalProps) {
         });
         if (error) throw error;
         // Auto-confirm habilitado, já loga direto
-        onSuccess();
+        onClose();
+        setTimeout(() => onSuccess(), 100);
       }
     } catch (err: any) {
       setError(err.message || "Erro na autenticação");
