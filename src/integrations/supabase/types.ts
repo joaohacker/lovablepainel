@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      banned_ips: {
+        Row: {
+          banned_at: string
+          id: string
+          ip_address: string
+          reason: string | null
+        }
+        Insert: {
+          banned_at?: string
+          id?: string
+          ip_address: string
+          reason?: string | null
+        }
+        Update: {
+          banned_at?: string
+          id?: string
+          ip_address?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      banned_users: {
+        Row: {
+          banned_at: string
+          email: string | null
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          banned_at?: string
+          email?: string | null
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          banned_at?: string
+          email?: string | null
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_tokens: {
         Row: {
           created_at: string
@@ -546,6 +591,8 @@ export type Database = {
         Args: { p_coupon_id: string }
         Returns: undefined
       }
+      is_ip_banned: { Args: { p_ip: string }; Returns: boolean }
+      is_user_banned: { Args: { p_user_id: string }; Returns: boolean }
       refund_client_token_credits: {
         Args: { p_credits: number; p_token_id: string }
         Returns: Json
