@@ -7,6 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const BRPIX_BASE = "https://finance.brpixpayments.com/api";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,22 +26,113 @@ serve(async (req) => {
       });
     }
 
-    // Only return the status field — no personal data exposed
-    const { data, error } = await supabase
+    // Get order from DB
+    const { data: order, error } = await supabase
       .from("orders")
-      .select("status")
+      .select("status, transaction_id, amount, user_id, order_type, coupon_id")
       .eq("id", order_id)
       .maybeSingle();
 
-    if (error || !data) {
+    if (error || !order) {
       return new Response(JSON.stringify({ status: "not_found" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ status: data.status }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // If already paid, return immediately
+    if (order.status !== "pending") {
+      return new Response(JSON.stringify({ status: order.status }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === ACTIVE VERIFICATION: Check BrPix API directly ===
+    if (!order.transaction_id) {
+      return new Response(JSON.stringify({ status: "pending" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const BRPIX_API_KEY = Deno.env.get("BRPIX_API_KEY");
+    if (!BRPIX_API_KEY) {
+      // Can't verify — return DB status
+      return new Response(JSON.stringify({ status: "pending" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    try {
+      const verifyRes = await fetch(`${BRPIX_BASE}/payments/${order.transaction_id}`, {
+        headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
+      });
+
+      if (!verifyRes.ok) {
+        console.log(`[check-order-status] BrPix API error: HTTP ${verifyRes.status}`);
+        return new Response(JSON.stringify({ status: "pending" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const verifyData = await verifyRes.json();
+      const paymentStatus = verifyData.data?.status || verifyData.status;
+      const isPaidBoolean = verifyData.paid === true || verifyData.data?.paid === true;
+
+      if (!isPaidBoolean && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+        return new Response(JSON.stringify({ status: "pending" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // === PAYMENT CONFIRMED ON BRPIX — process immediately ===
+      console.log(`[check-order-status] Payment confirmed on BrPix for order ${order_id}! Processing inline...`);
+
+      // Mark as paid atomically (only if still pending)
+      const { data: updated, error: updateError } = await supabase
+        .from("orders")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("id", order_id)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+
+      if (updateError || !updated) {
+        // Already processed by webhook/reconcile — that's fine
+        console.log(`[check-order-status] Order ${order_id} already processed`);
+        return new Response(JSON.stringify({ status: "paid" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Credit wallet if user_id is set and it's a deposit
+      if (order.order_type === "deposit" && order.user_id) {
+        const { error: creditError } = await supabase.rpc("credit_wallet", {
+          p_user_id: order.user_id,
+          p_amount: Number(order.amount),
+          p_description: "Depósito via PIX",
+          p_reference_id: order_id,
+        });
+
+        if (creditError) {
+          console.error(`[check-order-status] Credit error for ${order_id}:`, creditError);
+        } else {
+          console.log(`[check-order-status] Credited R$${order.amount} to user ${order.user_id}`);
+        }
+      }
+
+      // Increment coupon usage if applicable
+      if (order.coupon_id) {
+        await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
+      }
+
+      return new Response(JSON.stringify({ status: "paid" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (verifyErr) {
+      console.error("[check-order-status] BrPix verify error:", verifyErr);
+      return new Response(JSON.stringify({ status: "pending" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   } catch (err) {
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },

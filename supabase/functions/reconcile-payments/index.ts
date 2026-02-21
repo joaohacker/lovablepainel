@@ -85,11 +85,12 @@ serve(async (req) => {
         // === DEPOSIT FLOW ===
         if (order.order_type === "deposit") {
           // FIRST: Mark as paid BEFORE crediting to prevent duplicate credits
-          const { error: updateError, count: updateCount } = await supabase
+          const { data: updatedRows, error: updateError } = await supabase
             .from("orders")
             .update({ status: "paid", paid_at: new Date().toISOString() })
             .eq("id", order.id)
-            .eq("status", "pending");
+            .eq("status", "pending")
+            .select("id");
 
           if (updateError) {
             console.error(`[reconcile] UPDATE ERROR for order ${order.id}:`, updateError);
@@ -97,7 +98,7 @@ serve(async (req) => {
           }
 
           // If update affected 0 rows, another process already handled it
-          if (updateCount === 0) {
+          if (!updatedRows || updatedRows.length === 0) {
             console.log(`[reconcile] Order ${order.id} already processed by another worker, skipping`);
             continue;
           }
