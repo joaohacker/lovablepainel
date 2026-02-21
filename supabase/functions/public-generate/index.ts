@@ -43,11 +43,11 @@ serve(async (req) => {
 
   try {
 
-    // BLOQUEIO TEMPORÁRIO - apenas admin pode gerar
+    // Authenticate user
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Autenticação necessária" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -56,29 +56,11 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user } } = await userClient.auth.getUser();
-    console.log("[public-generate] user:", user?.id, user?.email);
     if (!user) {
-      return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas." }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Usuário não autenticado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Check if admin
-    const { data: adminRole } = await supabase
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    // Allow admin OR whitelisted users
-    const ALLOWED_USERS = [
-      "b5501c63-4484-47a3-8d9d-7f3b129f7ab4", // admin
-      "1b27824d-f72b-4b44-ae56-6b38e75c311e", // testecuzin@gmail.com
-      "db001fc0-6cb9-4532-a3a5-2406819d90e5", // lucasilva@gmail.com
-    ];
-
-    console.log("[public-generate] adminRole:", !!adminRole, "inAllowed:", ALLOWED_USERS.includes(user.id));
 
     // Check if user is banned
     const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
@@ -96,14 +78,6 @@ serve(async (req) => {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    if (!adminRole && !ALLOWED_USERS.includes(user.id)) {
-      return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    // FIM BLOQUEIO TEMPORÁRIO
-    // user já autenticado acima
 
     const { credits } = await req.json();
     if (!credits || credits < 5 || credits > 10000 || credits % 5 !== 0) {
