@@ -161,6 +161,33 @@ export type Database = {
         }
         Relationships: []
       }
+      fraud_attempts: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       generations: {
         Row: {
           client_ip: string | null
@@ -380,6 +407,48 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          ip_address: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      refund_locks: {
+        Row: {
+          debit_transaction_id: string
+          locked_at: string
+          locked_by: string
+        }
+        Insert: {
+          debit_transaction_id: string
+          locked_at?: string
+          locked_by: string
+        }
+        Update: {
+          debit_transaction_id?: string
+          locked_at?: string
+          locked_by?: string
+        }
+        Relationships: []
+      }
       token_accounts: {
         Row: {
           created_at: string
@@ -587,6 +656,27 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_events: {
+        Row: {
+          event_type: string
+          id: string
+          received_at: string
+          transaction_id: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          received_at?: string
+          transaction_id: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          received_at?: string
+          transaction_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -594,6 +684,16 @@ export type Database = {
     Functions: {
       auto_refund_cron: { Args: never; Returns: undefined }
       calc_credit_price: { Args: { creditos: number }; Returns: number }
+      check_rate_limit: {
+        Args: {
+          p_endpoint: string
+          p_ip: string
+          p_max_requests?: number
+          p_user_id: string
+          p_window_seconds?: number
+        }
+        Returns: Json
+      }
       credit_wallet: {
         Args: {
           p_amount: number
@@ -603,6 +703,7 @@ export type Database = {
         }
         Returns: Json
       }
+      daily_reconciliation: { Args: never; Returns: undefined }
       debit_wallet: {
         Args: {
           p_amount: number
@@ -626,6 +727,15 @@ export type Database = {
       }
       is_ip_banned: { Args: { p_ip: string }; Returns: boolean }
       is_user_banned: { Args: { p_user_id: string }; Returns: boolean }
+      reconcile_balances: {
+        Args: never
+        Returns: {
+          difference: number
+          ledger_balance: number
+          materialized_balance: number
+          r_user_id: string
+        }[]
+      }
       refund_client_token_credits: {
         Args: { p_credits: number; p_token_id: string }
         Returns: Json
