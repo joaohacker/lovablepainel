@@ -24,6 +24,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/painel-7f9a" element={<Admin />} />
           <Route path="/generate/:token" element={<Generate />} />
           <Route path="/tokenclientes/:token" element={<ClientGenerate />} />
           <Route path="/checkout" element={<Checkout />} />

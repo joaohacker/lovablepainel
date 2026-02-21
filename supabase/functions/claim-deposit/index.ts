@@ -36,6 +36,21 @@ serve(async (req) => {
       });
     }
 
+    // RATE LIMITING: max 10 claims per 5 minutes
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIp,
+      p_endpoint: "claim-deposit",
+      p_max_requests: 10,
+      p_window_seconds: 300,
+    });
+    if (rateCheck && !(rateCheck as any).allowed) {
+      return new Response(JSON.stringify({ error: "Muitas tentativas. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { order_id } = await req.json();
     if (!order_id) {
       return new Response(JSON.stringify({ error: "Missing order_id" }), {

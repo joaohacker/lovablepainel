@@ -23,7 +23,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate(isAdmin ? "/admin" : "/");
+      navigate(isAdmin ? "/painel-7f9a" : "/");
     }
   }, [user, loading, isAdmin, navigate]);
 
