@@ -101,6 +101,75 @@ async function autoSettle(
 }
 
 /**
+ * Process the queue: when a slot opens, pick the oldest queued generation,
+ * create a real farm, and update the generation record.
+ */
+async function processQueue(
+  supabase: ReturnType<typeof createClient>,
+  farmApiKey: string
+) {
+  const MAX_CONCURRENT = 8;
+  const now = new Date();
+  const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+  const twelveMinAgo = new Date(now.getTime() - 12 * 60 * 1000).toISOString();
+  const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString();
+
+  const { count: runC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "running").gte("updated_at", tenMinAgo);
+  const { count: waitC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "waiting_invite").gte("created_at", twelveMinAgo);
+  const { count: createC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "creating").gte("created_at", threeMinAgo);
+  const activeCount = (runC || 0) + (waitC || 0) + (createC || 0);
+
+  if (activeCount >= MAX_CONCURRENT) {
+    console.log(`[processQueue] Still at capacity (${activeCount}/${MAX_CONCURRENT}), skipping`);
+    return;
+  }
+
+  const { data: nextGen } = await supabase
+    .from("generations")
+    .select("id, farm_id, credits_requested, user_id, token_id, client_token_id, client_name")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!nextGen) return;
+
+  console.log(`[processQueue] Dequeuing generation ${nextGen.id} (${nextGen.credits_requested} credits)`);
+
+  try {
+    const farmRes = await fetch(`${API_BASE}/farm/create`, {
+      method: "POST",
+      headers: { "x-api-key": farmApiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ credits: nextGen.credits_requested }),
+    });
+    if (!farmRes.ok) {
+      const errText = await farmRes.text();
+      console.error(`[processQueue] Farm creation failed: ${errText}`);
+      return;
+    }
+    const farmData = await farmRes.json();
+    const oldFarmId = nextGen.farm_id;
+
+    await supabase.from("generations")
+      .update({ farm_id: farmData.farmId, status: "waiting_invite", master_email: farmData.masterEmail || null })
+      .eq("id", nextGen.id).eq("status", "queued");
+
+    if (nextGen.user_id && !nextGen.client_token_id) {
+      const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", nextGen.user_id).single();
+      if (wallet) {
+        await supabase.from("wallet_transactions").update({ reference_id: farmData.farmId }).eq("wallet_id", wallet.id).eq("reference_id", oldFarmId);
+      }
+    }
+    if (nextGen.token_id) {
+      await supabase.from("token_usages").update({ farm_id: farmData.farmId, status: "active" }).eq("farm_id", oldFarmId).eq("token_id", nextGen.token_id);
+    }
+    console.log(`[processQueue] Dequeued gen ${nextGen.id}: ${oldFarmId} -> ${farmData.farmId}`);
+  } catch (err) {
+    console.error(`[processQueue] Error:`, err);
+  }
+}
+
+/**
  * Validates that the request has a valid token+farmId pair or is an authenticated admin.
  */
 async function authorizeRequest(
@@ -296,7 +365,18 @@ serve(async (req) => {
           autoSettle(supabase, farmId, creditsEarned).catch((err) => {
             console.error(`[auto-settle] Error:`, err);
           });
-        } else {
+          // Fire-and-forget queue processing — a slot just opened
+          processQueue(supabase, FARM_API_KEY).catch((err) => {
+            console.error(`[processQueue] Error:`, err);
+          });
+        } else if (["error", "expired", "cancelled"].includes(upstreamStatus)) {
+          // Terminal non-complete states also free a slot
+          processQueue(supabase, FARM_API_KEY).catch((err) => {
+            console.error(`[processQueue] Error:`, err);
+          });
+        }
+        
+        if (!["completed", "error", "expired", "cancelled"].includes(upstreamStatus)) {
           // Intermediate update: sync credits_earned, status, workspace, masterEmail
           const updatePayload: Record<string, unknown> = {
             credits_earned: creditsEarned,

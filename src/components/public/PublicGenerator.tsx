@@ -16,37 +16,6 @@ import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-// Maintenance banner with 20-min countdown
-function MaintenanceBanner() {
-  const [endTime] = useState(() => new Date("2026-02-21T21:15:00Z").getTime());
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const remaining = Math.max(0, endTime - now);
-  const mins = Math.floor(remaining / 60000);
-  const secs = Math.floor((remaining % 60000) / 1000);
-
-  return (
-    <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-5 mb-6 text-center space-y-2">
-      <p className="text-lg font-semibold text-foreground">⏳ Atualização em andamento</p>
-      <p className="text-sm text-muted-foreground">
-        Estamos implementando melhorias no sistema. As gerações voltam em breve.
-      </p>
-      {remaining > 0 ? (
-        <p className="text-2xl font-bold text-yellow-400 tabular-nums">
-          {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
-        </p>
-      ) : (
-        <p className="text-sm font-medium text-success">Atualização concluída — recarregue a página</p>
-      )}
-    </div>
-  );
-}
-
 export function PublicGenerator() {
   const { user, session } = useAuth();
   const { wallet, refetch: refetchWallet } = useWallet(user);
@@ -138,13 +107,48 @@ export function PublicGenerator() {
       }
 
       refetchWallet();
-      farm.startGenerationWithFarmId(
-        data.farmId,
-        c,
-        data.queued,
-        data.queuePosition,
-        data.masterEmail
-      );
+
+      if (data.queued && data.generationId && !data.farmId) {
+        // Queued — poll check-queue until dequeued
+        farm.setError(null as any); // clear any previous error
+        const pollQueue = async () => {
+          const poll = setInterval(async () => {
+            try {
+              const { data: qData } = await supabase.functions.invoke("public-generate", {
+                body: { action: "check-queue", generationId: data.generationId },
+              });
+              if (qData?.status === "queued") {
+                farm.startGenerationWithFarmId(
+                  `queued-${data.generationId}`, c, true, qData.queuePosition
+                );
+                return; // keep polling
+              }
+              // Dequeued — got a real farmId
+              clearInterval(poll);
+              if (qData?.farmId) {
+                farm.startGenerationWithFarmId(
+                  qData.farmId, c, false, null, qData.masterEmail
+                );
+              }
+            } catch {
+              // ignore poll errors
+            }
+          }, 3000);
+          // Initial state
+          farm.startGenerationWithFarmId(
+            `queued-${data.generationId}`, c, true, data.queuePosition
+          );
+        };
+        pollQueue();
+      } else {
+        farm.startGenerationWithFarmId(
+          data.farmId,
+          c,
+          data.queued,
+          data.queuePosition,
+          data.masterEmail
+        );
+      }
     } catch (err: any) {
       farm.setError(err.message || "Erro ao iniciar geração");
     } finally {
@@ -251,8 +255,13 @@ export function PublicGenerator() {
                 </div>
               )}
 
-              {/* Maintenance banner with countdown */}
-              <MaintenanceBanner />
+              {/* System active */}
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-6 text-center space-y-2">
+                <p className="text-lg font-semibold text-foreground">✅ Painel funcionando perfeitamente</p>
+                <p className="text-sm text-muted-foreground">
+                  Gerações ativas novamente! Gere seus créditos agora mesmo.
+                </p>
+              </div>
 
               {isIdle ? (
                 <div className="space-y-8">
