@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,31 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, QrCode, Wallet, CheckCircle2, UserPlus, Tag, Check, X } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { Loader2, QrCode, Wallet, CheckCircle2, Tag, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/pricing";
 import { PixStep } from "./PixStep";
-
-const PENDING_DEPOSIT_KEY = "pending_deposit";
-
-export function savePendingDeposit(orderId: string, amount: number) {
-  localStorage.setItem(PENDING_DEPOSIT_KEY, JSON.stringify({ order_id: orderId, amount }));
-}
-
-export function loadPendingDeposit(): { order_id: string; amount: number } | null {
-  try {
-    const raw = localStorage.getItem(PENDING_DEPOSIT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-export function clearPendingDeposit() {
-  localStorage.removeItem(PENDING_DEPOSIT_KEY);
-}
 
 interface DepositModalProps {
   open: boolean;
@@ -42,10 +21,6 @@ interface DepositModalProps {
   suggestedAmount: number | null;
   pendingCredits: number | null;
   onGenerateAfterDeposit: () => void;
-  isLoggedIn: boolean;
-  /** If set, open directly in "paid" step to resume claiming */
-  resumeOrderId?: string | null;
-  resumeAmount?: number | null;
 }
 
 export function DepositModal({
@@ -55,12 +30,9 @@ export function DepositModal({
   suggestedAmount,
   pendingCredits,
   onGenerateAfterDeposit,
-  isLoggedIn,
-  resumeOrderId,
-  resumeAmount,
 }: DepositModalProps) {
-  // Steps: form → pix → paid → signup (if not logged in) → done
-  const [step, setStep] = useState<"form" | "pix" | "paid" | "signup" | "claiming" | "done">("form");
+  // Steps: form → pix → done (user is always logged in)
+  const [step, setStep] = useState<"form" | "pix" | "done">("form");
   const [amount, setAmount] = useState(suggestedAmount && suggestedAmount >= 5 ? suggestedAmount : 5);
   const [amountInput, setAmountInput] = useState(String(suggestedAmount && suggestedAmount >= 5 ? suggestedAmount : 5));
   const [loading, setLoading] = useState(false);
@@ -73,37 +45,12 @@ export function DepositModal({
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
 
-  // Signup fields
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState<"signup" | "login">("signup");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
   useEffect(() => {
     if (open) {
-      // If resuming a pending deposit, go straight to signup step
-      if (resumeOrderId && resumeAmount) {
-        setStep("paid");
-        setOrderId(resumeOrderId);
-        setAmount(resumeAmount);
-        setAmountInput(String(resumeAmount));
-        setPixCode(null);
-        setError(null);
-        setAuthError(null);
-        setEmail("");
-        setPassword("");
-        setAuthMode("signup");
-        return;
-      }
       setStep("form");
       setPixCode(null);
       setOrderId(null);
       setError(null);
-      setAuthError(null);
-      setEmail("");
-      setPassword("");
-      setAuthMode("signup");
       setCouponCode("");
       setShowCoupon(false);
       setCouponApplied(null);
@@ -113,7 +60,7 @@ export function DepositModal({
       setAmount(val);
       setAmountInput(String(val));
     }
-  }, [open, suggestedAmount, resumeOrderId, resumeAmount]);
+  }, [open, suggestedAmount]);
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -172,7 +119,7 @@ export function DepositModal({
     }
   };
 
-  // Poll for payment confirmation
+  // Poll for payment confirmation — user is always logged in now
   useEffect(() => {
     if (step !== "pix" || !orderId) return;
 
@@ -183,74 +130,21 @@ export function DepositModal({
 
       if (data?.status === "paid") {
         clearInterval(interval);
-        if (isLoggedIn) {
-          // Logged in — try to claim-deposit in case the order was created
-          // without user_id (race condition where user logged in after creating PIX).
-          // If webhook already credited (order has user_id), claim will fail silently — that's fine.
-          try {
-            await supabase.functions.invoke("claim-deposit", {
-              body: { order_id: orderId },
-            });
-          } catch {
-            // Ignore — webhook already handled it
-          }
-          setStep("done");
-          onSuccess();
-        } else {
-          // Not logged in — save to localStorage and show signup form
-          savePendingDeposit(orderId, amount);
-          setStep("paid");
+        // Try claim-deposit in case webhook didn't credit yet
+        try {
+          await supabase.functions.invoke("claim-deposit", {
+            body: { order_id: orderId },
+          });
+        } catch {
+          // Ignore — webhook already handled it
         }
+        setStep("done");
+        onSuccess();
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [step, orderId, isLoggedIn, onSuccess]);
-
-  const claimDeposit = useCallback(async () => {
-    if (!orderId) return;
-    setStep("claiming");
-    try {
-      const { data, error } = await supabase.functions.invoke("claim-deposit", {
-        body: { order_id: orderId },
-      });
-      if (error || !data?.success) {
-        throw new Error(data?.error || "Erro ao creditar saldo");
-      }
-      clearPendingDeposit();
-      setStep("done");
-      onSuccess();
-    } catch (err: any) {
-      setAuthError(err.message);
-      setStep("signup");
-    }
-  }, [orderId, onSuccess]);
-
-  const handleAuth = async () => {
-    setAuthLoading(true);
-    setAuthError(null);
-
-    try {
-      if (authMode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-
-      // After auth, claim the deposit
-      // Small delay to ensure session is ready
-      setTimeout(() => claimDeposit(), 500);
-    } catch (err: any) {
-      setAuthError(err.message || "Erro na autenticação");
-      setAuthLoading(false);
-    }
-  };
+  }, [step, orderId, onSuccess]);
 
   const handleDone = () => {
     onClose();
@@ -266,8 +160,6 @@ export function DepositModal({
           <DialogTitle className="flex items-center gap-2">
             {step === "done" ? (
               <><CheckCircle2 className="h-5 w-5 text-success" /> Saldo Adicionado!</>
-            ) : step === "paid" || step === "signup" || step === "claiming" ? (
-              <><UserPlus className="h-5 w-5" /> Criar Conta</>
             ) : (
               <><Wallet className="h-5 w-5" /> Adicionar Saldo</>
             )}
@@ -275,9 +167,6 @@ export function DepositModal({
           <DialogDescription>
             {step === "form" && "Pague via PIX para adicionar saldo."}
             {step === "pix" && "Escaneie o QR Code ou copie o código PIX."}
-            {step === "paid" && "Pagamento confirmado! Crie sua conta para receber o saldo."}
-            {step === "signup" && "Crie sua conta para receber o saldo."}
-            {step === "claiming" && "Creditando saldo na sua conta..."}
             {step === "done" && "Seu saldo foi creditado com sucesso!"}
           </DialogDescription>
         </DialogHeader>
@@ -397,49 +286,6 @@ export function DepositModal({
             <Button onClick={() => setStep("form")} variant="outline">Voltar</Button>
           </div>
         ) : null}
-
-        {(step === "paid" || step === "signup") && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-center">
-              <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
-              <p className="text-sm font-semibold text-success">Pagamento de {formatBRL(amount)} confirmado!</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Crie sua conta para receber o saldo automaticamente.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" />
-            </div>
-            <div className="space-y-2">
-              <Label>Senha</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-            </div>
-
-            {authError && <p className="text-sm text-destructive">{authError}</p>}
-
-            <Button onClick={handleAuth} disabled={authLoading || !email || !password} className="w-full gap-2">
-              {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {authMode === "signup" ? "Criar Conta e Receber Saldo" : "Entrar e Receber Saldo"}
-            </Button>
-
-            <p className="text-xs text-center text-muted-foreground">
-              {authMode === "signup" ? (
-                <>Já tem conta? <button onClick={() => setAuthMode("login")} className="text-primary hover:underline">Fazer login</button></>
-              ) : (
-                <>Não tem conta? <button onClick={() => setAuthMode("signup")} className="text-primary hover:underline">Criar conta</button></>
-              )}
-            </p>
-          </div>
-        )}
-
-        {step === "claiming" && (
-          <div className="flex flex-col items-center gap-4 py-8">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Creditando saldo na sua conta...</p>
-          </div>
-        )}
 
         {step === "done" && (
           <div className="flex flex-col items-center gap-4 py-4">
