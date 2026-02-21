@@ -14,6 +14,43 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // SECURITY: Only allow cron (service role) or admin users
+  const authHeader = req.headers.get("authorization");
+  const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
+
+  if (!isServiceRole) {
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Auth required" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Invalid user" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: roleCheck } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleCheck) {
+      return new Response(JSON.stringify({ error: "Admin only" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   const BRPIX_API_KEY = Deno.env.get("BRPIX_API_KEY");
   if (!BRPIX_API_KEY) {
     return new Response(JSON.stringify({ error: "BRPIX_API_KEY not configured" }), {
@@ -21,8 +58,6 @@ serve(async (req) => {
     });
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
@@ -58,7 +93,6 @@ serve(async (req) => {
 
     for (const order of pendingOrders) {
       try {
-        // Check payment status on BrPix API
         const verifyRes = await fetch(`${BRPIX_BASE}/payments/${order.transaction_id}`, {
           headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
         });
@@ -77,14 +111,13 @@ serve(async (req) => {
         console.log(`[reconcile] Order ${order.id}: parsed status = ${paymentStatus}, paid flag = ${isPaidBoolean}`);
 
         if (!isPaidBoolean && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
-          continue; // Not paid yet, skip
+          continue;
         }
 
         console.log(`[reconcile] Order ${order.id} is PAID on BrPix (status: ${paymentStatus}). Processing...`);
 
         // === DEPOSIT FLOW ===
         if (order.order_type === "deposit") {
-          // FIRST: Mark as paid BEFORE crediting to prevent duplicate credits
           const { data: updatedRows, error: updateError } = await supabase
             .from("orders")
             .update({ status: "paid", paid_at: new Date().toISOString() })
@@ -97,14 +130,12 @@ serve(async (req) => {
             continue;
           }
 
-          // If update affected 0 rows, another process already handled it
           if (!updatedRows || updatedRows.length === 0) {
             console.log(`[reconcile] Order ${order.id} already processed by another worker, skipping`);
             continue;
           }
 
           if (order.user_id) {
-            // Credit wallet (now idempotent via reference_id check)
             const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
               p_user_id: order.user_id,
               p_amount: Number(order.amount),
@@ -113,7 +144,6 @@ serve(async (req) => {
             });
             if (creditError) {
               console.error(`[reconcile] Credit error for order ${order.id}:`, creditError);
-              // Don't revert status — credit_wallet is idempotent, next run will retry
               continue;
             }
             const alreadyCredited = creditResult?.already_credited;
@@ -122,7 +152,6 @@ serve(async (req) => {
             console.log(`[reconcile] Anonymous deposit ${order.id} — marked paid, awaiting claim`);
           }
 
-          // Increment coupon if used
           if (order.coupon_id) {
             await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
           }

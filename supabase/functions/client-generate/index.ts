@@ -9,6 +9,12 @@ const corsHeaders = {
 
 const API_BASE = "https://api.lovablextensao.shop";
 
+// SECURITY: Whitelist of allowed status values from frontend
+const ALLOWED_STATUS_VALUES = [
+  "running", "completed", "expired", "cancelled", "error",
+  "waiting_invite", "queued", "creating", "active",
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -70,10 +76,8 @@ serve(async (req) => {
 
     const remaining = clientToken.total_credits - clientToken.credits_used;
 
-    // Helper: calculate REAL remaining based on actually delivered credits,
-    // ignoring credits_used which may include reservations not yet refunded.
+    // Helper: calculate REAL remaining based on actually delivered credits
     async function getRealRemaining(): Promise<{ realRemaining: number; hasActiveGen: boolean }> {
-      // Get all non-settled generations for this token
       const { data: allGens } = await supabase
         .from("generations")
         .select("credits_requested, credits_earned, status, settled_at")
@@ -85,11 +89,9 @@ serve(async (req) => {
       if (allGens) {
         for (const g of allGens) {
           const earned = g.credits_earned ?? 0;
-          // Count credits from completed/running generations as "actually used"
           if (g.status === "completed" || g.status === "running") {
             totalDelivered += earned;
           }
-          // Check if there's an active generation in progress
           if (!g.settled_at && ["waiting_invite", "queued", "pending", "creating", "active", "running"].includes(g.status)) {
             hasActiveGen = true;
           }
@@ -128,9 +130,23 @@ serve(async (req) => {
       }
 
       const updateData: Record<string, any> = {};
-      if (status) updateData.status = status;
-      if (typeof creditsEarned === "number") updateData.credits_earned = creditsEarned;
-      if (workspaceName) updateData.workspace_name = workspaceName;
+
+      // SECURITY: Validate status against whitelist
+      if (status) {
+        if (!ALLOWED_STATUS_VALUES.includes(status)) {
+          return new Response(
+            JSON.stringify({ error: "Status inválido" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        updateData.status = status;
+      }
+
+      // SECURITY: Do NOT accept credits_earned from frontend — only workspace_name
+      if (workspaceName && typeof workspaceName === "string" && workspaceName.length <= 200) {
+        updateData.workspace_name = workspaceName;
+      }
+
       updateData.updated_at = new Date().toISOString();
 
       if (Object.keys(updateData).length > 1) {
@@ -175,11 +191,14 @@ serve(async (req) => {
       const requested = gen.credits_requested;
       const refundCredits = requested - earned;
 
+      // SECURITY: Validate status for refund
+      const refundStatus = (status && ALLOWED_STATUS_VALUES.includes(status)) ? status : "expired";
+
       // Mark as settled
       const { data: updated } = await supabase
         .from("generations")
         .update({
-          status: status || "expired",
+          status: refundStatus,
           settled_at: new Date().toISOString(),
           credits_earned: earned,
         })
@@ -212,7 +231,6 @@ serve(async (req) => {
         console.log(`[client-generate] Refunded ${refundCredits} credits to token ${clientToken.id} (${earned}/${requested} delivered)`);
       }
 
-      // Also settle completed with full delivery
       if (earned >= requested && refundCredits <= 0) {
         console.log(`[client-generate] Settled completed generation, all ${requested} credits delivered`);
       }
@@ -243,7 +261,6 @@ serve(async (req) => {
         );
       }
 
-      // Check real remaining (accounting for reserved credits that will be refunded)
       const { realRemaining, hasActiveGen } = await getRealRemaining();
 
       if (hasActiveGen) {
@@ -260,10 +277,8 @@ serve(async (req) => {
         );
       }
 
-      // Clamp to real remaining
       const actualCredits = Math.min(credits, realRemaining);
 
-      // Atomic debit from client token
       const { data: useResult, error: useError } = await supabase.rpc("use_client_token_credits", {
         p_token_id: clientToken.id,
         p_credits: actualCredits,
@@ -277,14 +292,12 @@ serve(async (req) => {
         );
       }
 
-      // Create farm
-      const slavesCount = Math.ceil(actualCredits / 5);
       let farmData: any;
       try {
         const farmRes = await fetch(`${API_BASE}/farm/create`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-api-key": FARM_API_KEY },
-          body: JSON.stringify({ credits: actualCredits, slavesCount }),
+          body: JSON.stringify({ credits: actualCredits, slavesCount: Math.ceil(actualCredits / 5) }),
         });
 
         if (!farmRes.ok) {
@@ -294,7 +307,6 @@ serve(async (req) => {
 
         farmData = await farmRes.json();
       } catch (farmErr) {
-        // Refund on failure
         await supabase.rpc("refund_client_token_credits", {
           p_token_id: clientToken.id,
           p_credits: actualCredits,
@@ -302,7 +314,6 @@ serve(async (req) => {
         throw farmErr;
       }
 
-      // Insert generation record linked to client_token
       await supabase.from("generations").insert({
         farm_id: farmData.farmId,
         client_name: `client-link-${clientToken.id.slice(0, 8)}`,

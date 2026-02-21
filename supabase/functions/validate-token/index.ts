@@ -407,13 +407,23 @@ serve(async (req) => {
         );
       }
 
-      const updateData: Record<string, unknown> = { status };
-      if (master_email !== undefined) updateData.master_email = master_email;
-      if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
-      if (error_message !== undefined) updateData.error_message = error_message;
+      // SECURITY: Whitelist allowed status values
+      const ALLOWED_STATUSES = ["running", "completed", "expired", "cancelled", "error", "waiting_invite", "queued", "creating", "active"];
+      if (status && !ALLOWED_STATUSES.includes(status)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Status inválido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-      // Never overwrite credits_earned with a lower value, cap at credits_requested
-      if (credits_earned !== undefined && credits_earned > 0) {
+      const updateData: Record<string, unknown> = {};
+      if (status) updateData.status = status;
+      if (master_email !== undefined && typeof master_email === "string" && master_email.length <= 200) updateData.master_email = master_email;
+      if (workspace_name !== undefined && typeof workspace_name === "string" && workspace_name.length <= 200) updateData.workspace_name = workspace_name;
+      if (error_message !== undefined && typeof error_message === "string" && error_message.length <= 500) updateData.error_message = error_message;
+
+      // SECURITY: credits_earned — never decrease, cap at credits_requested, validate type
+      if (credits_earned !== undefined && typeof credits_earned === "number" && credits_earned > 0 && Number.isInteger(credits_earned)) {
         const { data: currentGen } = await supabase.from("generations").select("credits_earned, credits_requested").eq("farm_id", farmId).maybeSingle();
         const dbCredits = currentGen?.credits_earned ?? 0;
         const capCredits = currentGen?.credits_requested ?? Infinity;

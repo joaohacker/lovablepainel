@@ -26,26 +26,32 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Auth is OPTIONAL — logged-in users get saldo credited immediately via webhook
-    let userId: string | null = null;
+    // SECURITY: Require authentication for deposits
     const authHeader = req.headers.get("authorization");
-    if (authHeader) {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Autenticação necessária para depósitos" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      const { data: { user } } = await userClient.auth.getUser();
-      if (user) userId = user.id;
     }
 
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Usuário inválido" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userId = user.id;
+
     // Check if user is banned
-    if (userId) {
-      const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
-      if (isBanned) {
-        return new Response(JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }), {
-          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
+    if (isBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Check if IP is banned
@@ -54,6 +60,20 @@ serve(async (req) => {
     if (isIpBanned) {
       return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Rate limiting — 10 deposits per 5 minutes
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: userId,
+      p_ip: clientIpCheck,
+      p_endpoint: "wallet-deposit",
+      p_max_requests: 10,
+      p_window_seconds: 300,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas tentativas. Aguarde alguns minutos." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

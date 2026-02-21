@@ -137,8 +137,8 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // Check if called with service role key (cron job)
-  const isServiceRole = authHeader?.includes(supabaseServiceKey);
+  // SECURITY: Exact match — not includes (prevents substring bypass)
+  const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
 
   if (!isServiceRole) {
     // If not service role, require admin auth
