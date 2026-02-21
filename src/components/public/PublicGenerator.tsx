@@ -16,6 +16,37 @@ import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// Maintenance banner with 20-min countdown
+function MaintenanceBanner() {
+  const [endTime] = useState(() => new Date("2026-02-21T21:15:00Z").getTime());
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const remaining = Math.max(0, endTime - now);
+  const mins = Math.floor(remaining / 60000);
+  const secs = Math.floor((remaining % 60000) / 1000);
+
+  return (
+    <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-5 mb-6 text-center space-y-2">
+      <p className="text-lg font-semibold text-foreground">⏳ Atualização em andamento</p>
+      <p className="text-sm text-muted-foreground">
+        Estamos implementando melhorias no sistema. As gerações voltam em breve.
+      </p>
+      {remaining > 0 ? (
+        <p className="text-2xl font-bold text-yellow-400 tabular-nums">
+          {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+        </p>
+      ) : (
+        <p className="text-sm font-medium text-success">Atualização concluída — recarregue a página</p>
+      )}
+    </div>
+  );
+}
+
 export function PublicGenerator() {
   const { user, session } = useAuth();
   const { wallet, refetch: refetchWallet } = useWallet(user);
@@ -220,13 +251,8 @@ export function PublicGenerator() {
                 </div>
               )}
 
-              {/* Success banner */}
-              <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-6 text-center space-y-2">
-                <p className="text-lg font-semibold text-foreground">✅ Painel funcionando perfeitamente</p>
-                <p className="text-sm text-muted-foreground">
-                  Gerações ativas novamente! Gere seus créditos agora mesmo.
-                </p>
-              </div>
+              {/* Maintenance banner with countdown */}
+              <MaintenanceBanner />
 
               {isIdle ? (
                 <div className="space-y-8">
