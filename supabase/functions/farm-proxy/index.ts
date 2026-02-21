@@ -269,28 +269,57 @@ serve(async (req) => {
     const data = await upstreamRes.text();
     console.log(`[farm-proxy] upstream responded: ${upstreamRes.status}`);
 
-    // === AUTO-SETTLE: when status returns "completed", settle the generation ===
+    // === SYNC DB: update generation status/credits on every status poll ===
     if (action === "status" && farmId && upstreamRes.ok) {
       try {
         const parsed = JSON.parse(data);
-        if (parsed.status === "completed") {
-          // Count credits from result or logs
-          let creditsEarned = parsed.result?.credits ?? parsed.creditsEarned ?? 0;
-          if (creditsEarned === 0 && Array.isArray(parsed.logs)) {
-            for (const log of parsed.logs) {
-              if (log.type === "credit") {
-                const match = log.message?.match(/^\+(\d+)\s/);
-                if (match) creditsEarned += parseInt(match[1], 10);
-              }
+
+        // Count credits from result or logs
+        let creditsEarned = parsed.result?.credits ?? parsed.creditsEarned ?? 0;
+        if (creditsEarned === 0 && Array.isArray(parsed.logs)) {
+          for (const log of parsed.logs) {
+            if (log.type === "credit") {
+              const match = log.message?.match(/^\+(\d+)\s/);
+              if (match) creditsEarned += parseInt(match[1], 10);
             }
           }
-          // Fire-and-forget settlement — don't block the response
+        }
+
+        // Map upstream status to our status values
+        const upstreamStatus = parsed.status;
+        const dbStatus = upstreamStatus === "workspace_detected" ? "running" 
+          : upstreamStatus === "allocating" ? "waiting_invite"
+          : upstreamStatus;
+
+        if (upstreamStatus === "completed") {
+          // Fire-and-forget settlement (handles refund + settled_at)
           autoSettle(supabase, farmId, creditsEarned).catch((err) => {
             console.error(`[auto-settle] Error:`, err);
           });
+        } else {
+          // Intermediate update: sync credits_earned, status, workspace, masterEmail
+          const updatePayload: Record<string, unknown> = {
+            credits_earned: creditsEarned,
+          };
+          if (dbStatus && ["running", "waiting_invite", "queued", "error", "expired", "cancelled"].includes(dbStatus)) {
+            updatePayload.status = dbStatus;
+          }
+          if (parsed.workspaceName) {
+            updatePayload.workspace_name = parsed.workspaceName;
+          }
+          if (parsed.masterEmail) {
+            updatePayload.master_email = parsed.masterEmail;
+          }
+
+          // Only update if not already settled
+          await supabase
+            .from("generations")
+            .update(updatePayload)
+            .eq("farm_id", farmId)
+            .is("settled_at", null);
         }
       } catch {
-        // Parsing failed — not a JSON response, skip settlement
+        // Parsing failed — not a JSON response, skip
       }
     }
 
