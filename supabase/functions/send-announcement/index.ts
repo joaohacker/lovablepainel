@@ -51,19 +51,19 @@ serve(async (req) => {
   }
 
   try {
-    // Get up to 100 user emails from auth.users via profiles
-    const { data: profiles, error: profilesError } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 100,
-    });
-
-    if (profilesError) {
-      throw new Error(`Failed to list users: ${profilesError.message}`);
+    // Paginate through ALL users
+    const emails: string[] = [];
+    let page = 1;
+    const perPage = 1000;
+    while (true) {
+      const { data: result, error: listError } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (listError) throw new Error(`Failed to list users page ${page}: ${listError.message}`);
+      for (const u of result.users) {
+        if (u.email) emails.push(u.email);
+      }
+      if (result.users.length < perPage) break;
+      page++;
     }
-
-    const emails = profiles.users
-      .map(u => u.email)
-      .filter((e): e is string => !!e);
 
     if (emails.length === 0) {
       return new Response(JSON.stringify({ error: "No users found" }), {
