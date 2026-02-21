@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 const API_BASE = "https://api.lovablextensao.shop";
+const MAX_CONCURRENT = 8;
 
 function calcularPreco(creditos: number): number {
   const TIERS = [
@@ -17,8 +18,8 @@ function calcularPreco(creditos: number): number {
     { credits: 10000, price: 300.00 },
   ];
   if (creditos <= 0) return 0;
-  if (creditos <= TIERS[0].credits) return +(creditos * (TIERS[0].price / TIERS[0].credits));
-  if (creditos >= TIERS[TIERS.length - 1].credits) return +(creditos * (TIERS[TIERS.length - 1].price / TIERS[TIERS.length - 1].credits));
+  if (creditos <= TIERS[0].credits) return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
+  if (creditos >= TIERS[TIERS.length - 1].credits) return +(creditos * (TIERS[TIERS.length - 1].price / TIERS[TIERS.length - 1].credits)).toFixed(2);
   for (let i = 0; i < TIERS.length - 1; i++) {
     if (creditos >= TIERS[i].credits && creditos <= TIERS[i + 1].credits) {
       const t = (creditos - TIERS[i].credits) / (TIERS[i + 1].credits - TIERS[i].credits);
@@ -29,6 +30,61 @@ function calcularPreco(creditos: number): number {
     }
   }
   return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
+}
+
+/**
+ * Count active (non-ghost) generations.
+ * Ghost filtering: only count if recently updated/created based on status.
+ */
+async function getActiveGenerationCount(supabase: ReturnType<typeof createClient>): Promise<number> {
+  const now = new Date();
+  const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+  const twelveMinAgo = new Date(now.getTime() - 12 * 60 * 1000).toISOString();
+  const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString();
+
+  // Running: updated in last 10 min
+  const { count: runningCount } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "running")
+    .gte("updated_at", tenMinAgo);
+
+  // Waiting invite: created in last 12 min
+  const { count: waitingCount } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "waiting_invite")
+    .gte("created_at", twelveMinAgo);
+
+  // Creating: created in last 3 min
+  const { count: creatingCount } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "creating")
+    .gte("created_at", threeMinAgo);
+
+  return (runningCount || 0) + (waitingCount || 0) + (creatingCount || 0);
+}
+
+/**
+ * Get queue position for a given generation.
+ */
+async function getQueuePosition(supabase: ReturnType<typeof createClient>, generationId: string): Promise<number> {
+  const { data: gen } = await supabase
+    .from("generations")
+    .select("created_at")
+    .eq("id", generationId)
+    .single();
+
+  if (!gen) return 0;
+
+  const { count } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "queued")
+    .lt("created_at", gen.created_at);
+
+  return (count || 0) + 1;
 }
 
 serve(async (req) => {
@@ -42,7 +98,6 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-
     // Authenticate user
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
@@ -71,29 +126,72 @@ serve(async (req) => {
     }
 
     // Check if IP is banned
-    const clientIpCheck = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIpCheck });
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
     if (isIpBanned) {
       return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // BLOQUEIO TEMPORÁRIO — manutenção do sistema de filas
-    return new Response(JSON.stringify({ error: "⏳ Sistema em atualização. Voltamos em aproximadamente 20 minutos." }), {
-      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const body = await req.json();
+    const { credits, action } = body;
 
-    const { credits } = await req.json();
+    // === CHECK-QUEUE: poll queue status by generationId ===
+    if (action === "check-queue") {
+      const { generationId } = body;
+      if (!generationId) {
+        return new Response(JSON.stringify({ error: "generationId obrigatório" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: gen } = await supabase
+        .from("generations")
+        .select("id, farm_id, status, master_email, credits_requested, created_at")
+        .eq("id", generationId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!gen) {
+        return new Response(JSON.stringify({ error: "Geração não encontrada" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (gen.status === "queued") {
+        const position = await getQueuePosition(supabase, gen.id);
+        return new Response(JSON.stringify({
+          status: "queued",
+          queuePosition: position,
+          generationId: gen.id,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Generation has been dequeued — return farmId
+      return new Response(JSON.stringify({
+        status: gen.status,
+        farmId: gen.farm_id,
+        masterEmail: gen.master_email,
+        generationId: gen.id,
+        credits: gen.credits_requested,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === GENERATE ===
     if (!credits || credits < 5 || credits > 10000 || credits % 5 !== 0) {
-      return new Response(JSON.stringify({ error: "Créditos inválidos (5-20000, múltiplos de 5)" }), {
+      return new Response(JSON.stringify({ error: "Créditos inválidos (5-10000, múltiplos de 5)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const cost = calcularPreco(credits);
 
-    // Generate a unique debit ref upfront (will be replaced with farmId after creation)
+    // Generate a unique debit ref upfront
     const tempDebitRef = crypto.randomUUID();
 
     // Debit wallet atomically with temp reference
@@ -124,8 +222,61 @@ serve(async (req) => {
       });
     }
 
-    // Create farm via external API
+    // Check active generation count (with ghost filtering)
+    const activeCount = await getActiveGenerationCount(supabase);
+
+    if (activeCount >= MAX_CONCURRENT) {
+      // QUEUE: insert generation with placeholder farm_id and queued status
+      const placeholderFarmId = `queued-${tempDebitRef}`;
+      const { data: insertedGen } = await supabase
+        .from("generations")
+        .insert({
+          farm_id: placeholderFarmId,
+          client_name: user.email || "on-demand",
+          credits_requested: credits,
+          status: "queued",
+          client_ip: clientIp,
+          user_id: user.id,
+        })
+        .select("id")
+        .single();
+
+      // Update debit reference_id to placeholder farmId
+      const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", user.id).single();
+      if (wallet) {
+        await supabase.from("wallet_transactions")
+          .update({ reference_id: placeholderFarmId })
+          .eq("wallet_id", wallet.id)
+          .eq("reference_id", tempDebitRef);
+      }
+
+      // Calculate queue position
+      const queuePosition = insertedGen ? await getQueuePosition(supabase, insertedGen.id) : 1;
+
+      console.log(`[public-generate] Queued: generationId=${insertedGen?.id}, position=${queuePosition}, credits=${credits}`);
+
+      return new Response(JSON.stringify({
+        success: true,
+        queued: true,
+        queuePosition,
+        generationId: insertedGen?.id,
+        credits,
+        cost,
+        new_balance: result.new_balance,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // NOT QUEUED: create farm immediately
     if (!farmApiKey) {
+      // Refund if no API key
+      await supabase.rpc("credit_wallet", {
+        p_user_id: user.id,
+        p_amount: cost,
+        p_description: `Reembolso - FARM_API_KEY não configurada`,
+        p_reference_id: tempDebitRef,
+      });
       return new Response(JSON.stringify({ error: "FARM_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -152,7 +303,6 @@ serve(async (req) => {
     }
 
     const farmData = await farmRes.json();
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
     // Insert generation with user_id
     await supabase.from("generations").insert({
@@ -165,7 +315,7 @@ serve(async (req) => {
       user_id: user.id,
     });
 
-    // Update debit reference_id from temp UUID to farmId for dashboard tracking
+    // Update debit reference_id from temp UUID to farmId
     const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", user.id).single();
     if (wallet) {
       await supabase.from("wallet_transactions")

@@ -658,7 +658,6 @@ serve(async (req) => {
       }
 
       // Auto-cancel previous sessions that haven't started running yet
-      // Sessions in "running" state may have earned credits, so check the real API first
       const { data: activeSessions } = await supabase
         .from("token_usages")
         .select("id, farm_id, status")
@@ -668,7 +667,6 @@ serve(async (req) => {
       if (activeSessions && activeSessions.length > 0) {
         for (const s of activeSessions) {
           if (s.status === "running" && s.farm_id) {
-            // Check real status from external API before cancelling
             try {
               const statusRes = await fetch(`${API_BASE}/farm/status/${s.farm_id}`, {
                 headers: { "x-api-key": farmApiKey },
@@ -676,7 +674,6 @@ serve(async (req) => {
               if (statusRes.ok) {
                 const statusData = await statusRes.json();
                 if (statusData.status === "running" || statusData.status === "completed") {
-                  // Session is still alive or finished — don't cancel, block new creation
                   return new Response(
                     JSON.stringify({
                       success: false,
@@ -691,7 +688,6 @@ serve(async (req) => {
               // API unreachable, safe to cancel stale session
             }
           }
-          // Cancel sessions that are pre-execution or confirmed dead
           await supabase
             .from("token_usages")
             .update({ status: "cancelled", credits_earned: 0, completed_at: new Date().toISOString() })
@@ -708,7 +704,74 @@ serve(async (req) => {
       const MAX_CREDITS_PER_GENERATION = 10000;
       const requestedCredits = Math.min(credits || tokenData.credits_per_use, tokenData.credits_per_use, MAX_CREDITS_PER_GENERATION);
 
-      // Create farm via external API
+      // Check active generation count (with ghost filtering) — MAX 8 concurrent
+      const MAX_CONCURRENT = 8;
+      const now = new Date();
+      const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+      const twelveMinAgo = new Date(now.getTime() - 12 * 60 * 1000).toISOString();
+      const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString();
+
+      const { count: runC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "running").gte("updated_at", tenMinAgo);
+      const { count: waitC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "waiting_invite").gte("created_at", twelveMinAgo);
+      const { count: createC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "creating").gte("created_at", threeMinAgo);
+      const activeCount = (runC || 0) + (waitC || 0) + (createC || 0);
+
+      if (activeCount >= MAX_CONCURRENT) {
+        // QUEUE: insert with placeholder farm_id
+        const placeholderFarmId = `queued-${crypto.randomUUID()}`;
+
+        // Reserve credits atomically
+        const reserveResult = await supabase.rpc("reserve_credits", {
+          p_token_id: tokenData.id,
+          p_farm_id: placeholderFarmId,
+          p_client_name: tokenData.client_name,
+          p_credits_requested: requestedCredits,
+          p_status: "queued",
+          p_master_email: null,
+          p_client_ip: clientIp,
+          p_queued: true,
+        });
+
+        if (reserveResult.error || !reserveResult.data?.success) {
+          return new Response(
+            JSON.stringify({ success: false, error: reserveResult.data?.error || "Falha ao reservar créditos" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Get generation id for queue position
+        const { data: queuedGen } = await supabase
+          .from("generations")
+          .select("id, created_at")
+          .eq("farm_id", placeholderFarmId)
+          .single();
+
+        let queuePosition = 1;
+        if (queuedGen) {
+          const { count } = await supabase
+            .from("generations")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "queued")
+            .lt("created_at", queuedGen.created_at);
+          queuePosition = (count || 0) + 1;
+        }
+
+        console.log(`[validate-token] Queued: generationId=${queuedGen?.id}, position=${queuePosition}, credits=${requestedCredits}`);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: true,
+            queuePosition,
+            generationId: queuedGen?.id,
+            masterEmail: null,
+            message: `Sua geração está na fila (posição ${queuePosition}). Aguarde...`,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // NOT QUEUED: create farm immediately
       const farmRes = await fetch(`${API_BASE}/farm/create`, {
         method: "POST",
         headers: {

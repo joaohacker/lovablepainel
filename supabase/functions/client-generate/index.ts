@@ -8,12 +8,55 @@ const corsHeaders = {
 };
 
 const API_BASE = "https://api.lovablextensao.shop";
+const MAX_CONCURRENT = 8;
 
 // SECURITY: Whitelist of allowed status values from frontend
 const ALLOWED_STATUS_VALUES = [
   "running", "completed", "expired", "cancelled", "error",
   "waiting_invite", "queued", "creating", "active",
 ];
+
+async function getActiveGenerationCount(supabase: ReturnType<typeof createClient>): Promise<number> {
+  const now = new Date();
+  const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+  const twelveMinAgo = new Date(now.getTime() - 12 * 60 * 1000).toISOString();
+  const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString();
+
+  const { count: runningCount } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "running")
+    .gte("updated_at", tenMinAgo);
+
+  const { count: waitingCount } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "waiting_invite")
+    .gte("created_at", twelveMinAgo);
+
+  const { count: creatingCount } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "creating")
+    .gte("created_at", threeMinAgo);
+
+  return (runningCount || 0) + (waitingCount || 0) + (creatingCount || 0);
+}
+
+async function getQueuePosition(supabase: ReturnType<typeof createClient>, generationId: string): Promise<number> {
+  const { data: gen } = await supabase
+    .from("generations")
+    .select("created_at")
+    .eq("id", generationId)
+    .single();
+  if (!gen) return 0;
+  const { count } = await supabase
+    .from("generations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "queued")
+    .lt("created_at", gen.created_at);
+  return (count || 0) + 1;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -38,13 +81,6 @@ serve(async (req) => {
 
     const body = await req.json();
     const { action, token, credits, farmId, creditsEarned, status, workspaceName } = body;
-
-    // BLOQUEIO TEMPORÁRIO — manutenção do sistema de filas (permite validate e refund-expired)
-    if (action === "create") {
-      return new Response(JSON.stringify({ error: "⏳ Sistema em atualização. Voltamos em aproximadamente 20 minutos." }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     if (!token || typeof token !== "string") {
       return new Response(
@@ -120,6 +156,50 @@ serve(async (req) => {
       );
     }
 
+    // === CHECK-QUEUE ===
+    if (action === "check-queue") {
+      const { generationId } = body;
+      if (!generationId) {
+        return new Response(JSON.stringify({ error: "generationId obrigatório" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: gen } = await supabase
+        .from("generations")
+        .select("id, farm_id, status, master_email, credits_requested, created_at")
+        .eq("id", generationId)
+        .eq("client_token_id", clientToken.id)
+        .single();
+
+      if (!gen) {
+        return new Response(JSON.stringify({ error: "Geração não encontrada" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (gen.status === "queued") {
+        const position = await getQueuePosition(supabase, gen.id);
+        return new Response(JSON.stringify({
+          status: "queued",
+          queuePosition: position,
+          generationId: gen.id,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        status: gen.status,
+        farmId: gen.farm_id,
+        masterEmail: gen.master_email,
+        generationId: gen.id,
+        credits: gen.credits_requested,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // === UPDATE STATUS (push from frontend) ===
     if (action === "update-status") {
       if (!farmId) {
@@ -131,7 +211,6 @@ serve(async (req) => {
 
       const updateData: Record<string, any> = {};
 
-      // SECURITY: Validate status against whitelist
       if (status) {
         if (!ALLOWED_STATUS_VALUES.includes(status)) {
           return new Response(
@@ -142,7 +221,6 @@ serve(async (req) => {
         updateData.status = status;
       }
 
-      // SECURITY: Do NOT accept credits_earned from frontend — only workspace_name
       if (workspaceName && typeof workspaceName === "string" && workspaceName.length <= 200) {
         updateData.workspace_name = workspaceName;
       }
@@ -163,7 +241,7 @@ serve(async (req) => {
       );
     }
 
-    // === REFUND EXPIRED/CANCELLED (from frontend terminal states) ===
+    // === REFUND EXPIRED/CANCELLED ===
     if (action === "refund-expired") {
       if (!farmId) {
         return new Response(
@@ -172,7 +250,6 @@ serve(async (req) => {
         );
       }
 
-      // Find the generation
       const { data: gen } = await supabase
         .from("generations")
         .select("id, credits_requested, credits_earned, status, settled_at, client_token_id")
@@ -191,10 +268,8 @@ serve(async (req) => {
       const requested = gen.credits_requested;
       const refundCredits = requested - earned;
 
-      // SECURITY: Validate status for refund
       const refundStatus = (status && ALLOWED_STATUS_VALUES.includes(status)) ? status : "expired";
 
-      // Mark as settled
       const { data: updated } = await supabase
         .from("generations")
         .update({
@@ -214,16 +289,14 @@ serve(async (req) => {
         );
       }
 
-      // Refund unused credits back to client_token
       if (refundCredits > 0) {
-        const { data: refundResult, error: refundError } = await supabase.rpc("refund_client_token_credits", {
+        const { error: refundError } = await supabase.rpc("refund_client_token_credits", {
           p_token_id: clientToken.id,
           p_credits: refundCredits,
         });
 
         if (refundError) {
           console.error(`[client-generate] Refund failed:`, refundError);
-          // Rollback settlement
           await supabase.from("generations").update({ settled_at: null, status: gen.status }).eq("id", gen.id);
           throw new Error("Falha ao reembolsar créditos");
         }
@@ -231,11 +304,6 @@ serve(async (req) => {
         console.log(`[client-generate] Refunded ${refundCredits} credits to token ${clientToken.id} (${earned}/${requested} delivered)`);
       }
 
-      if (earned >= requested && refundCredits <= 0) {
-        console.log(`[client-generate] Settled completed generation, all ${requested} credits delivered`);
-      }
-
-      // Requery remaining
       const { data: updatedToken } = await supabase
         .from("client_tokens")
         .select("credits_used, total_credits")
@@ -292,6 +360,43 @@ serve(async (req) => {
         );
       }
 
+      // Check active generation count (with ghost filtering)
+      const activeCount = await getActiveGenerationCount(supabase);
+
+      if (activeCount >= MAX_CONCURRENT) {
+        // QUEUE: insert with placeholder farm_id
+        const placeholderFarmId = `queued-${crypto.randomUUID()}`;
+        const { data: insertedGen } = await supabase
+          .from("generations")
+          .insert({
+            farm_id: placeholderFarmId,
+            client_name: `client-link-${clientToken.id.slice(0, 8)}`,
+            credits_requested: actualCredits,
+            status: "queued",
+            client_token_id: clientToken.id,
+            client_ip: clientIp,
+          })
+          .select("id")
+          .single();
+
+        const queuePosition = insertedGen ? await getQueuePosition(supabase, insertedGen.id) : 1;
+
+        console.log(`[client-generate] Queued: generationId=${insertedGen?.id}, position=${queuePosition}, credits=${actualCredits}`);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: true,
+            queuePosition,
+            generationId: insertedGen?.id,
+            credits: actualCredits,
+            remaining: useResult.remaining,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // NOT QUEUED: create farm immediately
       let farmData: any;
       try {
         const farmRes = await fetch(`${API_BASE}/farm/create`, {
@@ -340,7 +445,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Ação inválida. Use: validate, create, update-status, refund-expired" }),
+      JSON.stringify({ error: "Ação inválida. Use: validate, create, check-queue, update-status, refund-expired" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
