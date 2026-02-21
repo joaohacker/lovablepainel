@@ -8,10 +8,10 @@ const corsHeaders = {
 };
 
 const TIERS = [
-  { credits: 100, price: 3.5 },
-  { credits: 1000, price: 24.5 },
-  { credits: 5000, price: 105.0 },
-  { credits: 10000, price: 196.0 },
+  { credits: 100, price: 5.36 },
+  { credits: 1000, price: 37.50 },
+  { credits: 5000, price: 160.71 },
+  { credits: 10000, price: 300.00 },
 ];
 
 function calcularPreco(creditos: number): number {
