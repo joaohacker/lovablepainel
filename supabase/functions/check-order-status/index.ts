@@ -19,6 +19,7 @@ function getCorsHeaders(req?: Request) {
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
