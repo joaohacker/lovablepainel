@@ -19,6 +19,25 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // SECURITY: Require authentication
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Auth required" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Invalid user" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { order_id } = await req.json();
     if (!order_id || typeof order_id !== "string" || order_id.length > 50) {
       return new Response(JSON.stringify({ error: "Missing order_id" }), {
@@ -26,11 +45,27 @@ serve(async (req) => {
       });
     }
 
-    // Get order from DB
+    // SECURITY: Rate limiting — 30 requests per 60 seconds
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIp,
+      p_endpoint: "check-order-status",
+      p_max_requests: 30,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas requisições. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get order from DB — SECURITY: must belong to the authenticated user
     const { data: order, error } = await supabase
       .from("orders")
       .select("status, transaction_id, amount, user_id, order_type, coupon_id")
       .eq("id", order_id)
+      .eq("user_id", user.id)
       .maybeSingle();
 
     if (error || !order) {
@@ -55,7 +90,6 @@ serve(async (req) => {
 
     const BRPIX_API_KEY = Deno.env.get("BRPIX_API_KEY");
     if (!BRPIX_API_KEY) {
-      // Can't verify — return DB status
       return new Response(JSON.stringify({ status: "pending" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -96,7 +130,6 @@ serve(async (req) => {
         .maybeSingle();
 
       if (updateError || !updated) {
-        // Already processed by webhook/reconcile — that's fine
         console.log(`[check-order-status] Order ${order_id} already processed`);
         return new Response(JSON.stringify({ status: "paid" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },

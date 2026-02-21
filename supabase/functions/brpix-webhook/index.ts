@@ -39,7 +39,15 @@ serve(async (req) => {
     const webhookSecret = Deno.env.get("BRPIX_WEBHOOK_SECRET");
     const signature = req.headers.get("x-webhook-signature");
 
-    if (webhookSecret && signature) {
+    // SECURITY: If webhook secret is configured, HMAC is MANDATORY
+    if (webhookSecret) {
+      if (!signature) {
+        console.error("[brpix-webhook] Missing signature header — rejecting (HMAC is mandatory)");
+        return new Response(JSON.stringify({ error: "Missing signature" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const valid = await verifySignature(rawBody, signature, webhookSecret);
       if (!valid) {
         console.error("[brpix-webhook] Invalid signature — rejecting");
@@ -50,7 +58,7 @@ serve(async (req) => {
       }
       console.log("[brpix-webhook] Signature verified ✓");
     } else {
-      console.log("[brpix-webhook] No signature header — processing without HMAC validation");
+      console.log("[brpix-webhook] WARNING: No BRPIX_WEBHOOK_SECRET configured — processing without HMAC");
     }
 
     const body = JSON.parse(rawBody);
