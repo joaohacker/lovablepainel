@@ -75,6 +75,7 @@ serve(async (req) => {
     const ALLOWED_USERS = [
       "b5501c63-4484-47a3-8d9d-7f3b129f7ab4", // admin
       "1b27824d-f72b-4b44-ae56-6b38e75c311e", // testecuzin@gmail.com
+      "db001fc0-6cb9-4532-a3a5-2406819d90e5", // lucasilva@gmail.com
     ];
 
     console.log("[public-generate] adminRole:", !!adminRole, "inAllowed:", ALLOWED_USERS.includes(user.id));
