@@ -50,6 +50,26 @@ serve(async (req) => {
       );
     }
 
+    // Check if user is banned
+    const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: isBanned } = await serviceSupabase.rpc("is_user_banned", { p_user_id: user.id });
+    if (isBanned) {
+      return new Response(
+        JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if IP is banned
+    const clientIpCheck = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await serviceSupabase.rpc("is_ip_banned", { p_ip: clientIpCheck });
+    if (isIpBanned) {
+      return new Response(
+        JSON.stringify({ error: "⛔ Acesso bloqueado." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Authenticate user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -75,7 +95,6 @@ serve(async (req) => {
     const price = calcularPreco(credits);
 
     // Debit wallet using service role
-    const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: debitResult, error: debitError } = await serviceSupabase.rpc("debit_wallet", {
       p_user_id: user.id,
