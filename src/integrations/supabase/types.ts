@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      balance_audit_log: {
+        Row: {
+          change_amount: number
+          changed_at: string
+          id: string
+          new_balance: number
+          old_balance: number
+          source: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          change_amount: number
+          changed_at?: string
+          id?: string
+          new_balance: number
+          old_balance: number
+          source?: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          change_amount?: number
+          changed_at?: string
+          id?: string
+          new_balance?: number
+          old_balance?: number
+          source?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: []
+      }
       banned_ips: {
         Row: {
           banned_at: string
