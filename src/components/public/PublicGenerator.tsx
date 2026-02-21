@@ -220,6 +220,14 @@ export function PublicGenerator() {
                 </div>
               )}
 
+              {/* Success banner */}
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-6 text-center space-y-2">
+                <p className="text-lg font-semibold text-foreground">✅ Painel funcionando perfeitamente</p>
+                <p className="text-sm text-muted-foreground">
+                  Gerações ativas novamente! Gere seus créditos agora mesmo.
+                </p>
+              </div>
+
               {isIdle ? (
                 <div className="space-y-8">
                   {/* Credit selector */}
