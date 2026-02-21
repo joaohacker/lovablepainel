@@ -7,7 +7,7 @@ import { Zap, Loader2, Wallet, Link2 } from "lucide-react";
 import heartGradient from "@/assets/lovable-heart-gradient.png";
 import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBalance } from "@/lib/pricing";
 import { GenerationStatus } from "@/components/GenerationStatus";
-import { DepositModal, loadPendingDeposit, clearPendingDeposit } from "./DepositModal";
+import { DepositModal } from "./DepositModal";
 import { AuthModal } from "./AuthModal";
 import { ClientLinkManager } from "./ClientLinkManager";
 import { useWallet } from "@/hooks/useWallet";
@@ -32,24 +32,9 @@ export function PublicGenerator() {
   const [depositAmount, setDepositAmount] = useState<number | null>(null);
   const [creatingLink, setCreatingLink] = useState(false);
   const [linksRefreshKey, setLinksRefreshKey] = useState(0);
-  const [resumeOrder, setResumeOrder] = useState<{ order_id: string; amount: number } | null>(null);
 
-  // On mount, check if there's a pending deposit saved in localStorage
-  useEffect(() => {
-    const pending = loadPendingDeposit();
-    if (!pending) return;
-
-    if (user) {
-      // User is logged in — auto-claim silently
-      supabase.functions.invoke("claim-deposit", { body: { order_id: pending.order_id } })
-        .then(() => { clearPendingDeposit(); refetchWallet(); })
-        .catch(() => { clearPendingDeposit(); });
-    } else {
-      // Not logged in — show deposit modal in "paid" step
-      setResumeOrder(pending);
-      setShowDeposit(true);
-    }
-  }, [user, refetchWallet]);
+  // When not logged in and user tries to deposit/generate, show auth first
+  // After auth success, if there was a pending action, resume it
 
   const price = calcularPreco(credits);
   const pricePer100 = getPricePer100(credits);
@@ -86,11 +71,9 @@ export function PublicGenerator() {
     if (submittingRef.current) return;
 
     if (!user) {
-      // Not logged in — open deposit so they pay first, then create account
-      const cost = calcularPreco(c);
+      // Not logged in — require auth first
       setPendingCredits(c);
-      setDepositAmount(Math.ceil(cost * 100) / 100);
-      setShowDeposit(true);
+      setShowAuth(true);
       return;
     }
 
@@ -372,11 +355,19 @@ export function PublicGenerator() {
                     </Button>
                   )}
 
-                  {/* Add balance button — always visible */}
+                  {/* Add balance button — requires login */}
                   <Button
                     variant="outline"
                     className="w-full gap-2"
-                    onClick={() => { setDepositAmount(null); setPendingCredits(null); setShowDeposit(true); }}
+                    onClick={() => {
+                      if (!user) {
+                        setShowAuth(true);
+                        return;
+                      }
+                      setDepositAmount(null);
+                      setPendingCredits(null);
+                      setShowDeposit(true);
+                    }}
                   >
                     <Wallet className="h-4 w-4" /> Adicionar Saldo
                   </Button>
@@ -416,14 +407,11 @@ export function PublicGenerator() {
 
       <DepositModal
         open={showDeposit}
-        onClose={() => { setShowDeposit(false); setResumeOrder(null); }}
-        onSuccess={() => { handleDepositSuccess(); setResumeOrder(null); }}
+        onClose={() => setShowDeposit(false)}
+        onSuccess={handleDepositSuccess}
         suggestedAmount={depositAmount}
         pendingCredits={pendingCredits}
         onGenerateAfterDeposit={() => pendingCredits && handleGenerate(pendingCredits)}
-        isLoggedIn={!!user}
-        resumeOrderId={resumeOrder?.order_id}
-        resumeAmount={resumeOrder?.amount}
       />
 
       <AuthModal
