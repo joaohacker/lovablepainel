@@ -57,6 +57,20 @@ serve(async (req) => {
       });
     }
 
+    // RATE LIMITING: max 10 deposits per 5 minutes
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: userId || "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIpCheck,
+      p_endpoint: "wallet-deposit",
+      p_max_requests: 10,
+      p_window_seconds: 300,
+    });
+    if (rateCheck && !(rateCheck as any).allowed) {
+      return new Response(JSON.stringify({ error: "⚠️ Muitas tentativas. Aguarde alguns minutos." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { amount, coupon_code } = await req.json();
 
     if (!amount || amount < 5) {

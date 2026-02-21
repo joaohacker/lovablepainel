@@ -96,6 +96,20 @@ serve(async (req) => {
       });
     }
 
+    // RATE LIMITING: max 5 requests per 60 seconds per user
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIpCheck,
+      p_endpoint: "public-generate",
+      p_max_requests: 5,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !(rateCheck as any).allowed) {
+      return new Response(JSON.stringify({ error: "⚠️ Muitas tentativas. Aguarde um momento." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!adminRole && !ALLOWED_USERS.includes(user.id)) {
       return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
