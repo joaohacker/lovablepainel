@@ -430,10 +430,22 @@ serve(async (req) => {
         updateData.credits_earned = Math.min(Math.max(credits_earned, dbCredits), capCredits);
       }
 
-      await supabase
-        .from("generations")
-        .update(updateData)
-        .eq("farm_id", farmId);
+      // SECURITY: Filter by token_id to prevent cross-token manipulation
+      if (isPublic) {
+        // For __public__ tokens, this path shouldn't be reached (handled above)
+        // but add safety filter anyway
+        await supabase
+          .from("generations")
+          .update(updateData)
+          .eq("farm_id", farmId)
+          .is("token_id", null);
+      } else {
+        await supabase
+          .from("generations")
+          .update(updateData)
+          .eq("farm_id", farmId)
+          .eq("token_id", tokenData.id);
+      }
 
       // Only update token_usages for token-based generations
       if (!isPublic) {
