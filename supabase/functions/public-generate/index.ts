@@ -88,12 +88,16 @@ serve(async (req) => {
 
     const cost = calcularPreco(credits);
 
-    // Debit wallet atomically
+    // Generate a unique debit ref upfront (will be replaced with farmId after creation)
+    const tempDebitRef = crypto.randomUUID();
+
+    // Debit wallet atomically with temp reference
     const { data: debitResult, error: debitError } = await supabase.rpc("debit_wallet", {
       p_user_id: user.id,
       p_amount: cost,
       p_credits: credits,
       p_description: `Geração de ${credits} créditos`,
+      p_reference_id: tempDebitRef,
     });
 
     if (debitError) {
@@ -134,6 +138,7 @@ serve(async (req) => {
         p_user_id: user.id,
         p_amount: cost,
         p_description: `Reembolso - falha na geração de ${credits} créditos`,
+        p_reference_id: tempDebitRef,
       });
       const err = await farmRes.text();
       return new Response(JSON.stringify({ error: `Erro ao criar farm: ${err}` }), {
@@ -155,15 +160,13 @@ serve(async (req) => {
       user_id: user.id,
     });
 
-    // Update debit reference
+    // Update debit reference_id from temp UUID to farmId for dashboard tracking
     const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", user.id).single();
     if (wallet) {
       await supabase.from("wallet_transactions")
         .update({ reference_id: farmData.farmId })
         .eq("wallet_id", wallet.id)
-        .eq("reference_id", null as any)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .eq("reference_id", tempDebitRef);
     }
 
     return new Response(JSON.stringify({
