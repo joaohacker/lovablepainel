@@ -1,18 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-function isAllowedOrigin(origin: string): boolean {
-  return origin.endsWith(".lovable.app") || origin.endsWith(".lovableproject.com");
-}
-
-function getCorsHeaders(req?: Request) {
-  const origin = req?.headers.get("origin") || "";
-  return {
-    "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin : "https://painelcreditoslovbl.lovable.app",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  };
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
 const API_BASE = "https://api.lovablextensao.shop";
 
@@ -39,7 +32,6 @@ function calcularPreco(creditos: number): number {
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -104,20 +96,6 @@ serve(async (req) => {
       });
     }
 
-    // RATE LIMITING: max 5 requests per 60 seconds per user
-    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
-      p_user_id: user.id,
-      p_ip: clientIpCheck,
-      p_endpoint: "public-generate",
-      p_max_requests: 5,
-      p_window_seconds: 60,
-    });
-    if (rateCheck && !(rateCheck as any).allowed) {
-      return new Response(JSON.stringify({ error: "⚠️ Muitas tentativas. Aguarde um momento." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     if (!adminRole && !ALLOWED_USERS.includes(user.id)) {
       return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -135,16 +113,12 @@ serve(async (req) => {
 
     const cost = calcularPreco(credits);
 
-    // Generate idempotency key BEFORE debit to prevent double-spend
-    const idempotencyKey = crypto.randomUUID();
-
-    // Debit wallet atomically with idempotency key
+    // Debit wallet atomically
     const { data: debitResult, error: debitError } = await supabase.rpc("debit_wallet", {
       p_user_id: user.id,
       p_amount: cost,
       p_credits: credits,
       p_description: `Geração de ${credits} créditos`,
-      p_reference_id: idempotencyKey,
     });
 
     if (debitError) {
@@ -154,7 +128,7 @@ serve(async (req) => {
       });
     }
 
-    const result = debitResult as { success: boolean; error?: string; balance?: number; required?: number; new_balance?: number; duplicate?: boolean };
+    const result = debitResult as { success: boolean; error?: string; balance?: number; required?: number; new_balance?: number };
     if (!result.success) {
       return new Response(JSON.stringify({
         error: result.error,
@@ -206,13 +180,15 @@ serve(async (req) => {
       user_id: user.id,
     });
 
-    // Update debit reference_id from idempotencyKey to farmId (thread-safe via WHERE reference_id = idempotencyKey)
+    // Update debit reference
     const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", user.id).single();
     if (wallet) {
       await supabase.from("wallet_transactions")
         .update({ reference_id: farmData.farmId })
         .eq("wallet_id", wallet.id)
-        .eq("reference_id", idempotencyKey);
+        .eq("reference_id", null as any)
+        .order("created_at", { ascending: false })
+        .limit(1);
     }
 
     return new Response(JSON.stringify({

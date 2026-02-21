@@ -2,7 +2,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { encode as hexEncode } from "https://deno.land/std@0.168.0/encoding/hex.ts";
 
-// Webhook keeps wildcard CORS — requests come from BrPix server, not browser
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -34,7 +33,7 @@ serve(async (req) => {
 
   try {
     const rawBody = await req.text();
-    // SECURITY: Don't log raw webhook body
+    console.log("[brpix-webhook] Raw body:", rawBody);
 
     // SECURITY: Validate webhook signature if present
     const webhookSecret = Deno.env.get("BRPIX_WEBHOOK_SECRET");
@@ -49,6 +48,9 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      console.log("[brpix-webhook] Signature verified ✓");
+    } else {
+      console.log("[brpix-webhook] No signature header — processing without HMAC validation");
     }
 
     const body = JSON.parse(rawBody);
@@ -59,6 +61,7 @@ serve(async (req) => {
 
     // Only process payment confirmations
     if (event !== "transaction.paid") {
+      console.log(`[brpix-webhook] Ignoring event: ${event}`);
       return new Response(
         JSON.stringify({ ok: true, message: "Event ignored" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -72,27 +75,10 @@ serve(async (req) => {
       );
     }
 
-    // === ANTI-REPLAY: Deduplicate webhook events ===
-    const { error: dedupeError } = await supabase
-      .from("webhook_events")
-      .insert({ transaction_id: transactionId, event_type: event });
-
-    if (dedupeError) {
-      // Unique constraint violation = already processed
-      if (dedupeError.code === "23505") {
-        console.log(`[brpix-webhook] TXN ${transactionId}: already processed (anti-replay)`);
-        return new Response(
-          JSON.stringify({ ok: true, message: "Already processed" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      console.error("[brpix-webhook] Dedupe insert error:", dedupeError);
-    }
-
     // SECURITY: Double-check payment status directly with BrPix API
     const BRPIX_API_KEY = Deno.env.get("BRPIX_API_KEY");
     if (!BRPIX_API_KEY) {
-      console.error("[brpix-webhook] BRPIX_API_KEY not configured");
+      console.error("[brpix-webhook] BRPIX_API_KEY not configured — cannot verify payment");
       return new Response(JSON.stringify({ error: "Payment verification unavailable" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -104,18 +90,19 @@ serve(async (req) => {
         headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
       });
       const verifyData = await verifyRes.json();
-      const paymentStatus = verifyData.data?.status || verifyData.status;
-      console.log(`[brpix-webhook] TXN ${transactionId}: verified status=${paymentStatus}`);
+      console.log(`[brpix-webhook] BrPix verify response:`, JSON.stringify(verifyData));
 
+      const paymentStatus = verifyData.data?.status || verifyData.status;
       if (paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
-        console.error(`[brpix-webhook] Payment NOT confirmed. Status: ${paymentStatus}`);
+        console.error(`[brpix-webhook] Payment NOT confirmed by BrPix API. Status: ${paymentStatus} — rejecting`);
         return new Response(JSON.stringify({ error: "Payment not confirmed by provider" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      console.log(`[brpix-webhook] ✓ Payment verified with BrPix API (status: ${paymentStatus})`);
     } catch (verifyErr) {
-      console.error("[brpix-webhook] Failed to verify payment:", verifyErr);
+      console.error("[brpix-webhook] Failed to verify payment with BrPix API:", verifyErr);
       return new Response(JSON.stringify({ error: "Payment verification failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -148,6 +135,7 @@ serve(async (req) => {
 
     // ======= WALLET DEPOSIT FLOW =======
     if (order.order_type === "deposit") {
+      // FIRST: Mark as paid BEFORE crediting to prevent race conditions with reconciliation
       const { error: updateError } = await supabase
         .from("orders")
         .update({
@@ -165,8 +153,11 @@ serve(async (req) => {
         });
       }
 
+      // If user_id is set, credit wallet immediately
       if (order.user_id) {
-        const { error: creditError } = await supabase.rpc("credit_wallet", {
+        console.log(`[brpix-webhook] Processing wallet deposit for user ${order.user_id}, amount ${order.amount}`);
+
+        const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
           p_user_id: order.user_id,
           p_amount: Number(order.amount),
           p_description: `Depósito via PIX`,
@@ -180,11 +171,15 @@ serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        console.log(`[brpix-webhook] Deposit ${order.id} paid → R$${order.amount} for user ${order.user_id}`);
+
+        const alreadyCredited = creditResult?.already_credited;
+        console.log(`[brpix-webhook] Wallet deposit ${order.id} ${alreadyCredited ? '(already credited)' : 'paid'} → R$${order.amount} for user ${order.user_id}`);
       } else {
-        console.log(`[brpix-webhook] Anonymous deposit ${order.id} paid → R$${order.amount}. Awaiting claim.`);
+        // Anonymous deposit — just mark as paid. Balance will be credited when user creates account and claims the order.
+        console.log(`[brpix-webhook] Anonymous deposit ${order.id} paid → R$${order.amount}. Awaiting account creation to credit.`);
       }
 
+      // Increment coupon usage if one was used
       if (order.coupon_id) {
         await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch((e: any) => {
           console.error("[brpix-webhook] Coupon increment error:", e);
@@ -203,12 +198,14 @@ serve(async (req) => {
       const increment = order.upgrade_increment;
 
       if (!order.token_id || !increment) {
+        console.error("[brpix-webhook] Upgrade order missing token_id or increment");
         return new Response(JSON.stringify({ error: "Invalid upgrade order" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
+      // Get current token value
       const { data: tokenRow, error: tokenErr } = await supabase
         .from("tokens")
         .select(field)
@@ -216,6 +213,7 @@ serve(async (req) => {
         .single();
 
       if (tokenErr || !tokenRow) {
+        console.error("[brpix-webhook] Token not found for upgrade:", order.token_id);
         return new Response(JSON.stringify({ error: "Token not found" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -230,6 +228,7 @@ serve(async (req) => {
         .update({ [field]: newValue })
         .eq("id", order.token_id);
 
+      // Mark order as paid
       await supabase
         .from("orders")
         .update({ status: "paid", paid_at: new Date().toISOString() })
@@ -244,6 +243,7 @@ serve(async (req) => {
     }
 
     // ======= ORIGINAL TOKEN FLOW =======
+    // Get product config
     const { data: product } = await supabase
       .from("products")
       .select("*")
@@ -251,12 +251,14 @@ serve(async (req) => {
       .single();
 
     if (!product) {
+      console.error("[brpix-webhook] Product not found:", order.product_id);
       return new Response(JSON.stringify({ error: "Product not found" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Find admin for token ownership
     const { data: adminRole } = await supabase
       .from("user_roles")
       .select("user_id")
@@ -265,12 +267,14 @@ serve(async (req) => {
       .single();
 
     if (!adminRole) {
+      console.error("[brpix-webhook] No admin user found");
       return new Response(JSON.stringify({ error: "No admin" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Create access token
     const { data: token, error: tokenError } = await supabase
       .from("tokens")
       .insert({
@@ -286,12 +290,14 @@ serve(async (req) => {
       .single();
 
     if (tokenError) {
+      console.error("[brpix-webhook] Token creation error:", tokenError);
       return new Response(JSON.stringify({ error: "Token creation failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Update order as paid
     await supabase
       .from("orders")
       .update({
@@ -301,7 +307,7 @@ serve(async (req) => {
       })
       .eq("id", order.id);
 
-    console.log(`[brpix-webhook] Order ${order.id} paid → token created for ${order.customer_name}`);
+    console.log(`[brpix-webhook] Order ${order.id} paid → token ${token.token} created for ${order.customer_name}`);
 
     return new Response(
       JSON.stringify({ ok: true, token_id: token.id }),

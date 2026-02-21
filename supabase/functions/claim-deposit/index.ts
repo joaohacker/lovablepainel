@@ -1,21 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-function isAllowedOrigin(origin: string): boolean {
-  return origin.endsWith(".lovable.app") || origin.endsWith(".lovableproject.com");
-}
-
-function getCorsHeaders(req?: Request) {
-  const origin = req?.headers.get("origin") || "";
-  return {
-    "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin : "https://painelcreditoslovbl.lovable.app",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  };
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -41,21 +33,6 @@ serve(async (req) => {
     if (!user) {
       return new Response(JSON.stringify({ error: "Invalid user" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // RATE LIMITING: max 10 claims per 5 minutes
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
-      p_user_id: user.id,
-      p_ip: clientIp,
-      p_endpoint: "claim-deposit",
-      p_max_requests: 10,
-      p_window_seconds: 300,
-    });
-    if (rateCheck && !(rateCheck as any).allowed) {
-      return new Response(JSON.stringify({ error: "Muitas tentativas. Aguarde." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

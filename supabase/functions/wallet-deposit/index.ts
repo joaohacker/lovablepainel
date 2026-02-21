@@ -1,23 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-function isAllowedOrigin(origin: string): boolean {
-  return origin.endsWith(".lovable.app") || origin.endsWith(".lovableproject.com");
-}
-
-function getCorsHeaders(req?: Request) {
-  const origin = req?.headers.get("origin") || "";
-  return {
-    "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin : "https://painelcreditoslovbl.lovable.app",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  };
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
 
 const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -34,33 +26,26 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // SECURITY FIX: Auth is now REQUIRED — no anonymous deposits
+    // Auth is OPTIONAL — logged-in users get saldo credited immediately via webhook
+    let userId: string | null = null;
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Autenticação obrigatória" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (authHeader) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (user) userId = user.id;
     }
-
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Usuário inválido" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userId = user.id;
 
     // Check if user is banned
-    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
-    if (isBanned) {
-      return new Response(JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (userId) {
+      const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
+      if (isBanned) {
+        return new Response(JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Check if IP is banned
@@ -69,20 +54,6 @@ serve(async (req) => {
     if (isIpBanned) {
       return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // RATE LIMITING: max 10 deposits per 5 minutes
-    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
-      p_user_id: userId,
-      p_ip: clientIpCheck,
-      p_endpoint: "wallet-deposit",
-      p_max_requests: 10,
-      p_window_seconds: 300,
-    });
-    if (rateCheck && !(rateCheck as any).allowed) {
-      return new Response(JSON.stringify({ error: "⚠️ Muitas tentativas. Aguarde alguns minutos." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -136,6 +107,7 @@ serve(async (req) => {
         discountAmount = +Math.min(coupon.discount_value, amount).toFixed(2);
       }
 
+      // Ensure final amount is at least R$5 (BrPix minimum)
       const tentativeFinal = +(amount - discountAmount).toFixed(2);
       if (tentativeFinal < 5) {
         return new Response(JSON.stringify({ 
@@ -146,6 +118,9 @@ serve(async (req) => {
       }
 
       couponId = coupon.id;
+
+      // DON'T increment usage here — only increment after PIX is confirmed
+      // This prevents users from "burning" coupons without paying
     }
 
     const finalAmount = +(amount - discountAmount).toFixed(2);
@@ -167,11 +142,12 @@ serve(async (req) => {
           email: "cliente@lovable.com",
           document: customer.document,
         },
-        external_id: `wallet_${userId}_${Date.now()}`,
+        external_id: `wallet_${userId || "anon"}_${Date.now()}`,
       }),
     });
 
     const pixData = await pixRes.json();
+    console.log("[wallet-deposit] BrPix response:", JSON.stringify(pixData));
 
     if (!pixData.success && !pixData.transaction_id) {
       return new Response(JSON.stringify({ error: pixData.error || "Erro ao criar PIX" }), {
@@ -179,6 +155,7 @@ serve(async (req) => {
       });
     }
 
+    // We need a product_id for the orders table FK
     const { data: product } = await supabase
       .from("products")
       .select("id")
@@ -192,12 +169,12 @@ serve(async (req) => {
       });
     }
 
-    // Save order — user_id is now always set
+    // Save order — user_id can be null for anonymous deposits
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
         product_id: product.id,
-        amount: Number(amount),
+        amount: Number(amount), // Store original amount for wallet credit
         customer_name: customer.name,
         customer_email: "cliente@lovable.com",
         customer_document: customer.document,
