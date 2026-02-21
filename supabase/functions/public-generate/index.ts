@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://painelcreditoslovbl.lovable.app",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
@@ -127,12 +127,16 @@ serve(async (req) => {
 
     const cost = calcularPreco(credits);
 
-    // Debit wallet atomically
+    // Generate idempotency key BEFORE debit to prevent double-spend
+    const idempotencyKey = crypto.randomUUID();
+
+    // Debit wallet atomically with idempotency key
     const { data: debitResult, error: debitError } = await supabase.rpc("debit_wallet", {
       p_user_id: user.id,
       p_amount: cost,
       p_credits: credits,
       p_description: `Geração de ${credits} créditos`,
+      p_reference_id: idempotencyKey,
     });
 
     if (debitError) {
@@ -142,7 +146,7 @@ serve(async (req) => {
       });
     }
 
-    const result = debitResult as { success: boolean; error?: string; balance?: number; required?: number; new_balance?: number };
+    const result = debitResult as { success: boolean; error?: string; balance?: number; required?: number; new_balance?: number; duplicate?: boolean };
     if (!result.success) {
       return new Response(JSON.stringify({
         error: result.error,
@@ -194,15 +198,13 @@ serve(async (req) => {
       user_id: user.id,
     });
 
-    // Update debit reference
+    // Update debit reference_id from idempotencyKey to farmId (thread-safe via WHERE reference_id = idempotencyKey)
     const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", user.id).single();
     if (wallet) {
       await supabase.from("wallet_transactions")
         .update({ reference_id: farmData.farmId })
         .eq("wallet_id", wallet.id)
-        .eq("reference_id", null as any)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .eq("reference_id", idempotencyKey);
     }
 
     return new Response(JSON.stringify({

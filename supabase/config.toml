@@ -35,3 +35,15 @@ verify_jwt = false
 
 [functions.manage-client-token]
 verify_jwt = false
+
+[functions.check-order-status]
+verify_jwt = false
+
+[functions.validate-coupon]
+verify_jwt = false
+
+[functions.brpix-payment]
+verify_jwt = false
+
+[functions.reconcile-payments]
+verify_jwt = false
