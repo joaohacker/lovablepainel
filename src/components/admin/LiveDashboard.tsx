@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Users, Zap, Clock, RefreshCw, Wallet } from "lucide-react";
+import { Activity, Users, Zap, Clock, RefreshCw, Wallet, AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -22,11 +22,20 @@ interface Generation {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  settled_at: string | null;
 }
 
 interface PaymentInfo {
   farm_id: string;
   amount: number;
+}
+
+interface Anomaly {
+  farmId: string;
+  clientName: string;
+  type: "missing_debit" | "missing_refund";
+  credits: number;
+  detail: string;
 }
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -43,6 +52,8 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 export function LiveDashboard() {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [payments, setPayments] = useState<Map<string, number>>(new Map());
+  const [refunds, setRefunds] = useState<Map<string, number>>(new Map());
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
 
@@ -75,7 +86,7 @@ export function LiveDashboard() {
     }
   };
 
-  // Fetch payment info for on-demand generations
+  // Fetch payment info for on-demand generations (debits + refunds in one query)
   const fetchPayments = async (gens: Generation[]) => {
     const onDemandFarmIds = gens
       .filter((g) => g.token_id === null && g.user_id !== null)
@@ -85,16 +96,55 @@ export function LiveDashboard() {
 
     const { data } = await supabase
       .from("wallet_transactions")
-      .select("reference_id, amount")
-      .eq("type", "debit")
+      .select("reference_id, amount, type")
       .in("reference_id", onDemandFarmIds);
 
     if (data) {
-      const map = new Map<string, number>();
+      const debitMap = new Map<string, number>();
+      const refundMap = new Map<string, number>();
       data.forEach((t) => {
-        if (t.reference_id) map.set(t.reference_id, Number(t.amount));
+        if (!t.reference_id) return;
+        if (t.type === "debit") debitMap.set(t.reference_id, Number(t.amount));
+        if (t.type === "deposit") refundMap.set(t.reference_id, (refundMap.get(t.reference_id) || 0) + Number(t.amount));
       });
-      setPayments(map);
+      setPayments(debitMap);
+      setRefunds(refundMap);
+
+      // Detect anomalies client-side
+      const found: Anomaly[] = [];
+      const onDemandGens = gens.filter((g) => g.token_id === null && g.user_id !== null);
+      for (const g of onDemandGens) {
+        const hasDebit = debitMap.has(g.farm_id);
+        const hasRefund = refundMap.has(g.farm_id);
+        const earned = g.credits_earned || 0;
+        const isTerminal = ["completed", "error", "expired", "cancelled"].includes(g.status);
+
+        // Skip non-terminal (still running) — not anomalous yet
+        if (!isTerminal) continue;
+
+        // 1) Terminal generation with no debit at all
+        if (!hasDebit && !hasRefund) {
+          found.push({
+            farmId: g.farm_id,
+            clientName: g.client_name,
+            type: "missing_debit",
+            credits: g.credits_requested,
+            detail: `Geração ${g.status} sem débito registrado`,
+          });
+        }
+
+        // 2) Partial/zero delivery, settled, but no refund
+        if (g.settled_at && hasDebit && earned < g.credits_requested && !hasRefund) {
+          found.push({
+            farmId: g.farm_id,
+            clientName: g.client_name,
+            type: "missing_refund",
+            credits: g.credits_requested - earned,
+            detail: `Entregou ${earned}/${g.credits_requested}, liquidada sem reembolso`,
+          });
+        }
+      }
+      setAnomalies(found);
     }
   };
 
@@ -190,7 +240,43 @@ export function LiveDashboard() {
         <p className="text-sm text-muted-foreground">Acompanhe as gerações em tempo real</p>
       </div>
 
-      {/* Daily Stats */}
+      {/* Financial Integrity Alert */}
+      {anomalies.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <h3 className="font-semibold text-destructive">
+                ⚠️ {anomalies.length} anomalia{anomalies.length > 1 ? "s" : ""} financeira{anomalies.length > 1 ? "s" : ""}
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {anomalies.map((a) => (
+                <div key={a.farmId} className="flex items-start gap-2 text-sm">
+                  <Badge variant="destructive" className="text-[10px] shrink-0 mt-0.5">
+                    {a.type === "missing_debit" ? "SEM DÉBITO" : "SEM REEMBOLSO"}
+                  </Badge>
+                  <div className="min-w-0">
+                    <span className="font-medium">{a.clientName}</span>
+                    <span className="text-muted-foreground"> — {a.detail}</span>
+                    <span className="text-muted-foreground text-xs block">Farm: {a.farmId}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {anomalies.length === 0 && !loading && generations.some((g) => g.token_id === null && g.user_id !== null) && (
+        <Card className="border-success/30 bg-success/5">
+          <CardContent className="p-3 flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-success" />
+            <span className="text-sm text-success font-medium">Integridade financeira OK — todas as gerações on-demand têm lastro</span>
+          </CardContent>
+        </Card>
+      )}
+
+
       <div>
         <h3 className="text-sm font-medium text-muted-foreground mb-3">📊 Hoje</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
