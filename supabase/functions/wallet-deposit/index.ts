@@ -65,6 +65,12 @@ serve(async (req) => {
       });
     }
 
+    if (amount > 10000) {
+      return new Response(JSON.stringify({ error: "Valor máximo é R$ 10.000,00" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Validate coupon if provided
     let discountAmount = 0;
     let couponId: string | null = null;
