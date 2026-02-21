@@ -27,10 +27,14 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser(token);
+    } = await userClient.auth.getUser();
 
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Não autenticado" }), {

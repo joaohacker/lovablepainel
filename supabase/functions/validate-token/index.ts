@@ -177,10 +177,10 @@ serve(async (req) => {
 
         // Calculate refund amount using same pricing as public-generate
         const TIERS = [
-          { credits: 100, price: 3.50 },
-          { credits: 1000, price: 24.50 },
-          { credits: 5000, price: 105.00 },
-          { credits: 10000, price: 196.00 },
+          { credits: 100, price: 5.36 },
+          { credits: 1000, price: 37.50 },
+          { credits: 5000, price: 160.71 },
+          { credits: 10000, price: 300.00 },
         ];
         const creditos = gen.credits_requested;
         let refundAmount = 0;

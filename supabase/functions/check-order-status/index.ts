@@ -20,7 +20,7 @@ serve(async (req) => {
 
   try {
     const { order_id } = await req.json();
-    if (!order_id || typeof order_id !== "string") {
+    if (!order_id || typeof order_id !== "string" || order_id.length > 50) {
       return new Response(JSON.stringify({ error: "Missing order_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
