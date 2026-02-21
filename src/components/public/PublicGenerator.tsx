@@ -126,10 +126,10 @@ export function PublicGenerator() {
   const handleAuthSuccess = useCallback(() => {
     setShowAuth(false);
     refetchWallet();
-    if (pendingCredits) {
-      setTimeout(() => handleGenerate(pendingCredits), 500);
-    }
-  }, [pendingCredits, handleGenerate, refetchWallet]);
+    // Don't auto-trigger generate here — user state takes time to propagate.
+    // User can click "Gerar" again once logged in.
+    setPendingCredits(null);
+  }, [refetchWallet]);
 
   const handleDepositSuccess = useCallback(() => {
     setShowDeposit(false);
