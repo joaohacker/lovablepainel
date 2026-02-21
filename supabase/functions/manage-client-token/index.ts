@@ -1,11 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://painelcreditoslovbl.lovable.app",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "https://painelcreditoslovbl.lovable.app",
+  "https://id-preview--ea0a1e84-4673-4ceb-813b-b85a7cef0fd2.lovable.app",
+];
+
+function getCorsHeaders(req?: Request) {
+  const origin = req?.headers.get("origin") || "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
