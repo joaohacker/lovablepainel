@@ -79,6 +79,11 @@ serve(async (req) => {
       });
     }
 
+    // BLOQUEIO TEMPORÁRIO — manutenção do sistema de filas
+    return new Response(JSON.stringify({ error: "⏳ Sistema em atualização. Voltamos em aproximadamente 20 minutos." }), {
+      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
     const { credits } = await req.json();
     if (!credits || credits < 5 || credits > 10000 || credits % 5 !== 0) {
       return new Response(JSON.stringify({ error: "Créditos inválidos (5-20000, múltiplos de 5)" }), {

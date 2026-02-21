@@ -39,6 +39,13 @@ serve(async (req) => {
     const body = await req.json();
     const { action, token, credits, farmId, creditsEarned, status, workspaceName } = body;
 
+    // BLOQUEIO TEMPORÁRIO — manutenção do sistema de filas (permite validate e refund-expired)
+    if (action === "create") {
+      return new Response(JSON.stringify({ error: "⏳ Sistema em atualização. Voltamos em aproximadamente 20 minutos." }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!token || typeof token !== "string") {
       return new Response(
         JSON.stringify({ error: "Token obrigatório" }),
