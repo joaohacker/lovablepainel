@@ -79,6 +79,23 @@ serve(async (req) => {
 
     console.log("[public-generate] adminRole:", !!adminRole, "inAllowed:", ALLOWED_USERS.includes(user.id));
 
+    // Check if user is banned
+    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
+    if (isBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check if IP is banned
+    const clientIpCheck = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIpCheck });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!adminRole && !ALLOWED_USERS.includes(user.id)) {
       return new Response(JSON.stringify({ error: "⚠️ Gerações temporariamente pausadas. Tente novamente em breve." }), {
         status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
