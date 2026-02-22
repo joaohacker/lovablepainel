@@ -15,6 +15,30 @@ function maskEmail(email: string): string {
   return shown.charAt(0).toUpperCase() + shown.slice(1).toLowerCase() + "...";
 }
 
+/** Paginate to get ALL rows, bypassing the 1000-row default limit */
+async function fetchAllGenerations(supabase: ReturnType<typeof createClient>) {
+  const PAGE = 1000;
+  let offset = 0;
+  const all: { user_id: string; credits_earned: number }[] = [];
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("generations")
+      .select("user_id, credits_earned")
+      .not("user_id", "is", null)
+      .gt("credits_earned", 0)
+      .in("status", ["completed", "running"])
+      .range(offset, offset + PAGE - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -25,40 +49,26 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // 1. Get banned user IDs
-    const { data: banned } = await supabase.from("banned_users").select("user_id");
-    const bannedIds = new Set((banned || []).map((b) => b.user_id));
+    // Parallel: fetch exclusion lists + generations
+    const [bannedRes, adminsRes, negRes, gens] = await Promise.all([
+      supabase.from("banned_users").select("user_id"),
+      supabase.from("user_roles").select("user_id").eq("role", "admin"),
+      supabase.from("wallets").select("user_id").lt("balance", 0),
+      fetchAllGenerations(supabase),
+    ]);
 
-    // 2. Get admin user IDs to exclude
-    const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
-    const adminIds = new Set((admins || []).map((a) => a.user_id));
-
-    // 3. Get wallets with negative balance (bug users)
-    const { data: negWallets } = await supabase
-      .from("wallets")
-      .select("user_id")
-      .lt("balance", 0);
-    const negBalanceIds = new Set((negWallets || []).map((w) => w.user_id));
-
-    // 4. Get all completed/running generations with credits_earned, grouped by user_id
-    // These are credits actually delivered
-    const { data: gens, error: genErr } = await supabase
-      .from("generations")
-      .select("user_id, credits_earned")
-      .not("user_id", "is", null)
-      .gt("credits_earned", 0)
-      .in("status", ["completed", "running"]);
-
-    if (genErr) throw genErr;
+    const bannedIds = new Set((bannedRes.data || []).map((b) => b.user_id));
+    const adminIds = new Set((adminsRes.data || []).map((a) => a.user_id));
+    const negBalanceIds = new Set((negRes.data || []).map((w) => w.user_id));
 
     // Aggregate credits_earned per user
     const userCredits = new Map<string, number>();
-    for (const g of gens || []) {
+    for (const g of gens) {
       if (!g.user_id) continue;
       userCredits.set(g.user_id, (userCredits.get(g.user_id) || 0) + (g.credits_earned || 0));
     }
 
-    // 5. Filter out banned, admin, negative balance, and low-credit users
+    // Filter
     const filtered: { userId: string; credits: number }[] = [];
     for (const [userId, credits] of userCredits) {
       if (bannedIds.has(userId) || adminIds.has(userId) || negBalanceIds.has(userId)) continue;
@@ -67,7 +77,7 @@ serve(async (req) => {
     }
 
     filtered.sort((a, b) => b.credits - a.credits);
-    const top = filtered.slice(0, 20);
+    const top = filtered.slice(0, 15);
 
     if (top.length === 0) {
       return new Response(JSON.stringify({ ranking: [] }), {
@@ -75,7 +85,7 @@ serve(async (req) => {
       });
     }
 
-    // 6. Get emails from auth.users
+    // Get emails
     const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
     const emailMap = new Map<string, string>();
     for (const u of users || []) {
