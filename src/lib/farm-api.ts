@@ -85,9 +85,9 @@ export async function createFarm(credits: number): Promise<CreateResponse> {
   return res.json();
 }
 
-export async function getFarmStatus(farmId: string, token?: string): Promise<FarmStatus> {
+export async function getFarmStatus(farmId: string, token?: string, signal?: AbortSignal): Promise<FarmStatus> {
   const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
-  const res = await fetch(`${getFunctionUrl()}?action=status&farmId=${farmId}${tokenParam}`, { headers: getHeaders() });
+  const res = await fetch(`${getFunctionUrl()}?action=status&farmId=${farmId}${tokenParam}`, { headers: getHeaders(), signal });
   if (!res.ok) {
     if (res.status === 404) throw new Error("SESSION_LOST");
     throw new Error("Failed to get status");

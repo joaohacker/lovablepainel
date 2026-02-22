@@ -85,6 +85,8 @@ export function useFarmGeneration(accessToken?: string) {
   const MAX_404_RETRIES = 3;
   // Flag to stop processing after completed
   const completedRef = useRef(false);
+  // AbortController to cancel in-flight fetch requests on new generation
+  const abortRef = useRef<AbortController | null>(null);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startPollingRef = useRef<((farmId: string) => void) | null>(null);
@@ -94,6 +96,11 @@ export function useFarmGeneration(accessToken?: string) {
     if (pollingRef.current) {
       clearTimeout(pollingRef.current);
       pollingRef.current = null;
+    }
+    // Abort any in-flight poll request to prevent stale data from overwriting state
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
     }
   }, []);
 
@@ -133,6 +140,10 @@ export function useFarmGeneration(accessToken?: string) {
   const startPolling = useCallback(
     (farmId: string) => {
       if (pollingRef.current) clearTimeout(pollingRef.current);
+      // Create a new AbortController for this polling session
+      if (abortRef.current) abortRef.current.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
       const getInterval = () => {
         const count = pollCountRef.current;
@@ -146,13 +157,15 @@ export function useFarmGeneration(accessToken?: string) {
         pollingRef.current = setTimeout(async () => {
           pollCountRef.current++;
 
-          if (completedRef.current) {
+          if (completedRef.current || controller.signal.aborted) {
             pollingRef.current = null;
             return;
           }
 
           try {
-            const status = await getFarmStatus(farmId, accessToken);
+            const status = await getFarmStatus(farmId, accessToken, controller.signal);
+            // Double-check abort after async call returns
+            if (controller.signal.aborted) return;
             consecutive404Ref.current = 0;
             console.log(`[POLLING] interval=${getInterval()}ms, status=${status.status}, logs=${status.logs?.length ?? 0}, credits_field=${status.credits}, result_credits=${status.result?.credits ?? 'N/A'}`);
 
@@ -263,6 +276,10 @@ export function useFarmGeneration(accessToken?: string) {
             // Schedule next poll
             schedulePoll();
           } catch (err) {
+            // If aborted (new generation started), silently stop
+            if (err instanceof DOMException && err.name === "AbortError") return;
+            if (controller.signal.aborted) return;
+
             if (err instanceof Error && err.message === "SESSION_LOST") {
               consecutive404Ref.current += 1;
               console.warn(`[polling] 404 received (${consecutive404Ref.current}/${MAX_404_RETRIES})`);
