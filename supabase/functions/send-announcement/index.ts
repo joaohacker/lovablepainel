@@ -14,7 +14,7 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  const resendApiKey = Deno.env.get("RESEND_API_KEY_2") || Deno.env.get("RESEND_API_KEY");
 
   if (!resendApiKey) {
     return new Response(JSON.stringify({ error: "RESEND_API_KEY not configured" }), {
@@ -51,6 +51,9 @@ serve(async (req) => {
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const skip = body.skip || 0; // Skip first N users (already sent)
+
     // Paginate through ALL users
     const emails: string[] = [];
     let page = 1;
@@ -65,8 +68,11 @@ serve(async (req) => {
       page++;
     }
 
-    if (emails.length === 0) {
-      return new Response(JSON.stringify({ error: "No users found" }), {
+    // Skip already-sent users
+    const toSend = emails.slice(skip);
+
+    if (toSend.length === 0) {
+      return new Response(JSON.stringify({ error: "No remaining users to send" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -143,8 +149,8 @@ serve(async (req) => {
     let sent = 0;
     const errors: string[] = [];
 
-    for (let i = 0; i < emails.length; i += batchSize) {
-      const batch = emails.slice(i, i + batchSize);
+    for (let i = 0; i < toSend.length; i += batchSize) {
+      const batch = toSend.slice(i, i + batchSize);
       
       // Wait 1.5s between batches to respect Resend rate limit (2 req/s)
       if (i > 0) {
@@ -176,6 +182,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       total_users: emails.length,
+      skipped: skip,
+      to_send: toSend.length,
       sent,
       errors: errors.length > 0 ? errors : undefined,
     }), {
