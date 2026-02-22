@@ -32,7 +32,10 @@ const ClientGenerate = () => {
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
-  }, []);
+    if (token) {
+      sessionStorage.setItem("client_token_path", `/tokenclientes/${token}`);
+    }
+  }, [token]);
 
   const validateToken = useCallback(async () => {
     if (!token) return;
