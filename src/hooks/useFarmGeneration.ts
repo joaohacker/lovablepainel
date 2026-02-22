@@ -136,10 +136,10 @@ export function useFarmGeneration(accessToken?: string) {
 
       const getInterval = () => {
         const count = pollCountRef.current;
-        // First 10 polls: 5s, next 20: 7.5s, after that: 10s
-        if (count < 10) return 5000;
-        if (count < 30) return 7500;
-        return 10000;
+        // First 5 polls: 8s, next 15: 10s, after that: 15s
+        if (count < 5) return 8000;
+        if (count < 20) return 10000;
+        return 15000;
       };
 
       const schedulePoll = () => {
