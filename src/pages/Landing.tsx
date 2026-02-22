@@ -20,6 +20,7 @@ import { PublicGenerator } from "@/components/public/PublicGenerator";
 import { WhatsAppButton } from "@/components/public/WhatsAppButton";
 import { BackgroundEffects } from "@/components/public/BackgroundEffects";
 import { SocialProof } from "@/components/public/SocialProof";
+import { ResellerRanking } from "@/components/public/ResellerRanking";
 
 function LiteYouTube({ videoId }: { videoId: string }) {
   const [active, setActive] = useState(false);
@@ -235,6 +236,9 @@ const Landing = () => {
           })()}
         </div>
       </section>
+
+      {/* Reseller Ranking */}
+      <ResellerRanking />
 
       {/* Social Proof */}
       <SocialProof />
