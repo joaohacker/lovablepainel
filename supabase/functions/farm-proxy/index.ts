@@ -299,6 +299,93 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+
+        // Handle queued placeholder farmIds — don't call upstream API
+        if (farmId.startsWith("queued-")) {
+          // First check if the generation still exists with the placeholder farm_id
+          const { data: gen } = await supabase
+            .from("generations")
+            .select("id, farm_id, status, credits_requested, credits_earned, master_email, workspace_name, created_at, token_id")
+            .eq("farm_id", farmId)
+            .maybeSingle();
+
+          if (gen) {
+            if (gen.status === "queued") {
+              // Still queued — return synthetic status with queue position
+              const { count: queuePos } = await supabase
+                .from("generations")
+                .select("id", { count: "exact", head: true })
+                .eq("status", "queued")
+                .lte("created_at", gen.created_at);
+
+              return new Response(
+                JSON.stringify({
+                  status: "queued",
+                  queuePosition: queuePos || 1,
+                  credits: gen.credits_requested,
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+            // Status changed but farm_id didn't (e.g. cancelled while still queued)
+            return new Response(
+              JSON.stringify({
+                status: gen.status,
+                credits: gen.credits_requested,
+                masterEmail: gen.master_email,
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          // Generation no longer has the placeholder farm_id — it was dequeued by processQueue
+          // Find the generation that was dequeued: use token from query param to narrow search
+          let dequeued: any = null;
+
+          if (token) {
+            // Token-based: find by token_id
+            const { data: tokenData } = await supabase
+              .from("tokens")
+              .select("id")
+              .eq("token", token)
+              .eq("is_active", true)
+              .maybeSingle();
+
+            if (tokenData) {
+              const { data: found } = await supabase
+                .from("generations")
+                .select("farm_id, status, master_email, workspace_name, credits_requested, credits_earned")
+                .eq("token_id", tokenData.id)
+                .in("status", ["waiting_invite", "running", "completed", "cancelled", "error", "expired"])
+                .not("farm_id", "like", "queued-%")
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              dequeued = found;
+            }
+          }
+
+          if (!dequeued) {
+            // Fallback: generation may have been cancelled/settled
+            return new Response(
+              JSON.stringify({ status: "queued", queuePosition: 1 }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          // Return dequeued signal with the new real farmId
+          return new Response(
+            JSON.stringify({
+              status: "dequeued",
+              newFarmId: dequeued.farm_id,
+              masterEmail: dequeued.master_email,
+              workspaceName: dequeued.workspace_name,
+              credits: dequeued.credits_requested,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         upstreamUrl = `${API_BASE}/farm/status/${farmId}`;
         break;
       }

@@ -763,6 +763,7 @@ serve(async (req) => {
             success: true,
             queued: true,
             queuePosition,
+            farmId: placeholderFarmId,
             generationId: queuedGen?.id,
             masterEmail: null,
             message: `Sua geração está na fila (posição ${queuePosition}). Aguarde...`,
