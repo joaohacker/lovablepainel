@@ -24,7 +24,8 @@ import { ResellerRanking } from "@/components/public/ResellerRanking";
 
 function LiteYouTube({ videoId }: { videoId: string }) {
   const [active, setActive] = useState(false);
-  const thumbUrl = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  const [thumbUrl, setThumbUrl] = useState(`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`);
+  const handleThumbError = () => setThumbUrl(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`);
 
   if (active) {
     return (
@@ -49,6 +50,7 @@ function LiteYouTube({ videoId }: { videoId: string }) {
     >
       <img
         src={thumbUrl}
+        onError={handleThumbError}
         alt="Thumbnail do vídeo"
         className="absolute inset-0 w-full h-full object-cover"
         loading="eager"
