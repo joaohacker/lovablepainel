@@ -97,6 +97,9 @@ const Landing = () => {
             </span>
           </div>
           <div className="flex items-center gap-1.5 md:gap-6 text-[10px] md:text-sm text-muted-foreground ml-2">
+            <a href="#ranking" className="hover:text-foreground transition-colors hidden sm:inline">
+              Ranking
+            </a>
             <a href="#beneficios" className="hover:text-foreground transition-colors hidden sm:inline">
               Benefícios
             </a>

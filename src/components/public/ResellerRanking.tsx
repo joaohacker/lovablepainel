@@ -49,7 +49,7 @@ export function ResellerRanking() {
   const rest = ranking.slice(3);
 
   return (
-    <section className="relative z-10 py-10 md:py-16 px-4">
+    <section id="ranking" className="relative z-10 py-10 md:py-16 px-4">
       <div className="mx-auto max-w-2xl">
         {/* Header */}
         <div className="text-center space-y-2 mb-6 md:mb-10">
