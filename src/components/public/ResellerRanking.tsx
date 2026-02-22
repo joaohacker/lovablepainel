@@ -13,7 +13,7 @@ export function ResellerRanking() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const CACHE_KEY = "reseller_ranking";
+    const CACHE_KEY = "reseller_ranking_v2";
     const CACHE_TTL = 5 * 60 * 60 * 1000; // 5 hours
 
     const load = async () => {
@@ -33,8 +33,9 @@ export function ResellerRanking() {
       try {
         const { data, error } = await supabase.functions.invoke("reseller-ranking");
         if (!error && data?.ranking) {
-          setRanking(data.ranking);
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ data: data.ranking, ts: Date.now() }));
+          const top10 = data.ranking.slice(0, 10);
+          setRanking(top10);
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ data: top10, ts: Date.now() }));
         }
       } catch {
         // silent
