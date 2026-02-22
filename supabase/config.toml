@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.manage-client-token]
 verify_jwt = false
+
+[functions.reseller-ranking]
+verify_jwt = false

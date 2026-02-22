@@ -7,17 +7,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/**
- * Mask email to a readable pseudo-name.
- * "joaosilva@gmail.com" → "Joaos..."
- * "maria123@hotmail.com" → "Maria..."
- */
 function maskEmail(email: string): string {
   const local = email.split("@")[0] || "user";
-  // Remove numbers and special chars to get "name-like" prefix
   const clean = local.replace(/[^a-zA-Z]/g, "");
   if (clean.length < 2) return "User***";
-  // Capitalize first letter, show first 5 chars max
   const shown = clean.slice(0, 5);
   return shown.charAt(0).toUpperCase() + shown.slice(1).toLowerCase() + "...";
 }
@@ -32,41 +25,47 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // 1. Get all client_tokens grouped by owner_id with total credits
-    const { data: tokens, error: tokErr } = await supabase
-      .from("client_tokens")
-      .select("owner_id, total_credits");
-
-    if (tokErr) throw tokErr;
-    if (!tokens || tokens.length === 0) {
-      return new Response(JSON.stringify({ ranking: [] }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Aggregate total_credits per owner
-    const ownerCredits = new Map<string, number>();
-    for (const t of tokens) {
-      ownerCredits.set(t.owner_id, (ownerCredits.get(t.owner_id) || 0) + t.total_credits);
-    }
-
-    // 2. Get banned user IDs to exclude
+    // 1. Get banned user IDs
     const { data: banned } = await supabase.from("banned_users").select("user_id");
     const bannedIds = new Set((banned || []).map((b) => b.user_id));
 
-    // 3. Get admin user IDs to exclude
+    // 2. Get admin user IDs to exclude
     const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
     const adminIds = new Set((admins || []).map((a) => a.user_id));
 
-    // Filter out banned and admin users, and those with < 100 credits (noise)
+    // 3. Get wallets with negative balance (bug users)
+    const { data: negWallets } = await supabase
+      .from("wallets")
+      .select("user_id")
+      .lt("balance", 0);
+    const negBalanceIds = new Set((negWallets || []).map((w) => w.user_id));
+
+    // 4. Get all completed/running generations with credits_earned, grouped by user_id
+    // These are credits actually delivered
+    const { data: gens, error: genErr } = await supabase
+      .from("generations")
+      .select("user_id, credits_earned")
+      .not("user_id", "is", null)
+      .gt("credits_earned", 0)
+      .in("status", ["completed", "running"]);
+
+    if (genErr) throw genErr;
+
+    // Aggregate credits_earned per user
+    const userCredits = new Map<string, number>();
+    for (const g of gens || []) {
+      if (!g.user_id) continue;
+      userCredits.set(g.user_id, (userCredits.get(g.user_id) || 0) + (g.credits_earned || 0));
+    }
+
+    // 5. Filter out banned, admin, negative balance, and low-credit users
     const filtered: { userId: string; credits: number }[] = [];
-    for (const [userId, credits] of ownerCredits) {
-      if (bannedIds.has(userId) || adminIds.has(userId)) continue;
-      if (credits < 100) continue;
+    for (const [userId, credits] of userCredits) {
+      if (bannedIds.has(userId) || adminIds.has(userId) || negBalanceIds.has(userId)) continue;
+      if (credits < 50) continue;
       filtered.push({ userId, credits });
     }
 
-    // Sort descending
     filtered.sort((a, b) => b.credits - a.credits);
     const top = filtered.slice(0, 20);
 
@@ -76,15 +75,13 @@ serve(async (req) => {
       });
     }
 
-    // 4. Get emails from auth.users
-    const userIds = top.map((t) => t.userId);
+    // 6. Get emails from auth.users
     const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 });
     const emailMap = new Map<string, string>();
     for (const u of users || []) {
       emailMap.set(u.id, u.email || "");
     }
 
-    // 5. Build ranking with masked names
     const ranking = top.map((entry, i) => ({
       position: i + 1,
       name: maskEmail(emailMap.get(entry.userId) || "user"),
