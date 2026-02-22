@@ -141,7 +141,7 @@ export function DepositModal({
         setStep("done");
         onSuccess();
       }
-    }, 3000);
+    }, 12000);
 
     return () => clearInterval(interval);
   }, [step, orderId, onSuccess]);
