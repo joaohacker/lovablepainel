@@ -24,7 +24,7 @@ import { ResellerRanking } from "@/components/public/ResellerRanking";
 
 function LiteYouTube({ videoId }: { videoId: string }) {
   const [active, setActive] = useState(false);
-  const thumbUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  const thumbUrl = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
 
   if (active) {
     return (
