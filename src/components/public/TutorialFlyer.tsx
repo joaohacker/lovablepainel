@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Play, ChevronDown, ChevronUp } from "lucide-react";
 
-export function TutorialFlyer() {
+export function TutorialFlyer({ videoSrc = "/videos/tutorial-cliente.mp4" }: { videoSrc?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -29,7 +29,7 @@ export function TutorialFlyer() {
       {open && (
         <div className="mt-3 rounded-xl overflow-hidden border border-border/50 bg-secondary/30">
           <video
-            src="/videos/tutorial-cliente.mp4"
+            src={videoSrc}
             controls
             autoPlay
             className="w-full"
