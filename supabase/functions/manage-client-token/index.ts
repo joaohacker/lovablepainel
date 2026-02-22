@@ -156,21 +156,45 @@ serve(async (req) => {
         );
       }
 
-      // 1) Cancel/settle any pending generations and refund credits back to token
+      // 1) Check for active generations that block deactivation
       const { data: gens } = await supabase
         .from("generations")
-        .select("id, credits_earned, credits_requested, status, settled_at, farm_id")
+        .select("id, credits_earned, credits_requested, status, settled_at, farm_id, created_at")
         .eq("client_token_id", tokenId);
 
+      const now = Date.now();
+      const TEN_MINUTES = 10 * 60 * 1000;
+
+      // Block if any generation is actively running or recently waiting_invite/creating
+      const activeGen = (gens || []).find((g: any) => {
+        if (g.settled_at) return false;
+        const age = now - new Date(g.created_at).getTime();
+        if (g.status === "running") return true;
+        if (["waiting_invite", "creating"].includes(g.status) && age < TEN_MINUTES) return true;
+        return false;
+      });
+
+      if (activeGen) {
+        const age = now - new Date(activeGen.created_at).getTime();
+        const remainingMin = Math.max(1, Math.ceil((TEN_MINUTES - age) / 60000));
+        const msg = activeGen.status === "running"
+          ? "Não é possível desativar: há uma geração em andamento. Aguarde ela finalizar."
+          : `Não é possível desativar: aguarde o cliente convidar ou a geração expirar (~${remainingMin} min).`;
+        return new Response(
+          JSON.stringify({ error: msg }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // 2) Settle expired/queued pending generations and refund credits back to token
       let totalCreditsRefundedToToken = 0;
 
       for (const g of (gens || [])) {
-        const isPending = ["running", "waiting_invite", "queued", "creating"].includes(g.status);
+        const isPending = ["queued", "waiting_invite", "creating"].includes(g.status);
         const isUnsettled = !g.settled_at;
         const earned = g.credits_earned || 0;
 
         if (isPending && isUnsettled) {
-          // Cancel the pending generation and settle it
           const { data: settled } = await supabase
             .from("generations")
             .update({
@@ -185,7 +209,6 @@ serve(async (req) => {
             .maybeSingle();
 
           if (settled) {
-            // Refund unused credits back to token
             const refundCredits = g.credits_requested - earned;
             if (refundCredits > 0) {
               await supabase.rpc("refund_client_token_credits", {
