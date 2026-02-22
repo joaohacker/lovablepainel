@@ -415,7 +415,7 @@ serve(async (req) => {
     const data = await upstreamRes.text();
     console.log(`[farm-proxy] upstream responded: ${upstreamRes.status}`);
 
-    // === SYNC DB: update generation status/credits on every status poll ===
+    // === SYNC DB: update generation status/credits only when values change ===
     if (action === "status" && farmId && upstreamRes.ok) {
       try {
         const parsed = JSON.parse(data);
@@ -438,42 +438,54 @@ serve(async (req) => {
           : upstreamStatus;
 
         if (upstreamStatus === "completed") {
-          // Fire-and-forget settlement (handles refund + settled_at)
           autoSettle(supabase, farmId, creditsEarned).catch((err) => {
             console.error(`[auto-settle] Error:`, err);
           });
-          // Fire-and-forget queue processing — a slot just opened
           processQueue(supabase, FARM_API_KEY).catch((err) => {
             console.error(`[processQueue] Error:`, err);
           });
         } else if (["error", "expired", "cancelled"].includes(upstreamStatus)) {
-          // Terminal non-complete states also free a slot
           processQueue(supabase, FARM_API_KEY).catch((err) => {
             console.error(`[processQueue] Error:`, err);
           });
         }
         
         if (!["completed", "error", "expired", "cancelled"].includes(upstreamStatus)) {
-          // Intermediate update: sync credits_earned, status, workspace, masterEmail
-          const updatePayload: Record<string, unknown> = {
-            credits_earned: creditsEarned,
-          };
-          if (dbStatus && ["running", "waiting_invite", "queued", "error", "expired", "cancelled"].includes(dbStatus)) {
-            updatePayload.status = dbStatus;
-          }
-          if (parsed.workspaceName) {
-            updatePayload.workspace_name = parsed.workspaceName;
-          }
-          if (parsed.masterEmail) {
-            updatePayload.master_email = parsed.masterEmail;
-          }
-
-          // Only update if not already settled
-          await supabase
+          // Fetch current DB state to avoid redundant writes
+          const { data: currentGen } = await supabase
             .from("generations")
-            .update(updatePayload)
+            .select("status, credits_earned, workspace_name, master_email")
             .eq("farm_id", farmId)
-            .is("settled_at", null);
+            .is("settled_at", null)
+            .maybeSingle();
+
+          if (currentGen) {
+            const updatePayload: Record<string, unknown> = {};
+
+            // Only include fields that actually changed
+            if (creditsEarned !== (currentGen.credits_earned ?? 0)) {
+              updatePayload.credits_earned = creditsEarned;
+            }
+            if (dbStatus && ["running", "waiting_invite", "queued", "error", "expired", "cancelled"].includes(dbStatus) && dbStatus !== currentGen.status) {
+              updatePayload.status = dbStatus;
+            }
+            if (parsed.workspaceName && parsed.workspaceName !== currentGen.workspace_name) {
+              updatePayload.workspace_name = parsed.workspaceName;
+            }
+            if (parsed.masterEmail && parsed.masterEmail !== currentGen.master_email) {
+              updatePayload.master_email = parsed.masterEmail;
+            }
+
+            // Only write if something actually changed
+            if (Object.keys(updatePayload).length > 0) {
+              await supabase
+                .from("generations")
+                .update(updatePayload)
+                .eq("farm_id", farmId)
+                .is("settled_at", null);
+              console.log(`[farm-proxy] DB sync: ${JSON.stringify(updatePayload)}`);
+            }
+          }
         }
       } catch {
         // Parsing failed — not a JSON response, skip
