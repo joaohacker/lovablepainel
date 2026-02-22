@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Medal, Award, Crown } from "lucide-react";
+import { Trophy, Crown, Medal, Award } from "lucide-react";
 
 interface RankEntry {
   position: number;
@@ -30,9 +30,14 @@ export function ResellerRanking() {
 
   if (loading) {
     return (
-      <section className="relative z-10 py-14 md:py-24 px-4">
-        <div className="mx-auto max-w-3xl text-center">
-          <div className="h-8 w-48 mx-auto bg-muted/20 rounded animate-pulse" />
+      <section className="relative z-10 py-10 px-4">
+        <div className="mx-auto max-w-2xl">
+          <div className="h-6 w-40 mx-auto bg-muted/20 rounded animate-pulse mb-4" />
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 bg-muted/10 rounded-lg animate-pulse" />
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -40,55 +45,102 @@ export function ResellerRanking() {
 
   if (ranking.length === 0) return null;
 
-  const positionIcon = (pos: number) => {
-    if (pos === 1) return <Crown className="h-5 w-5 text-yellow-400" />;
-    if (pos === 2) return <Medal className="h-5 w-5 text-gray-300" />;
-    if (pos === 3) return <Award className="h-5 w-5 text-amber-600" />;
-    return <span className="text-xs font-bold text-muted-foreground w-5 text-center">{pos}º</span>;
-  };
-
-  const positionBg = (pos: number) => {
-    if (pos === 1) return "bg-yellow-400/10 border-yellow-400/30";
-    if (pos === 2) return "bg-gray-300/10 border-gray-300/20";
-    if (pos === 3) return "bg-amber-600/10 border-amber-600/20";
-    return "bg-white/5 border-border/30";
-  };
+  const topThree = ranking.slice(0, 3);
+  const rest = ranking.slice(3);
 
   return (
-    <section className="relative z-10 py-14 md:py-24 px-4">
-      <div className="mx-auto max-w-2xl text-center space-y-3 mb-8 md:mb-12">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
-          <Trophy className="h-3.5 w-3.5" />
-          Ranking
-        </div>
-        <h2 className="text-2xl md:text-5xl font-bold">Top Revendedores</h2>
-        <p className="text-muted-foreground text-sm md:text-lg">
-          Os maiores geradores de créditos da plataforma.
-        </p>
-      </div>
-
-      <div className="mx-auto max-w-xl space-y-2">
-        {ranking.map((entry) => (
-          <div
-            key={entry.position}
-            className={`flex items-center gap-3 md:gap-4 rounded-xl border px-4 py-3 md:py-4 backdrop-blur-sm transition-colors ${positionBg(entry.position)}`}
-          >
-            <div className="shrink-0 flex items-center justify-center w-8">
-              {positionIcon(entry.position)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <span className="font-semibold text-sm md:text-base truncate block">
-                {entry.name}
-              </span>
-            </div>
-            <div className="shrink-0 text-right">
-              <span className="font-bold text-sm md:text-base text-primary">
-                {entry.credits.toLocaleString("pt-BR")}
-              </span>
-              <span className="text-[10px] md:text-xs text-muted-foreground ml-1">créditos</span>
-            </div>
+    <section className="relative z-10 py-10 md:py-16 px-4">
+      <div className="mx-auto max-w-2xl">
+        {/* Header */}
+        <div className="text-center space-y-2 mb-6 md:mb-10">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/15 px-4 py-1.5 text-[10px] md:text-xs font-semibold uppercase tracking-widest text-primary">
+            <Trophy className="h-3 w-3 md:h-3.5 md:w-3.5" />
+            Ranking de Revendedores
           </div>
-        ))}
+          <h2 className="text-xl md:text-3xl font-bold">Top Geradores</h2>
+        </div>
+
+        {/* Podium - Top 3 */}
+        <div className="grid grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-6">
+          {/* 2nd place */}
+          <div className="flex flex-col items-center order-1 pt-4 md:pt-6">
+            {topThree[1] && (
+              <div className="glass-card rounded-xl p-3 md:p-4 w-full text-center border border-border/40 hover:border-border/60 transition-colors">
+                <div className="inline-flex items-center justify-center h-8 w-8 md:h-10 md:w-10 rounded-full bg-gray-400/20 mb-2">
+                  <Medal className="h-4 w-4 md:h-5 md:w-5 text-gray-300" />
+                </div>
+                <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">2º</p>
+                <p className="font-semibold text-xs md:text-sm truncate">{topThree[1].name}</p>
+                <p className="text-primary font-bold text-sm md:text-base mt-1">
+                  {topThree[1].credits.toLocaleString("pt-BR")}
+                </p>
+                <p className="text-[9px] md:text-[10px] text-muted-foreground">créditos</p>
+              </div>
+            )}
+          </div>
+
+          {/* 1st place */}
+          <div className="flex flex-col items-center order-2">
+            {topThree[0] && (
+              <div className="glass-card rounded-xl p-3 md:p-5 w-full text-center border border-yellow-500/30 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-b from-yellow-500/10 to-transparent pointer-events-none" />
+                <div className="relative">
+                  <div className="inline-flex items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-full bg-yellow-500/20 mb-2">
+                    <Crown className="h-5 w-5 md:h-6 md:w-6 text-yellow-400" />
+                  </div>
+                  <p className="text-[10px] md:text-xs text-yellow-400 font-bold mb-0.5">1º</p>
+                  <p className="font-bold text-sm md:text-base truncate">{topThree[0].name}</p>
+                  <p className="text-primary font-bold text-lg md:text-xl mt-1">
+                    {topThree[0].credits.toLocaleString("pt-BR")}
+                  </p>
+                  <p className="text-[9px] md:text-[10px] text-muted-foreground">créditos</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 3rd place */}
+          <div className="flex flex-col items-center order-3 pt-6 md:pt-8">
+            {topThree[2] && (
+              <div className="glass-card rounded-xl p-3 md:p-4 w-full text-center border border-border/40 hover:border-border/60 transition-colors">
+                <div className="inline-flex items-center justify-center h-8 w-8 md:h-10 md:w-10 rounded-full bg-amber-700/20 mb-2">
+                  <Award className="h-4 w-4 md:h-5 md:w-5 text-amber-600" />
+                </div>
+                <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">3º</p>
+                <p className="font-semibold text-xs md:text-sm truncate">{topThree[2].name}</p>
+                <p className="text-primary font-bold text-sm md:text-base mt-1">
+                  {topThree[2].credits.toLocaleString("pt-BR")}
+                </p>
+                <p className="text-[9px] md:text-[10px] text-muted-foreground">créditos</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Rest of ranking */}
+        {rest.length > 0 && (
+          <div className="space-y-1.5 md:space-y-2">
+            {rest.map((entry) => (
+              <div
+                key={entry.position}
+                className="flex items-center gap-3 rounded-lg border border-border/20 bg-card/30 backdrop-blur-sm px-3 md:px-4 py-2.5 md:py-3 hover:bg-card/50 transition-colors"
+              >
+                <span className="text-xs font-bold text-muted-foreground w-6 text-center shrink-0">
+                  {entry.position}º
+                </span>
+                <span className="font-medium text-xs md:text-sm flex-1 truncate">
+                  {entry.name}
+                </span>
+                <div className="shrink-0 text-right">
+                  <span className="font-bold text-xs md:text-sm text-primary">
+                    {entry.credits.toLocaleString("pt-BR")}
+                  </span>
+                  <span className="text-[9px] md:text-[10px] text-muted-foreground ml-1">cred.</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
