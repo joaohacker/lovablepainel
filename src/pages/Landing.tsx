@@ -150,8 +150,8 @@ const Landing = () => {
         </div>
       </section>
 
-
-
+      {/* Reseller Ranking */}
+      <ResellerRanking />
 
       {/* Trust Bar */}
       <section className="relative z-10 border-y border-border/40 py-5">
