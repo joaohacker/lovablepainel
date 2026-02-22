@@ -146,6 +146,11 @@ serve(async (req) => {
     for (let i = 0; i < emails.length; i += batchSize) {
       const batch = emails.slice(i, i + batchSize);
       
+      // Wait 1.5s between batches to respect Resend rate limit (2 req/s)
+      if (i > 0) {
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
