@@ -425,7 +425,7 @@ export function PublicGenerator() {
                   <ClientLinkManager userId={user?.id} refreshKey={linksRefreshKey} />
 
                   {/* Tutorial Video */}
-                  <TutorialFlyer />
+                  <TutorialFlyer videoSrc="/videos/tutorial-demanda.mp4" />
                 </div>
               ) : (
                 <GenerationStatus
