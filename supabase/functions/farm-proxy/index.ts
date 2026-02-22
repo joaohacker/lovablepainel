@@ -445,6 +445,65 @@ serve(async (req) => {
             console.error(`[processQueue] Error:`, err);
           });
         } else if (["error", "expired", "cancelled"].includes(upstreamStatus)) {
+          // Immediately settle and refund on error/expired/cancelled
+          (async () => {
+            try {
+              const { data: gen } = await supabase
+                .from("generations")
+                .select("id, user_id, credits_requested, credits_earned, client_token_id")
+                .eq("farm_id", farmId)
+                .is("settled_at", null)
+                .maybeSingle();
+
+              if (gen) {
+                const finalEarned = Math.min(creditsEarned, gen.credits_requested);
+
+                const { data: updated } = await supabase
+                  .from("generations")
+                  .update({
+                    status: upstreamStatus,
+                    credits_earned: finalEarned,
+                    settled_at: new Date().toISOString(),
+                    error_message: parsed.error || parsed.message || `Geração ${upstreamStatus}`,
+                  })
+                  .eq("farm_id", farmId)
+                  .is("settled_at", null)
+                  .select("id")
+                  .maybeSingle();
+
+                if (updated) {
+                  if (gen.user_id && !gen.client_token_id) {
+                    // On-demand user: refund wallet
+                    const fullCost = calcularPreco(gen.credits_requested);
+                    const deliveredCost = finalEarned > 0 ? calcularPreco(finalEarned) : 0;
+                    const refundAmount = +(fullCost - deliveredCost).toFixed(2);
+                    if (refundAmount > 0) {
+                      await supabase.rpc("credit_wallet", {
+                        p_user_id: gen.user_id,
+                        p_amount: refundAmount,
+                        p_description: `Reembolso - geração ${upstreamStatus} (${finalEarned}/${gen.credits_requested} créditos)`,
+                        p_reference_id: farmId,
+                      });
+                      console.log(`[farm-proxy] Refunded R$${refundAmount} for ${upstreamStatus} farmId=${farmId}`);
+                    }
+                  } else if (gen.client_token_id) {
+                    // Client token: refund credits
+                    const refundCredits = gen.credits_requested - finalEarned;
+                    if (refundCredits > 0) {
+                      await supabase.rpc("refund_client_token_credits", {
+                        p_token_id: gen.client_token_id,
+                        p_credits: refundCredits,
+                      });
+                      console.log(`[farm-proxy] Refunded ${refundCredits} token credits for ${upstreamStatus} farmId=${farmId}`);
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              console.error(`[farm-proxy] Error settling ${upstreamStatus}:`, err);
+            }
+          })();
+
           processQueue(supabase, FARM_API_KEY).catch((err) => {
             console.error(`[processQueue] Error:`, err);
           });
