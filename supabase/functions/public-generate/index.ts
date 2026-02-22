@@ -117,22 +117,7 @@ serve(async (req) => {
       });
     }
 
-    // Check if user is banned
-    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
-    if (isBanned) {
-      return new Response(JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Check if IP is banned
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
-    if (isIpBanned) {
-      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const body = await req.json();
     const { credits, action } = body;

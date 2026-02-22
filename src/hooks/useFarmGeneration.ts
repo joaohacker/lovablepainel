@@ -92,7 +92,7 @@ export function useFarmGeneration(accessToken?: string) {
 
   const cleanup = useCallback(() => {
     if (pollingRef.current) {
-      clearInterval(pollingRef.current);
+      clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
   }, []);
@@ -126,237 +126,167 @@ export function useFarmGeneration(accessToken?: string) {
     };
   }, []);
 
+  // Track polling interval for adaptive backoff
+  const pollCountRef = useRef(0);
+
   // Polling-only approach (no SSE — avoids API key exposure and edge function timeouts)
   const startPolling = useCallback(
     (farmId: string) => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (pollingRef.current) clearTimeout(pollingRef.current);
 
-      pollingRef.current = setInterval(async () => {
-        if (completedRef.current) {
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          pollingRef.current = null;
-          return;
-        }
+      const getInterval = () => {
+        const count = pollCountRef.current;
+        // First 10 polls: 2.5s, next 20: 5s, after that: 10s
+        if (count < 10) return 2500;
+        if (count < 30) return 5000;
+        return 10000;
+      };
 
-        try {
-          const status = await getFarmStatus(farmId, accessToken);
-          consecutive404Ref.current = 0;
-          console.log(`[POLLING] status=${status.status}, logs=${status.logs?.length ?? 0}, credits_field=${status.credits}, result_credits=${status.result?.credits ?? 'N/A'}`);
+      const schedulePoll = () => {
+        pollingRef.current = setTimeout(async () => {
+          pollCountRef.current++;
 
-          // Terminal states
-          if (status.status === "completed") {
-            if (pollingRef.current) clearInterval(pollingRef.current);
+          if (completedRef.current) {
             pollingRef.current = null;
-            completedRef.current = true;
+            return;
+          }
 
-            // Process any remaining logs before marking completed
-            const finalEntries: FeedEntry[] = [];
-            let totalCreditsFromLogs = 0;
-            if (status.logs && status.logs.length > 0) {
-              for (const log of status.logs) {
-                const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
-                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
-                finalEntries.push(entry);
-                if (entry.kind === "credit" && entry.credits) {
-                  totalCreditsFromLogs += entry.credits;
-                }
-              }
+          try {
+            const status = await getFarmStatus(farmId, accessToken);
+            consecutive404Ref.current = 0;
+            console.log(`[POLLING] interval=${getInterval()}ms, status=${status.status}, logs=${status.logs?.length ?? 0}, credits_field=${status.credits}, result_credits=${status.result?.credits ?? 'N/A'}`);
+
+            // Reset backoff when running (activity detected)
+            if (status.status === "running" || status.status === "workspace_detected") {
+              pollCountRef.current = Math.min(pollCountRef.current, 10);
             }
 
-            setGen((prev) => {
-              const brandNew = finalEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
-              brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
-              const now = Date.now();
-              const staggerMs = brandNew.length > 50
-                ? 30
-                : brandNew.length > 20
-                ? Math.max(50, Math.min(200, 1500 / brandNew.length))
-                : 250;
-              const staggered = brandNew.map((entry, i) => ({
-                ...entry,
-                id: ++feedIdCounter,
-                arrivedAt: now + i * staggerMs,
-              }));
-              const merged = [...prev.feed, ...staggered].slice(-150);
+            // Terminal states
+            if (status.status === "completed") {
+              pollingRef.current = null;
+              completedRef.current = true;
 
-              // Calculate actual credits earned from logs (most reliable source)
-              const apiResultCredits = status.result?.credits || 0;
-              const actualCredits = Math.min(
-                Math.max(totalCreditsFromLogs, apiResultCredits, prev.creditsEarned),
-                prev.totalCreditsRequested
-              );
-
-              // Delay the completed state so drip animation can play out
-              const drainMs = Math.min(staggered.length * 250, 3000) + 500;
-              setTimeout(() => {
-                setGen((p) => ({
-                  ...p,
-                  state: "completed",
-                  result: status.result || null,
-                  creditsEarned: Math.min(
-                    Math.max(apiResultCredits, totalCreditsFromLogs, p.creditsEarned),
-                    p.totalCreditsRequested
-                  ),
-                }));
-              }, drainMs);
-
-              return {
-                ...prev,
-                state: "running",
-                workspaceName: status.workspaceName || prev.workspaceName,
-                masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: actualCredits,
-                feed: merged,
-              };
-            });
-            return;
-          }
-
-          if (status.status === "error" || status.status === "expired" || status.status === "cancelled") {
-            if (pollingRef.current) clearInterval(pollingRef.current);
-            pollingRef.current = null;
-            completedRef.current = true;
-            setGen((prev) => ({
-              ...prev,
-              state: status.status as FarmState,
-              errorMessage: status.status === "error" ? "Erro na geração" : prev.errorMessage,
-            }));
-            return;
-          }
-
-          // Queued — update position
-          if (status.status === "queued") {
-            setGen((prev) => ({
-              ...prev,
-              state: "queued",
-              queuePosition: (status as any).queuePosition || prev.queuePosition,
-            }));
-            return;
-          }
-
-          // Dequeued — farm_id changed, switch polling to the new farmId
-          if (status.status === "dequeued" && (status as any).newFarmId) {
-            const newFarmId = (status as any).newFarmId;
-            console.log(`[polling] Dequeued! Switching farmId to ${newFarmId}`);
-            if (pollingRef.current) clearInterval(pollingRef.current);
-            pollingRef.current = null;
-            const expiresAt = Date.now() + 10 * 60 * 1000;
-            setGen((prev) => ({
-              ...prev,
-              state: "waiting_invite",
-              farmId: newFarmId,
-              masterEmail: (status as any).masterEmail || prev.masterEmail,
-              queuePosition: null,
-              expiresAt,
-            }));
-            startExpirationTimerRef.current?.(expiresAt);
-            startPollingRef.current?.(newFarmId);
-            return;
-          }
-
-          // Waiting invite
-          if (status.status === "waiting_invite" || status.status === "allocating") {
-            setGen((prev) => ({
-              ...prev,
-              state: status.status as FarmState,
-              masterEmail: status.masterEmail || prev.masterEmail,
-            }));
-            return;
-          }
-
-          // Running — append only NEW entries to avoid batch appearance
-          if (status.status === "running" || status.status === "workspace_detected") {
-            // Count TOTAL credits from full log history (API returns all logs each poll)
-            let totalCreditsFromLogs = 0;
-            const incomingEntries: FeedEntry[] = [];
-
-            if (status.logs && status.logs.length > 0) {
-              for (const log of status.logs) {
-                const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
-                const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
-                incomingEntries.push(entry);
-                if (entry.kind === "credit" && entry.credits) {
-                  totalCreditsFromLogs += entry.credits;
+              const finalEntries: FeedEntry[] = [];
+              let totalCreditsFromLogs = 0;
+              if (status.logs && status.logs.length > 0) {
+                for (const log of status.logs) {
+                  const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
+                  const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
+                  finalEntries.push(entry);
+                  if (entry.kind === "credit" && entry.credits) {
+                    totalCreditsFromLogs += entry.credits;
+                  }
                 }
               }
+
+              setGen((prev) => {
+                const brandNew = finalEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
+                brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
+                const now = Date.now();
+                const staggerMs = brandNew.length > 50 ? 30 : brandNew.length > 20 ? Math.max(50, Math.min(200, 1500 / brandNew.length)) : 250;
+                const staggered = brandNew.map((entry, i) => ({ ...entry, id: ++feedIdCounter, arrivedAt: now + i * staggerMs }));
+                const merged = [...prev.feed, ...staggered].slice(-150);
+
+                const apiResultCredits = status.result?.credits || 0;
+                const actualCredits = Math.min(Math.max(totalCreditsFromLogs, apiResultCredits, prev.creditsEarned), prev.totalCreditsRequested);
+
+                const drainMs = Math.min(staggered.length * 250, 3000) + 500;
+                setTimeout(() => {
+                  setGen((p) => ({
+                    ...p,
+                    state: "completed",
+                    result: status.result || null,
+                    creditsEarned: Math.min(Math.max(apiResultCredits, totalCreditsFromLogs, p.creditsEarned), p.totalCreditsRequested),
+                  }));
+                }, drainMs);
+
+                return { ...prev, state: "running", workspaceName: status.workspaceName || prev.workspaceName, masterEmail: status.masterEmail || prev.masterEmail, creditsEarned: actualCredits, feed: merged };
+              });
+              return;
             }
 
-            setGen((prev) => {
-              // Find entries that are truly new (not ever processed) — for feed display only
-              const brandNew = incomingEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
-              brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
+            if (status.status === "error" || status.status === "expired" || status.status === "cancelled") {
+              pollingRef.current = null;
+              completedRef.current = true;
+              setGen((prev) => ({ ...prev, state: status.status as FarmState, errorMessage: status.status === "error" ? "Erro na geração" : prev.errorMessage }));
+              return;
+            }
 
-              // Stagger new entries — very short for large batches to avoid backlog
-              const now = Date.now();
-              const staggerMs = brandNew.length > 50
-                ? 30
-                : brandNew.length > 20
-                ? Math.max(50, Math.min(200, 1500 / brandNew.length))
-                : 250;
-              const staggered = brandNew.map((entry, i) => ({
-                ...entry,
-                id: ++feedIdCounter,
-                arrivedAt: now + i * staggerMs,
-              }));
+            if (status.status === "queued") {
+              setGen((prev) => ({ ...prev, state: "queued", queuePosition: (status as any).queuePosition || prev.queuePosition }));
+              schedulePoll();
+              return;
+            }
 
-              const merged = [...prev.feed, ...staggered].slice(-150);
+            if (status.status === "dequeued" && (status as any).newFarmId) {
+              const newFarmId = (status as any).newFarmId;
+              console.log(`[polling] Dequeued! Switching farmId to ${newFarmId}`);
+              pollingRef.current = null;
+              const expiresAt = Date.now() + 10 * 60 * 1000;
+              setGen((prev) => ({ ...prev, state: "waiting_invite", farmId: newFarmId, masterEmail: (status as any).masterEmail || prev.masterEmail, queuePosition: null, expiresAt }));
+              startExpirationTimerRef.current?.(expiresAt);
+              startPollingRef.current?.(newFarmId);
+              return;
+            }
 
-              // Credits: use the TOTAL from this poll's full log history (not accumulated deltas)
-              // This prevents double-counting when eventId hashes vary between polls.
-              // Use Math.max with prev for monotonicity (never decrease).
-              // Also use result.credits as fallback if available.
-              const apiEarned = status.result?.credits || 0;
-              const bestCredits = Math.min(
-                Math.max(totalCreditsFromLogs, apiEarned, prev.creditsEarned),
-                prev.totalCreditsRequested
-              );
+            if (status.status === "waiting_invite" || status.status === "allocating") {
+              setGen((prev) => ({ ...prev, state: status.status as FarmState, masterEmail: status.masterEmail || prev.masterEmail }));
+              schedulePoll();
+              return;
+            }
 
-              return {
-                ...prev,
-                state: "running",
-                workspaceName: status.workspaceName || prev.workspaceName,
-                masterEmail: status.masterEmail || prev.masterEmail,
-                creditsEarned: bestCredits,
-                feed: merged,
-              };
-            });
-          }
-        } catch (err) {
-          if (err instanceof Error && err.message === "SESSION_LOST") {
-            consecutive404Ref.current += 1;
-            console.warn(`[polling] 404 received (${consecutive404Ref.current}/${MAX_404_RETRIES})`);
-
-            if (consecutive404Ref.current < MAX_404_RETRIES) return;
-
-            cleanup();
-            completedRef.current = true;
-            setGen((prev) => {
-              if (prev.creditsEarned > 0 && prev.creditsEarned >= prev.totalCreditsRequested) {
-                return {
-                  ...prev,
-                  state: "completed" as const,
-                  result: {
-                    success: true,
-                    credits: prev.creditsEarned,
-                    attempted: prev.totalCreditsRequested,
-                    claimSuccess: Math.floor(prev.creditsEarned / 5),
-                    claimFailed: 0,
-                    inviteFailed: 0,
-                    failed: prev.totalCreditsRequested - prev.creditsEarned,
-                    removed: 0,
-                    message: "Geração concluída",
-                  },
-                };
+            if (status.status === "running" || status.status === "workspace_detected") {
+              let totalCreditsFromLogs = 0;
+              const incomingEntries: FeedEntry[] = [];
+              if (status.logs && status.logs.length > 0) {
+                for (const log of status.logs) {
+                  const eid = (log as any).eventId || `${log.message}|${log.timestamp}`;
+                  const entry = parseLogToFeedEntry(log.message, log.type, log.timestamp, eid);
+                  incomingEntries.push(entry);
+                  if (entry.kind === "credit" && entry.credits) totalCreditsFromLogs += entry.credits;
+                }
               }
-              return {
-                ...prev,
-                state: "error",
-                errorMessage: "Sessão perdida. Por favor, tente novamente.",
-              };
-            });
+
+              setGen((prev) => {
+                const brandNew = incomingEntries.filter((e) => !processedEventIdsRef.current.has(e.eventId!));
+                brandNew.forEach((e) => processedEventIdsRef.current.add(e.eventId!));
+                const now = Date.now();
+                const staggerMs = brandNew.length > 50 ? 30 : brandNew.length > 20 ? Math.max(50, Math.min(200, 1500 / brandNew.length)) : 250;
+                const staggered = brandNew.map((entry, i) => ({ ...entry, id: ++feedIdCounter, arrivedAt: now + i * staggerMs }));
+                const merged = [...prev.feed, ...staggered].slice(-150);
+                const apiEarned = status.result?.credits || 0;
+                const bestCredits = Math.min(Math.max(totalCreditsFromLogs, apiEarned, prev.creditsEarned), prev.totalCreditsRequested);
+                return { ...prev, state: "running", workspaceName: status.workspaceName || prev.workspaceName, masterEmail: status.masterEmail || prev.masterEmail, creditsEarned: bestCredits, feed: merged };
+              });
+            }
+
+            // Schedule next poll
+            schedulePoll();
+          } catch (err) {
+            if (err instanceof Error && err.message === "SESSION_LOST") {
+              consecutive404Ref.current += 1;
+              console.warn(`[polling] 404 received (${consecutive404Ref.current}/${MAX_404_RETRIES})`);
+              if (consecutive404Ref.current < MAX_404_RETRIES) {
+                schedulePoll();
+                return;
+              }
+              cleanup();
+              completedRef.current = true;
+              setGen((prev) => {
+                if (prev.creditsEarned > 0 && prev.creditsEarned >= prev.totalCreditsRequested) {
+                  return { ...prev, state: "completed" as const, result: { success: true, credits: prev.creditsEarned, attempted: prev.totalCreditsRequested, claimSuccess: Math.floor(prev.creditsEarned / 5), claimFailed: 0, inviteFailed: 0, failed: prev.totalCreditsRequested - prev.creditsEarned, removed: 0, message: "Geração concluída" } };
+                }
+                return { ...prev, state: "error", errorMessage: "Sessão perdida. Por favor, tente novamente." };
+              });
+            } else {
+              // Other errors — keep polling
+              schedulePoll();
+            }
           }
-        }
-      }, 2500);
+        }, getInterval());
+      };
+
+      schedulePoll();
     },
     [cleanup]
   );
