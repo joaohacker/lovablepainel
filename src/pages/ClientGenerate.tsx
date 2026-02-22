@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
+import { Loader2, Play, ChevronDown, ChevronUp } from "lucide-react";
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
@@ -290,9 +290,52 @@ const ClientGenerate = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Tutorial Video Flyer */}
+        <TutorialFlyer />
       </div>
     </div>
   );
 };
+
+function TutorialFlyer() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 p-4 flex items-center justify-between gap-3 hover:border-primary/50 transition-all group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+            <Play className="h-5 w-5 text-primary fill-primary" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold text-foreground">Vídeo Tutorial</p>
+            <p className="text-xs text-muted-foreground">Clique aqui e veja como usar seus créditos</p>
+          </div>
+        </div>
+        {open ? (
+          <ChevronUp className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+        ) : (
+          <ChevronDown className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+        )}
+      </button>
+
+      {open && (
+        <div className="mt-3 rounded-xl overflow-hidden border border-border/50 bg-secondary/30">
+          <video
+            src="/videos/tutorial-cliente.mp4"
+            controls
+            autoPlay
+            className="w-full"
+            playsInline
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default ClientGenerate;
