@@ -156,19 +156,59 @@ serve(async (req) => {
         );
       }
 
-      // Check if any generations have actually delivered credits
+      // 1) Cancel/settle any pending generations and refund credits back to token
       const { data: gens } = await supabase
         .from("generations")
-        .select("id, credits_earned, status")
+        .select("id, credits_earned, credits_requested, status, settled_at, farm_id")
         .eq("client_token_id", tokenId);
 
-      const hasUsedCredits = (gens || []).some(
-        (g: any) =>
-          (g.credits_earned && g.credits_earned > 0) ||
-          ["running", "waiting_invite", "queued", "creating"].includes(g.status)
-      );
+      let totalCreditsRefundedToToken = 0;
 
-      // Atomic deactivate: only update if still active (race condition guard)
+      for (const g of (gens || [])) {
+        const isPending = ["running", "waiting_invite", "queued", "creating"].includes(g.status);
+        const isUnsettled = !g.settled_at;
+        const earned = g.credits_earned || 0;
+
+        if (isPending && isUnsettled) {
+          // Cancel the pending generation and settle it
+          const { data: settled } = await supabase
+            .from("generations")
+            .update({
+              status: "cancelled",
+              settled_at: new Date().toISOString(),
+              error_message: "Link desativado pelo revendedor",
+              credits_earned: earned,
+            })
+            .eq("id", g.id)
+            .is("settled_at", null)
+            .select("id")
+            .maybeSingle();
+
+          if (settled) {
+            // Refund unused credits back to token
+            const refundCredits = g.credits_requested - earned;
+            if (refundCredits > 0) {
+              await supabase.rpc("refund_client_token_credits", {
+                p_token_id: tokenId,
+                p_credits: refundCredits,
+              });
+              totalCreditsRefundedToToken += refundCredits;
+            }
+          }
+        }
+      }
+
+      // 2) Re-read token to get updated credits_used after refunds
+      const { data: tokRefreshed } = await supabase
+        .from("client_tokens")
+        .select("*")
+        .eq("id", tokenId)
+        .single();
+
+      const currentToken = tokRefreshed || tok;
+      const actualRemaining = currentToken.total_credits - currentToken.credits_used;
+
+      // 3) Atomic deactivate: only update if still active
       const { data: updated, error: updateErr } = await supabase
         .from("client_tokens")
         .update({ is_active: false })
@@ -184,14 +224,13 @@ serve(async (req) => {
         );
       }
 
-      // Refund if no credits were used
+      // 4) Refund remaining credits value to wallet
       let refunded = false;
       let refundAmount = 0;
 
-      if (!hasUsedCredits && tok.total_credits > 0) {
-        // Calculate refund using the same pricing function
+      if (actualRemaining > 0) {
         const { data: priceData } = await supabase.rpc("calc_credit_price", {
-          creditos: tok.total_credits,
+          creditos: actualRemaining,
         });
 
         refundAmount = priceData ?? 0;
@@ -200,7 +239,7 @@ serve(async (req) => {
           await supabase.rpc("credit_wallet", {
             p_user_id: user.id,
             p_amount: refundAmount,
-            p_description: `Reembolso - link desativado (${tok.total_credits} créditos)`,
+            p_description: `Reembolso - link desativado (${actualRemaining}/${currentToken.total_credits} créditos restantes)`,
             p_reference_id: `client_token_refund_${tokenId}`,
           });
           refunded = true;
@@ -208,7 +247,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, refunded, refund_amount: refundAmount }),
+        JSON.stringify({ success: true, refunded, refund_amount: refundAmount, credits_refunded_to_token: totalCreditsRefundedToToken }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
