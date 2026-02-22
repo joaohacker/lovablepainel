@@ -87,6 +87,8 @@ export function useFarmGeneration(accessToken?: string) {
   const completedRef = useRef(false);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startPollingRef = useRef<((farmId: string) => void) | null>(null);
+  const startExpirationTimerRef = useRef<((expiresAt: number) => void) | null>(null);
 
   const cleanup = useCallback(() => {
     if (pollingRef.current) {
@@ -114,6 +116,9 @@ export function useFarmGeneration(accessToken?: string) {
       });
     }, delay);
   }, [cleanup]);
+
+  // Keep refs updated
+  useEffect(() => { startExpirationTimerRef.current = startExpirationTimer; }, [startExpirationTimer]);
 
   useEffect(() => {
     return () => {
@@ -216,6 +221,36 @@ export function useFarmGeneration(accessToken?: string) {
               state: status.status as FarmState,
               errorMessage: status.status === "error" ? "Erro na geração" : prev.errorMessage,
             }));
+            return;
+          }
+
+          // Queued — update position
+          if (status.status === "queued") {
+            setGen((prev) => ({
+              ...prev,
+              state: "queued",
+              queuePosition: (status as any).queuePosition || prev.queuePosition,
+            }));
+            return;
+          }
+
+          // Dequeued — farm_id changed, switch polling to the new farmId
+          if (status.status === "dequeued" && (status as any).newFarmId) {
+            const newFarmId = (status as any).newFarmId;
+            console.log(`[polling] Dequeued! Switching farmId to ${newFarmId}`);
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            const expiresAt = Date.now() + 10 * 60 * 1000;
+            setGen((prev) => ({
+              ...prev,
+              state: "waiting_invite",
+              farmId: newFarmId,
+              masterEmail: (status as any).masterEmail || prev.masterEmail,
+              queuePosition: null,
+              expiresAt,
+            }));
+            startExpirationTimerRef.current?.(expiresAt);
+            startPollingRef.current?.(newFarmId);
             return;
           }
 
@@ -325,6 +360,9 @@ export function useFarmGeneration(accessToken?: string) {
     },
     [cleanup]
   );
+
+  // Keep ref updated
+  useEffect(() => { startPollingRef.current = startPolling; }, [startPolling]);
 
   const startGeneration = useCallback(
     async (credits: number) => {
