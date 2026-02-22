@@ -221,7 +221,13 @@ export function useFarmGeneration(accessToken?: string) {
             if (status.status === "error" || status.status === "expired" || status.status === "cancelled") {
               pollingRef.current = null;
               completedRef.current = true;
-              setGen((prev) => ({ ...prev, state: status.status as FarmState, errorMessage: status.status === "error" ? "Erro na geração" : prev.errorMessage }));
+              const upstreamMsg = (status as any).error || (status as any).message || (status.result as any)?.message;
+              setGen((prev) => {
+                const errorMsg = status.status === "error"
+                  ? (upstreamMsg ? `Erro: ${upstreamMsg}` : "Erro na geração — o provedor não conseguiu alocar bots. Tente novamente.")
+                  : prev.errorMessage;
+                return { ...prev, state: status.status as FarmState, errorMessage: errorMsg };
+              });
               return;
             }
 
