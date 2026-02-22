@@ -77,7 +77,7 @@ serve(async (req) => {
     }
 
     filtered.sort((a, b) => b.credits - a.credits);
-    const top = filtered.slice(0, 15);
+    const top = filtered.slice(0, 10);
 
     if (top.length === 0) {
       return new Response(JSON.stringify({ ranking: [] }), {

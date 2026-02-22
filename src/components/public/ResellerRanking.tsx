@@ -13,11 +13,28 @@ export function ResellerRanking() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const CACHE_KEY = "reseller_ranking";
+    const CACHE_TTL = 5 * 60 * 60 * 1000; // 5 hours
+
     const load = async () => {
+      // Check cache first
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { data, ts } = JSON.parse(cached);
+          if (Date.now() - ts < CACHE_TTL && data?.length > 0) {
+            setRanking(data);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch { /* ignore */ }
+
       try {
         const { data, error } = await supabase.functions.invoke("reseller-ranking");
         if (!error && data?.ranking) {
           setRanking(data.ranking);
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ data: data.ranking, ts: Date.now() }));
         }
       } catch {
         // silent
