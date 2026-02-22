@@ -234,7 +234,7 @@ export function PublicGenerator() {
           },
         }).catch(() => {});
       }
-    }, 5000); // every 5 seconds
+    }, 10000); // every 10 seconds
 
     return () => clearInterval(interval);
   }, [farm.state, farm.farmId, farm.creditsEarned, farm.workspaceName]);
