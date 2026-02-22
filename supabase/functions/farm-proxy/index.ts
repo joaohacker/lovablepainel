@@ -451,41 +451,24 @@ serve(async (req) => {
         }
         
         if (!["completed", "error", "expired", "cancelled"].includes(upstreamStatus)) {
-          // Fetch current DB state to avoid redundant writes
-          const { data: currentGen } = await supabase
-            .from("generations")
-            .select("status, credits_earned, workspace_name, master_email")
-            .eq("farm_id", farmId)
-            .is("settled_at", null)
-            .maybeSingle();
-
-          if (currentGen) {
-            const updatePayload: Record<string, unknown> = {};
-
-            // Only include fields that actually changed
-            if (creditsEarned !== (currentGen.credits_earned ?? 0)) {
-              updatePayload.credits_earned = creditsEarned;
-            }
-            if (dbStatus && ["running", "waiting_invite", "queued", "error", "expired", "cancelled"].includes(dbStatus) && dbStatus !== currentGen.status) {
-              updatePayload.status = dbStatus;
-            }
-            if (parsed.workspaceName && parsed.workspaceName !== currentGen.workspace_name) {
-              updatePayload.workspace_name = parsed.workspaceName;
-            }
-            if (parsed.masterEmail && parsed.masterEmail !== currentGen.master_email) {
-              updatePayload.master_email = parsed.masterEmail;
-            }
-
-            // Only write if something actually changed
-            if (Object.keys(updatePayload).length > 0) {
-              await supabase
-                .from("generations")
-                .update(updatePayload)
-                .eq("farm_id", farmId)
-                .is("settled_at", null);
-              console.log(`[farm-proxy] DB sync: ${JSON.stringify(updatePayload)}`);
-            }
+          const updatePayload: Record<string, unknown> = {
+            credits_earned: creditsEarned,
+          };
+          if (dbStatus && ["running", "waiting_invite", "queued", "error", "expired", "cancelled"].includes(dbStatus)) {
+            updatePayload.status = dbStatus;
           }
+          if (parsed.workspaceName) {
+            updatePayload.workspace_name = parsed.workspaceName;
+          }
+          if (parsed.masterEmail) {
+            updatePayload.master_email = parsed.masterEmail;
+          }
+
+          await supabase
+            .from("generations")
+            .update(updatePayload)
+            .eq("farm_id", farmId)
+            .is("settled_at", null);
         }
       } catch {
         // Parsing failed — not a JSON response, skip
