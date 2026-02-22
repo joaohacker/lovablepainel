@@ -10,6 +10,7 @@ import { GenerationStatus } from "@/components/GenerationStatus";
 import { DepositModal } from "./DepositModal";
 import { AuthModal } from "./AuthModal";
 import { ClientLinkManager } from "./ClientLinkManager";
+import { TransactionHistory } from "./TransactionHistory";
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
@@ -415,6 +416,9 @@ export function PublicGenerator() {
                       Já tem conta? Entrar
                     </Button>
                   )}
+
+                  {/* Transaction History */}
+                  {user && <TransactionHistory walletId={wallet?.id} />}
 
                   {/* My Links */}
                   <ClientLinkManager userId={user?.id} refreshKey={linksRefreshKey} />
