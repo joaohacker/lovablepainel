@@ -164,7 +164,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "LovablePainel <noreply@palpiteros.app>",
+          from: "LovablePainel <noreply@lovablepainel.com>",
           to: batch,
           subject: "🚀 O Painel Está de Volta! Gerações Ativas Novamente",
           html: htmlContent,
