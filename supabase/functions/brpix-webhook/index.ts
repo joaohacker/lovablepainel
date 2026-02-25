@@ -12,6 +12,24 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // SECURITY: Validate webhook secret to prevent forged calls
+  const WEBHOOK_SECRET = Deno.env.get("BRPIX_WEBHOOK_SECRET");
+  if (WEBHOOK_SECRET) {
+    const incomingSecret =
+      req.headers.get("x-webhook-secret") ||
+      req.headers.get("authorization")?.replace("Bearer ", "") ||
+      new URL(req.url).searchParams.get("secret");
+
+    if (incomingSecret !== WEBHOOK_SECRET) {
+      console.error("[brpix-webhook] REJECTED: Invalid or missing webhook secret");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } else {
+    console.warn("[brpix-webhook] WARNING: BRPIX_WEBHOOK_SECRET not configured — webhook is unprotected!");
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);

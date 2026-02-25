@@ -27,6 +27,29 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // SECURITY: Check if IP is banned
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Rate limiting — 10 payments per 5 minutes per IP
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIp,
+      p_endpoint: "brpix-payment",
+      p_max_requests: 10,
+      p_window_seconds: 300,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas tentativas. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { product_id, email, source } = await req.json();
 
     if (!product_id) {

@@ -2,3 +2,60 @@ project_id = "twdgwaqqlavnbpseaklk"
 
 [functions.brpix-webhook]
 verify_jwt = false
+
+[functions.brpix-payment]
+verify_jwt = false
+
+[functions.validate-token]
+verify_jwt = false
+
+[functions.token-auth]
+verify_jwt = false
+
+[functions.validate-coupon]
+verify_jwt = false
+
+[functions.get-branding]
+verify_jwt = false
+
+[functions.luna-chat]
+verify_jwt = false
+
+[functions.farm-proxy]
+verify_jwt = false
+
+[functions.client-generate]
+verify_jwt = false
+
+[functions.upgrade-token]
+verify_jwt = false
+
+[functions.reseller-ranking]
+verify_jwt = false
+
+[functions.public-generate]
+verify_jwt = false
+
+[functions.check-order-status]
+verify_jwt = false
+
+[functions.wallet-deposit]
+verify_jwt = false
+
+[functions.create-client-token]
+verify_jwt = false
+
+[functions.manage-client-token]
+verify_jwt = false
+
+[functions.claim-deposit]
+verify_jwt = false
+
+[functions.auto-refund]
+verify_jwt = false
+
+[functions.reconcile-payments]
+verify_jwt = false
+
+[functions.send-announcement]
+verify_jwt = false
