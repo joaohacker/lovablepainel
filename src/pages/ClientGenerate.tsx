@@ -19,6 +19,7 @@ interface TokenInfo {
 interface Branding {
   brand_name: string | null;
   brand_logo_url: string | null;
+  brand_color: string | null;
 }
 
 const ClientGenerate = () => {
@@ -35,7 +36,7 @@ const ClientGenerate = () => {
   const activeFarmIdRef = useRef<string | null>(null);
   const lastPushedEarnedRef = useRef(0);
   const lastPushedStatusRef = useRef("");
-  const [branding, setBranding] = useState<Branding>({ brand_name: null, brand_logo_url: null });
+  const [branding, setBranding] = useState<Branding>({ brand_name: null, brand_logo_url: null, brand_color: null });
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
@@ -44,7 +45,7 @@ const ClientGenerate = () => {
       // Fetch branding
       supabase.functions.invoke("get-branding", { body: { token } })
         .then(({ data }) => {
-          if (data) setBranding({ brand_name: data.brand_name, brand_logo_url: data.brand_logo_url });
+          if (data) setBranding({ brand_name: data.brand_name, brand_logo_url: data.brand_logo_url, brand_color: data.brand_color });
         })
         .catch(() => {});
     }
@@ -229,8 +230,20 @@ const ClientGenerate = () => {
 
   const isIdle = farm.state === "idle";
 
+  const brandColor = branding.brand_color;
+
+  // Apply brand color as CSS custom properties
+  const pageStyle: React.CSSProperties = brandColor
+    ? {
+        "--brand-color": brandColor,
+        "--brand-color-light": `${brandColor}15`,
+        "--brand-color-medium": `${brandColor}30`,
+        background: `linear-gradient(180deg, ${brandColor}12 0%, hsl(var(--background)) 40%)`,
+      } as React.CSSProperties
+    : {};
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8" style={pageStyle}>
       <div className="w-full max-w-lg">
         {/* Branding header */}
         {(branding.brand_name || branding.brand_logo_url) && (
@@ -243,12 +256,12 @@ const ClientGenerate = () => {
               />
             )}
             {branding.brand_name && (
-              <span className="text-xl font-bold text-foreground">{branding.brand_name}</span>
+              <span className="text-xl font-bold" style={{ color: brandColor || undefined }}>{branding.brand_name}</span>
             )}
           </div>
         )}
 
-        <Card className="glass-card">
+        <Card className="glass-card" style={brandColor ? { borderColor: `${brandColor}30` } : {}}>
           <CardContent className="p-6 md:p-8">
             {isIdle ? (
               <div className="space-y-6">
@@ -295,6 +308,7 @@ const ClientGenerate = () => {
                   disabled={submitting || credits < 5}
                   size="lg"
                   className="w-full h-14 text-lg font-semibold"
+                  style={brandColor ? { backgroundColor: brandColor, borderColor: brandColor } : {}}
                 >
                   {submitting && <Loader2 className="h-5 w-5 animate-spin mr-2" />}
                   {submitting ? "Iniciando..." : `Gerar ${credits} Créditos`}

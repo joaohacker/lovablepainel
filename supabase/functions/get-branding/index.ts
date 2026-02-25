@@ -41,7 +41,7 @@ serve(async (req) => {
     // Get the owner's branding from profiles
     const { data: profile } = await supabase
       .from("profiles")
-      .select("brand_name, brand_logo_url")
+      .select("brand_name, brand_logo_url, brand_color")
       .eq("user_id", clientToken.owner_id)
       .single();
 
@@ -49,6 +49,7 @@ serve(async (req) => {
       JSON.stringify({
         brand_name: profile?.brand_name || null,
         brand_logo_url: profile?.brand_logo_url || null,
+        brand_color: profile?.brand_color || null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

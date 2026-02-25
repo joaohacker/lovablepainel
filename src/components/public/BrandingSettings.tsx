@@ -15,6 +15,7 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [brandName, setBrandName] = useState("");
+  const [brandColor, setBrandColor] = useState("#3b82f6");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -29,12 +30,13 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
       try {
         const { data } = await supabase
           .from("profiles")
-          .select("brand_name, brand_logo_url")
+          .select("brand_name, brand_logo_url, brand_color")
           .eq("user_id", userId)
           .single();
         if (data) {
           setBrandName((data as any).brand_name || "");
           setLogoUrl((data as any).brand_logo_url || null);
+          setBrandColor((data as any).brand_color || "#3b82f6");
         }
       } finally {
         setLoading(false);
@@ -94,7 +96,8 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
         .update({
           brand_name: brandName.trim() || null,
           brand_logo_url: logoUrl || null,
-        })
+          brand_color: brandColor || null,
+        } as any)
         .eq("user_id", userId);
 
       if (error) throw error;
@@ -108,7 +111,7 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
     }
   };
 
-  const hasBranding = brandName.trim() || logoUrl;
+  const hasBranding = brandName.trim() || logoUrl || brandColor !== "#3b82f6";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -193,16 +196,47 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
               <p className="text-xs text-muted-foreground">Aparece no topo da página dos seus clientes</p>
             </div>
 
+            {/* Brand color */}
+            <div className="space-y-2">
+              <Label>Cor da página do cliente</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  className="h-10 w-14 rounded cursor-pointer border border-border bg-transparent p-0.5"
+                />
+                <Input
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  placeholder="#3b82f6"
+                  maxLength={7}
+                  className="w-28 font-mono text-sm"
+                />
+                <div className="flex gap-1.5">
+                  {["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444", "#ec4899"].map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setBrandColor(c)}
+                      className={`h-7 w-7 rounded-full border-2 transition-all ${brandColor === c ? "border-foreground scale-110" : "border-transparent"}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Cor base da página onde seu cliente gera créditos</p>
+            </div>
+
             {/* Preview */}
             {(brandName.trim() || logoUrl) && (
-              <div className="rounded-lg border border-border/50 bg-secondary/30 p-4">
+              <div className="rounded-lg border border-border/50 p-4" style={{ backgroundColor: `${brandColor}15` }}>
                 <p className="text-xs text-muted-foreground mb-2">Prévia do cabeçalho do cliente:</p>
                 <div className="flex items-center justify-center gap-3">
                   {logoUrl && (
                     <img src={logoUrl} alt="Logo" className="h-8 w-8 rounded object-contain" />
                   )}
                   {brandName.trim() && (
-                    <span className="text-lg font-semibold text-foreground">{brandName}</span>
+                    <span className="text-lg font-semibold" style={{ color: brandColor }}>{brandName}</span>
                   )}
                 </div>
               </div>
