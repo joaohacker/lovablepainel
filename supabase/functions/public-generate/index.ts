@@ -119,6 +119,36 @@ serve(async (req) => {
 
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
+    // SECURITY: Check if user is banned
+    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
+    if (isBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Conta suspensa por violação dos termos de uso." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Check if IP is banned
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Rate limiting — 15 generations per 5 minutes
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIp,
+      p_endpoint: "public-generate",
+      p_max_requests: 15,
+      p_window_seconds: 300,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas tentativas. Aguarde alguns minutos." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { credits, action } = body;
 

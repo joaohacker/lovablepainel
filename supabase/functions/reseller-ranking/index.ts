@@ -49,6 +49,20 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // SECURITY: Rate limiting — 10 requests per minute per IP
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIp,
+      p_endpoint: "reseller-ranking",
+      p_max_requests: 10,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas requisições." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     // Parallel: fetch exclusion lists + generations
     const [bannedRes, adminsRes, negRes, gens] = await Promise.all([
       supabase.from("banned_users").select("user_id"),
