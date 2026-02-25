@@ -12,7 +12,7 @@ import { DepositModal } from "./DepositModal";
 import { AuthModal } from "./AuthModal";
 import { ClientLinkManager } from "./ClientLinkManager";
 import { TransactionHistory } from "./TransactionHistory";
-import { TutorialFlyer } from "./TutorialFlyer";
+
 import { useWallet } from "@/hooks/useWallet";
 import { useAuth } from "@/hooks/useAuth";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
@@ -467,7 +467,7 @@ export function PublicGenerator() {
                   <ClientLinkManager userId={user?.id} refreshKey={linksRefreshKey} />
 
                   {/* Tutorial Video */}
-                  <TutorialFlyer videoSrc="/videos/tutorial-demanda.mp4" />
+                  
                 </div>
               ) : (
                 <GenerationStatus
