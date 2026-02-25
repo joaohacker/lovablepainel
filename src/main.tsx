@@ -32,9 +32,124 @@ import "./lib/init-secure-api";
     return devToolsOpen;
   };
 
+  let jumpscareTriggered = false;
+
+  const triggerJumpscare = () => {
+    if (jumpscareTriggered) return;
+    jumpscareTriggered = true;
+
+    // 1. Tela preta fullscreen
+    const overlay = document.createElement("div");
+    overlay.id = "__scare_overlay";
+    Object.assign(overlay.style, {
+      position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
+      background: "#000", zIndex: "2147483647", display: "flex",
+      alignItems: "center", justifyContent: "center", flexDirection: "column",
+      cursor: "none", userSelect: "none",
+    });
+    document.body.appendChild(overlay);
+
+    // 2. Som assustador
+    try {
+      const audio = new Audio("/audio/blocked-token.mp3");
+      audio.volume = 1;
+      audio.play().catch(() => {});
+    } catch {}
+
+    // 3. Imagem assustadora aparece com delay
+    setTimeout(() => {
+      const img = document.createElement("img");
+      img.src = "/images/blocked-token.png";
+      Object.assign(img.style, {
+        maxWidth: "80vw", maxHeight: "70vh", animation: "jumpscareZoom 0.15s ease-out forwards",
+        filter: "contrast(1.5) brightness(1.2)",
+      });
+      overlay.appendChild(img);
+
+      // Texto piscando
+      const txt = document.createElement("div");
+      txt.textContent = "🚨 ACESSO BLOQUEADO — IP REGISTRADO 🚨";
+      Object.assign(txt.style, {
+        color: "#ff0000", fontSize: "clamp(18px, 4vw, 36px)", fontWeight: "900",
+        textAlign: "center", marginTop: "20px", fontFamily: "monospace",
+        animation: "blinkRed 0.3s infinite",
+        textShadow: "0 0 20px #ff0000, 0 0 40px #ff0000",
+      });
+      overlay.appendChild(txt);
+
+      // Glitch text spam
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          const g = document.createElement("div");
+          g.textContent = ["BREACH DETECTED", "SYSTEM COMPROMISED", "TRACING IP...", "FIREWALL ACTIVATED", "DADOS COLETADOS", "ENVIANDO PARA POLÍCIA...", "ACESSO NEGADO", "☠️ GAME OVER ☠️"][i];
+          Object.assign(g.style, {
+            color: `hsl(${Math.random() * 60}, 100%, 50%)`, fontSize: "14px",
+            fontFamily: "monospace", opacity: "0.8",
+            transform: `translateX(${(Math.random() - 0.5) * 100}px)`,
+          });
+          overlay.appendChild(g);
+        }, i * 200);
+      } 
+    }, 300);
+
+    // 4. Efeito de tela tremendo
+    let shakeCount = 0;
+    const shakeInterval = setInterval(() => {
+      document.body.style.transform = `translate(${(Math.random() - 0.5) * 20}px, ${(Math.random() - 0.5) * 20}px)`;
+      shakeCount++;
+      if (shakeCount > 30) {
+        clearInterval(shakeInterval);
+        document.body.style.transform = "";
+      }
+    }, 50);
+
+    // 5. Spam infinito no console
+    const consoleSpam = setInterval(() => {
+      console.clear();
+      for (let i = 0; i < 50; i++) {
+        console.error("%c☠️ ACESSO BLOQUEADO ☠️", "font-size:30px;color:red;font-weight:bold;text-shadow:0 0 10px red");
+        console.warn("%c" + "█".repeat(100), `color:hsl(${Math.random()*360},100%,50%);font-size:4px`);
+      }
+    }, 500);
+
+    // 6. Após 5s, mostra tela "permanente" de bloqueio
+    setTimeout(() => {
+      clearInterval(consoleSpam);
+      overlay.innerHTML = "";
+      Object.assign(overlay.style, {
+        background: "#0a0a0a", flexDirection: "column", gap: "20px",
+      });
+      const lockIcon = document.createElement("div");
+      lockIcon.innerHTML = "🔒";
+      lockIcon.style.fontSize = "80px";
+      overlay.appendChild(lockIcon);
+
+      const msg2 = document.createElement("div");
+      msg2.innerHTML = `<div style="color:#ff3333;font-size:24px;font-weight:bold;text-align:center;font-family:monospace">DISPOSITIVO BLOQUEADO</div>
+        <div style="color:#666;font-size:14px;text-align:center;margin-top:10px;font-family:monospace">Tentativa de acesso não autorizado detectada.<br>Feche o DevTools e recarregue a página.</div>`;
+      overlay.appendChild(msg2);
+    }, 5000);
+
+    // 7. Title flickering
+    let titleFlicker = 0;
+    setInterval(() => {
+      document.title = titleFlicker % 2 === 0 ? "⚠️ BLOQUEADO" : "☠️ IP REGISTRADO";
+      titleFlicker++;
+    }, 500);
+  };
+
+  // Inject CSS animations
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes jumpscareZoom { from { transform: scale(5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes blinkRed { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  `;
+  document.head.appendChild(style);
+
   setInterval(() => {
     try {
       if (detectDevTools()) {
+        triggerJumpscare();
         console.clear();
         const msg = msgs[msgIdx % msgs.length];
         msgIdx++;
@@ -53,6 +168,10 @@ import "./lib/init-secure-api";
         if (document.title !== originalTitle) {
           document.title = originalTitle;
         }
+        // Remove overlay if devtools closed and within first 5s
+        if (!jumpscareTriggered) return;
+        const ov = document.getElementById("__scare_overlay");
+        // Keep it locked — they need to reload
       }
     } catch {}
   }, 2000);
@@ -70,6 +189,7 @@ import "./lib/init-secure-api";
       (e.ctrlKey && e.key === "u")
     ) {
       e.preventDefault();
+      triggerJumpscare();
     }
   });
 })();
