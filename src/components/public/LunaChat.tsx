@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MessageCircle, X, Send, Loader2, Bot } from "lucide-react";
+import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
+import lunaAvatar from "@/assets/luna-avatar.png";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -139,9 +140,7 @@ export function LunaChat() {
         <div className="fixed bottom-6 right-6 z-50 w-[360px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-3rem)] flex flex-col rounded-2xl border border-border bg-background shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 bg-primary text-primary-foreground shrink-0">
-            <div className="h-9 w-9 rounded-full bg-primary-foreground/20 flex items-center justify-center">
-              <Bot className="h-5 w-5" />
-            </div>
+            <img src={lunaAvatar} alt="Luna" className="h-9 w-9 rounded-full object-cover" />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm">Luna</p>
               <p className="text-xs opacity-80">Assistente de Suporte</p>
@@ -155,9 +154,7 @@ export function LunaChat() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {messages.length === 0 && (
               <div className="text-center py-8 space-y-3">
-                <div className="h-12 w-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                  <Bot className="h-6 w-6 text-primary" />
-                </div>
+                <img src={lunaAvatar} alt="Luna" className="h-14 w-14 mx-auto rounded-full object-cover" />
                 <div>
                   <p className="font-medium text-sm">Olá! Eu sou a Luna 👋</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -179,9 +176,12 @@ export function LunaChat() {
             )}
 
             {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={i} className={`flex items-end gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                {msg.role === "assistant" && (
+                  <img src={lunaAvatar} alt="Luna" className="h-6 w-6 rounded-full object-cover shrink-0 mb-1" />
+                )}
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm ${
+                  className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm ${
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground rounded-br-md"
                       : "bg-secondary text-secondary-foreground rounded-bl-md"
