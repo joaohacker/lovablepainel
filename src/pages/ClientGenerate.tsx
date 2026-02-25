@@ -247,16 +247,16 @@ const ClientGenerate = () => {
       <div className="w-full max-w-lg">
         {/* Branding header */}
         {(branding.brand_name || branding.brand_logo_url) && (
-          <div className="flex items-center justify-center gap-3 mb-4 py-3">
+          <div className="flex flex-col items-center justify-center gap-3 mb-6 py-4">
             {branding.brand_logo_url && (
               <img
                 src={`${branding.brand_logo_url}?t=${Date.now()}`}
                 alt="Logo"
-                className="h-10 w-10 rounded-lg object-contain"
+                className="h-20 w-20 rounded-xl object-contain"
               />
             )}
             {branding.brand_name && (
-              <span className="text-xl font-bold" style={{ color: brandColor || undefined }}>{branding.brand_name}</span>
+              <span className="text-2xl font-bold text-center" style={{ color: brandColor || undefined }}>{branding.brand_name}</span>
             )}
           </div>
         )}
