@@ -162,7 +162,7 @@ export function LunaChat() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-1.5 justify-center pt-2">
-                  {["Como funciona?", "PIX não caiu", "Erro na geração"].map((q) => (
+                  {["Como funciona?", "Quanto custa?", "PIX não caiu", "Erro na geração", "Créditos não apareceram", "É seguro?"].map((q) => (
                     <button
                       key={q}
                       onClick={() => { setInput(q); }}
