@@ -27,6 +27,21 @@ serve(async (req) => {
       );
     }
 
+    // SECURITY: Rate limiting — 10 attempts per 2 minutes per IP
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIp,
+      p_endpoint: "token-auth",
+      p_max_requests: 10,
+      p_window_seconds: 120,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Muitas tentativas. Aguarde." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { action, token, email, password, username } = await req.json();
 
     if (!token) {
