@@ -385,6 +385,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          brand_logo_url: string | null
+          brand_name: string | null
           created_at: string
           display_name: string | null
           id: string
@@ -392,6 +394,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          brand_logo_url?: string | null
+          brand_name?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -399,6 +403,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          brand_logo_url?: string | null
+          brand_name?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
