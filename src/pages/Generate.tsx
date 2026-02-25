@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ShieldX, Clock, Ban, TrendingUp, Sparkles, Zap, Crown } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
 import lovableHeartGradient from "@/assets/lovable-heart-gradient.png";
-import { WhatsAppButton } from "@/components/public/WhatsAppButton";
+
 
 interface TokenInfo {
   id: string;
@@ -430,7 +430,7 @@ const Generate = () => {
         </p>
 
       </div>
-      {!validation?.maintenance && <WhatsAppButton />}
+      
     </div>
   );
 };

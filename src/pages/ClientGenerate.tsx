@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
-import { TutorialFlyer } from "@/components/public/TutorialFlyer";
+
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
@@ -334,8 +334,6 @@ const ClientGenerate = () => {
           </CardContent>
         </Card>
 
-        {/* Tutorial Video Flyer */}
-        <TutorialFlyer />
       </div>
     </div>
   );

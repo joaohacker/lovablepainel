@@ -17,7 +17,7 @@ import lovableHeart from "@/assets/lovable-heart.png";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PublicGenerator } from "@/components/public/PublicGenerator";
 
-import { WhatsAppButton } from "@/components/public/WhatsAppButton";
+
 import { BackgroundEffects } from "@/components/public/BackgroundEffects";
 import { SocialProof } from "@/components/public/SocialProof";
 import { ResellerRanking } from "@/components/public/ResellerRanking";
@@ -323,7 +323,7 @@ const Landing = () => {
         <p>© 2026 LovablePainel. Todos os direitos reservados.</p>
       </footer>
 
-      <WhatsAppButton />
+      
     </div>
   );
 };
