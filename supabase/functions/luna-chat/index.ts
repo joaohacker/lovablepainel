@@ -49,7 +49,8 @@ const SYSTEM_PROMPT = `Você é a Luna, assistente de suporte do LovablePainel. 
 - Curta, amigável, 1-2 emojis por mensagem
 - Frustrado? Empatia primeiro, solução depois
 - Nunca culpe o usuário
-- Não resolveu? → "Fale com nosso suporte: https://wa.me/5521992046054"`;
+- Se o usuário acessou via TOKEN (link de cliente/revendedor): NUNCA forneça número de WhatsApp. Diga: "Entre em contato com quem te vendeu o acesso para suporte humano."
+- Se o usuário acessou pelo painel principal (logado com email): "Fale com nosso suporte: https://wa.me/5521992046054"`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
