@@ -70,11 +70,17 @@ import "./lib/init-secure-api";
     overlay.style.pointerEvents = "all";
     document.body.appendChild(overlay);
 
-    // 2. Sons assustadores (todos ao mesmo tempo)
+    // 2. Sons assustadores (todos ao mesmo tempo, volume amplificado via Web Audio API)
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     ["/audio/blocked-token.mp3", "/audio/scare-2.mp3", "/audio/scare-3.mp3"].forEach(src => {
       try {
         const a = new Audio(src);
         a.volume = 1;
+        const source = audioCtx.createMediaElementSource(a);
+        const gain = audioCtx.createGain();
+        gain.gain.value = 5; // 5x acima do volume máximo normal
+        source.connect(gain);
+        gain.connect(audioCtx.destination);
         a.play().catch(() => {});
       } catch {}
     });
