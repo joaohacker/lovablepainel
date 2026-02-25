@@ -35,6 +35,7 @@ export function PublicGenerator() {
   const [depositAmount, setDepositAmount] = useState<number | null>(null);
   const [creatingLink, setCreatingLink] = useState(false);
   const [linksRefreshKey, setLinksRefreshKey] = useState(0);
+  const [linkQty, setLinkQty] = useState(1);
 
   // When not logged in and user tries to deposit/generate, show auth first
   // After auth success, if there was a pending action, resume it
@@ -354,32 +355,54 @@ export function PublicGenerator() {
                   </Button>
 
                   {/* Generate Link + Branding */}
-                  {user && (
+                   {user && (
                     <div className="space-y-3">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
+                        <div className="flex items-center gap-1 border border-border/50 rounded-lg h-12 px-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-lg"
+                            onClick={() => setLinkQty(q => Math.max(1, q - 1))}
+                            disabled={linkQty <= 1}
+                          >−</Button>
+                          <span className="w-8 text-center text-sm font-bold">{linkQty}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-lg"
+                            onClick={() => setLinkQty(q => Math.min(20, q + 1))}
+                            disabled={linkQty >= 20}
+                          >+</Button>
+                        </div>
                         <Button
                           variant="outline"
                           className="flex-1 gap-2 h-12"
                           disabled={creatingLink || credits < 5}
                           onClick={async () => {
-                            const cost = calcularPreco(credits);
-                            if (balance < cost) {
+                            const totalCost = calcularPreco(credits) * linkQty;
+                            if (balance < totalCost) {
                               setPendingCredits(null);
-                              setDepositAmount(Math.ceil((cost - balance) * 100) / 100);
+                              setDepositAmount(Math.ceil((totalCost - balance) * 100) / 100);
                               setShowDeposit(true);
                               return;
                             }
                             setCreatingLink(true);
                             try {
-                              const { data, error } = await supabase.functions.invoke("create-client-token", {
-                                body: { credits },
+                              const urls: string[] = [];
+                              for (let i = 0; i < linkQty; i++) {
+                                const { data, error } = await supabase.functions.invoke("create-client-token", {
+                                  body: { credits },
+                                });
+                                if (error) throw new Error("Falha ao criar link");
+                                if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
+                                urls.push(`https://lovablepainel.lovable.app/tokenclientes/${data.token}`);
+                              }
+                              await navigator.clipboard.writeText(urls.join("\n"));
+                              toast({
+                                title: `${urls.length} link${urls.length > 1 ? "s" : ""} copiado${urls.length > 1 ? "s" : ""}!`,
+                                description: `${credits} créd. cada`,
                               });
-                              if (error) throw new Error("Falha ao criar link");
-                              if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
-                              const url = `https://painelcreditoslovbl.lovable.app/tokenclientes/${data.token}`;
-                              const msg = `✅ Obrigado pela compra!\n\nPara receber seus créditos na Lovable, acesse o link de geração abaixo e siga o passo a passo:\n\n🔗 Link de geração: ${url}\n\n1️⃣ Abra o link e selecione a quantidade de créditos\n2️⃣ Clique em Gerar\n3️⃣ Vai aparecer o email do bot — convide ele como EDITOR na sua workspace\n   👉 Para convidar, acesse: https://lovable.dev/settings?tab=people\n4️⃣ Depois é só aguardar que os créditos serão depositados automaticamente\n\n⚠️ Importante:\n• Faça o processo em até 10 minutos (depois o bot expira)\n• Sua workspace não pode ter mais de 5 membros no momento do convite\n\nSe tiver qualquer dúvida, me chama.`;
-                              navigator.clipboard.writeText(msg);
-                              toast({ title: "Mensagem copiada!", description: `Link + instruções • ${credits} créditos • ${formatBRL(data.cost)}` });
                               refetchWallet();
                               setLinksRefreshKey((k) => k + 1);
                             } catch (err: any) {
@@ -390,7 +413,7 @@ export function PublicGenerator() {
                           }}
                         >
                           {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                          Gerar Link • {credits} créd.
+                          {linkQty > 1 ? `Gerar ${linkQty} Links • ${credits} créd.` : `Gerar Link • ${credits} créd.`}
                         </Button>
                         <BrandingSettings userId={user.id} />
                       </div>
