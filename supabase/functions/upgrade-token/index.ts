@@ -109,9 +109,9 @@ serve(async (req) => {
       );
     }
 
-    if (increment < 1000 || increment % 1000 !== 0) {
+    if (increment < 1000 || increment % 1000 !== 0 || increment > 100000) {
       return new Response(
-        JSON.stringify({ error: "increment must be a multiple of 1000" }),
+        JSON.stringify({ error: "increment must be a multiple of 1000 (max 100000)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -173,7 +173,7 @@ serve(async (req) => {
     });
 
     const pixData = await pixRes.json();
-    console.log("[upgrade-token] BrPix response:", JSON.stringify(pixData));
+    console.log("[upgrade-token] BrPix status:", pixData.success ? "ok" : "error", "txn:", pixData.transaction_id || "none");
 
     if (!pixData.success && !pixData.transaction_id) {
       return new Response(

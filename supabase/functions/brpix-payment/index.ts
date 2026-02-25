@@ -96,7 +96,7 @@ serve(async (req) => {
     });
 
     const pixData = await pixRes.json();
-    console.log("[brpix-payment] BrPix response:", JSON.stringify(pixData));
+    console.log("[brpix-payment] BrPix status:", pixData.success ? "ok" : "error", "txn:", pixData.transaction_id || "none");
 
     if (!pixData.success && !pixData.transaction_id) {
       return new Response(

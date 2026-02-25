@@ -244,6 +244,28 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // SECURITY: Rate limiting on ALL actions (including public stock/status)
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIp,
+      p_endpoint: "farm-proxy",
+      p_max_requests: 60,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas requisições. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
     const farmId = url.searchParams.get("farmId");
@@ -404,7 +426,8 @@ serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    console.log(`[farm-proxy] ${method} ${upstreamUrl}`);
+    // Log action only, not full URL (SECURITY: avoid leaking API keys in logs)
+    console.log(`[farm-proxy] ${method} action=${action} farmId=${farmId || "none"}`);
 
     const upstreamRes = await fetch(upstreamUrl, {
       method,
@@ -413,7 +436,6 @@ serve(async (req) => {
     });
 
     const data = await upstreamRes.text();
-    console.log(`[farm-proxy] upstream responded: ${upstreamRes.status}`);
 
     // === SYNC DB: update generation status/credits only when values change ===
     if (action === "status" && farmId && upstreamRes.ok) {

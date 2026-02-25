@@ -36,7 +36,7 @@ serve(async (req) => {
 
   try {
     const rawBody = await req.text();
-    console.log("[brpix-webhook] Raw body:", rawBody);
+    // SECURITY: Don't log raw body (may contain sensitive payment data)
 
     const body = JSON.parse(rawBody);
     const event = body.event;
@@ -69,7 +69,7 @@ serve(async (req) => {
       headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
     });
     const verifyData = await verifyRes.json();
-    console.log(`[brpix-webhook] BrPix verify response:`, JSON.stringify(verifyData));
+    console.log(`[brpix-webhook] BrPix verify status:`, verifyData.data?.status || verifyData.status);
 
     const paymentStatus = verifyData.data?.status || verifyData.status;
     const isPaid = verifyData.paid === true || verifyData.data?.paid === true;
