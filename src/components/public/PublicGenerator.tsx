@@ -353,10 +353,10 @@ export function PublicGenerator() {
                     {submitting ? "Iniciando..." : `Gerar ${credits} Créditos`}
                   </Button>
 
-                  {/* Generate Link button */}
+                  {/* Generate Link + Branding */}
                   {user && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
                         <Button
                           variant="outline"
                           className="flex-1 gap-2 h-12"
@@ -390,10 +390,8 @@ export function PublicGenerator() {
                           }}
                         >
                           {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                          Gerar Link pro cliente • {credits} créditos
+                          Gerar Link • {credits} créd.
                         </Button>
-                      </div>
-                      <div className="flex justify-end">
                         <BrandingSettings userId={user.id} />
                       </div>
                     </div>
