@@ -398,7 +398,20 @@ export function PublicGenerator() {
                                 if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
                                 urls.push(`https://lovablepainel.lovable.app/tokenclientes/${data.token}`);
                               }
-                              await navigator.clipboard.writeText(urls.join("\n"));
+                              const text = urls.join("\n");
+                              try {
+                                await navigator.clipboard.writeText(text);
+                              } catch {
+                                // Fallback for environments where clipboard API is blocked
+                                const textarea = document.createElement("textarea");
+                                textarea.value = text;
+                                textarea.style.position = "fixed";
+                                textarea.style.opacity = "0";
+                                document.body.appendChild(textarea);
+                                textarea.select();
+                                document.execCommand("copy");
+                                document.body.removeChild(textarea);
+                              }
                               toast({
                                 title: `${urls.length} link${urls.length > 1 ? "s" : ""} copiado${urls.length > 1 ? "s" : ""}!`,
                                 description: `${credits} créd. cada`,
