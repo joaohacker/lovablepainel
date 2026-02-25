@@ -250,7 +250,7 @@ const ClientGenerate = () => {
           <div className="flex items-center justify-center gap-3 mb-4 py-3">
             {branding.brand_logo_url && (
               <img
-                src={branding.brand_logo_url}
+                src={`${branding.brand_logo_url}?t=${Date.now()}`}
                 alt="Logo"
                 className="h-10 w-10 rounded-lg object-contain"
               />

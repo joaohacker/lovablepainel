@@ -35,7 +35,8 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
           .single();
         if (data) {
           setBrandName((data as any).brand_name || "");
-          setLogoUrl((data as any).brand_logo_url || null);
+          const rawUrl = (data as any).brand_logo_url || null;
+          setLogoUrl(rawUrl ? `${rawUrl}?t=${Date.now()}` : null);
           setBrandColor((data as any).brand_color || "#3b82f6");
         }
       } finally {
@@ -61,22 +62,24 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
 
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const filePath = `${userId}/logo.${ext}`;
+      // Always use a fixed filename so upsert replaces cleanly
+      const filePath = `${userId}/logo`;
 
-      // Remove old logo if exists
-      await supabase.storage.from("brand-logos").remove([filePath]);
+      // Remove any old files in user folder
+      const { data: existingFiles } = await supabase.storage.from("brand-logos").list(userId);
+      if (existingFiles?.length) {
+        await supabase.storage.from("brand-logos").remove(existingFiles.map(f => `${userId}/${f.name}`));
+      }
 
       const { error: uploadError } = await supabase.storage
         .from("brand-logos")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { upsert: true, contentType: file.type });
 
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from("brand-logos").getPublicUrl(filePath);
-      // Add cache buster
-      const url = `${urlData.publicUrl}?t=${Date.now()}`;
-      setLogoUrl(url);
+      // Save clean URL without cache buster — add buster only at display time
+      setLogoUrl(urlData.publicUrl);
     } catch (err: any) {
       toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
     } finally {
@@ -93,12 +96,12 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({
+        .upsert({
+          user_id: userId,
           brand_name: brandName.trim() || null,
-          brand_logo_url: logoUrl || null,
+          brand_logo_url: logoUrl ? logoUrl.split("?")[0] : null,
           brand_color: brandColor || null,
-        } as any)
-        .eq("user_id", userId);
+        } as any, { onConflict: "user_id" });
 
       if (error) throw error;
 
