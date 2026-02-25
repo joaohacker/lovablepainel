@@ -61,11 +61,10 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // Find pending orders older than 2 minutes (give webhook time to arrive first)
-    // but younger than 24 hours (PIX expiration)
+    // Find pending orders older than 2 minutes but younger than 7 days
     const { data: pendingOrders, error: fetchError } = await supabase
       .from("orders")
-      .select("id, transaction_id, amount, user_id, order_type, coupon_id, token_id, upgrade_increment, product_id, customer_name")
+      .select("id, transaction_id, amount, user_id, order_type, coupon_id, token_id, upgrade_increment, product_id, customer_name, discount_amount")
       .eq("status", "pending")
       .not("transaction_id", "is", null)
       .lt("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
@@ -103,15 +102,27 @@ serve(async (req) => {
         }
         
         const verifyData = await verifyRes.json();
-        console.log(`[reconcile] Order ${order.id} (${order.transaction_id}): FULL BrPix response = ${JSON.stringify(verifyData).substring(0, 500)}`);
+        console.log(`[reconcile] Order ${order.id} (${order.transaction_id}): status = ${JSON.stringify(verifyData).substring(0, 300)}`);
         
         const paymentStatus = verifyData.data?.status || verifyData.status;
         const isPaidBoolean = verifyData.paid === true || verifyData.data?.paid === true;
         const hasPaidAt = !!(verifyData.paid_at || verifyData.data?.paid_at);
-        
-        console.log(`[reconcile] Order ${order.id}: parsed status = ${paymentStatus}, paid flag = ${isPaidBoolean}, paid_at = ${hasPaidAt}`);
 
         if (!isPaidBoolean && !hasPaidAt && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+          continue;
+        }
+
+        // SECURITY: Verify paid amount matches expected amount
+        const paidAmount = Number(verifyData.data?.amount || verifyData.amount || 0);
+        const expectedAmount = Number(order.amount) - Number(order.discount_amount || 0);
+        if (paidAmount > 0 && Math.abs(paidAmount - expectedAmount) > 0.50) {
+          console.error(`[reconcile] AMOUNT MISMATCH! Order ${order.id}: Paid ${paidAmount} vs Expected ${expectedAmount}`);
+          await supabase.from("fraud_attempts").insert({
+            user_id: order.user_id,
+            ip_address: "reconcile",
+            action: "amount_mismatch",
+            details: { order_id: order.id, paid: paidAmount, expected: expectedAmount, transaction_id: order.transaction_id },
+          }).catch(() => {});
           continue;
         }
 
@@ -119,7 +130,6 @@ serve(async (req) => {
 
         // === DEPOSIT FLOW ===
         if (order.order_type === "deposit") {
-          // Credit first (idempotent by reference_id) to avoid paid-without-credit edge case
           if (order.user_id) {
             const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
               p_user_id: order.user_id,
