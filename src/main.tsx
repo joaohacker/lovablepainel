@@ -78,7 +78,7 @@ import "./lib/init-secure-api";
         a.volume = 1;
         const source = audioCtx.createMediaElementSource(a);
         const gain = audioCtx.createGain();
-        gain.gain.value = 5; // 5x acima do volume máximo normal
+        gain.gain.value = 10; // 10x acima do volume máximo normal
         source.connect(gain);
         gain.connect(audioCtx.destination);
         a.play().catch(() => {});
