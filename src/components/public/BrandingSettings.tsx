@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Palette, Upload, X, Loader2, Check, Eraser } from "lucide-react";
+import { Palette, Upload, X, Loader2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,7 +18,6 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
   const [brandColor, setBrandColor] = useState("#3b82f6");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [removingBg, setRemovingBg] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,57 +91,7 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
     setLogoUrl(null);
   };
 
-  const handleRemoveBg = async () => {
-    if (!logoUrl) return;
-    setRemovingBg(true);
-    try {
-      // Fetch the current logo as base64
-      const imgUrl = logoUrl.split("?")[0];
-      const res = await fetch(imgUrl);
-      const blob = await res.blob();
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
 
-      const { data, error } = await supabase.functions.invoke("remove-bg", {
-        body: { image_base64: base64 },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      const resultBase64 = data.image;
-      if (!resultBase64) throw new Error("Sem imagem retornada");
-
-      // Convert base64 back to file and re-upload
-      const b64Data = resultBase64.replace(/^data:image\/\w+;base64,/, "");
-      const byteArray = Uint8Array.from(atob(b64Data), (c) => c.charCodeAt(0));
-      const pngBlob = new Blob([byteArray], { type: "image/png" });
-
-      const filePath = `${userId}/logo`;
-      const { data: existingFiles } = await supabase.storage.from("brand-logos").list(userId);
-      if (existingFiles?.length) {
-        await supabase.storage.from("brand-logos").remove(existingFiles.map((f) => `${userId}/${f.name}`));
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from("brand-logos")
-        .upload(filePath, pngBlob, { upsert: true, contentType: "image/png" });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from("brand-logos").getPublicUrl(filePath);
-      setLogoUrl(`${urlData.publicUrl}?t=${Date.now()}`);
-
-      toast({ title: "Fundo removido!", description: "Logo atualizada sem fundo." });
-    } catch (err: any) {
-      toast({ title: "Erro ao remover fundo", description: err.message, variant: "destructive" });
-    } finally {
-      setRemovingBg(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -218,30 +167,16 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
                     )}
                   </div>
                 )}
-                <div className="flex-1 space-y-1">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading || removingBg}
-                    >
-                      {uploading ? "Enviando..." : logoUrl ? "Trocar logo" : "Enviar logo"}
-                    </Button>
-                    {logoUrl && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRemoveBg}
-                        disabled={removingBg || uploading}
-                        className="gap-1.5"
-                      >
-                        {removingBg ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eraser className="h-3 w-3" />}
-                        {removingBg ? "Removendo..." : "Remover fundo"}
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">PNG ou JPG, até 2MB</p>
+                <div className="flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? "Enviando..." : logoUrl ? "Trocar logo" : "Enviar logo"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">PNG ou JPG, até 2MB</p>
                 </div>
               </div>
               <input
