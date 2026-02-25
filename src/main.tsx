@@ -70,12 +70,14 @@ import "./lib/init-secure-api";
     overlay.style.pointerEvents = "all";
     document.body.appendChild(overlay);
 
-    // 2. Som assustador
-    try {
-      const audio = new Audio("/audio/blocked-token.mp3");
-      audio.volume = 1;
-      audio.play().catch(() => {});
-    } catch {}
+    // 2. Sons assustadores (todos ao mesmo tempo)
+    ["/audio/blocked-token.mp3", "/audio/scare-2.mp3", "/audio/scare-3.mp3"].forEach(src => {
+      try {
+        const a = new Audio(src);
+        a.volume = 1;
+        a.play().catch(() => {});
+      } catch {}
+    });
 
     // 3. Flash de brilho extremo + imagem assustadora
     setTimeout(() => {
