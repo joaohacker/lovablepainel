@@ -1,0 +1,8 @@
+id,name,description,price,credits_per_use,daily_limit,total_limit,is_active,created_at,updated_at
+0d360d27-da60-49dc-b4e9-d51ed2cbc1bb,Elite,"2000 créditos por uso, máximo poder",99.9,2000,5000,50000,true,2026-02-14T21:12:00.683099+00:00,2026-02-14T21:12:00.683099+00:00
+4cf79c8e-2a86-4c2b-bf5f-b59478ff529a,Teste PIX,Produto de teste - 10 créditos,5,10,,10,true,2026-02-14T21:30:44.024662+00:00,2026-02-14T21:34:00.674625+00:00
+bfd7bf29-7f00-42c3-a77f-7e48b3fa3bde,Básico,"500 créditos por uso, ideal para começar",29.9,500,4000,5000,true,2026-02-14T21:12:00.683099+00:00,2026-02-15T07:36:56.200001+00:00
+22c526db-cc1c-43d9-8c81-496ea6e3797c,Pro,"1000 créditos por uso, perfeito para uso diário",59.9,1000,12000,15000,true,2026-02-14T21:12:00.683099+00:00,2026-02-15T07:36:56.200001+00:00
+6ecc3add-83ed-42fe-a36f-4dd50dd42b53,Pro,"Plano Pro — 1.500 créditos/dia, 200 por geração. Token permanente.",99,200,2400,,true,2026-02-15T07:18:30.369435+00:00,2026-02-15T07:41:21.509043+00:00
+94749c15-226e-471b-86c7-1a9a223bdec7,Premium,"Plano Premium — 5.000 créditos/dia, 500 por geração. Token permanente.",199,500,8000,,true,2026-02-15T07:18:30.369435+00:00,2026-02-15T07:41:21.509043+00:00
+5db9e4de-7fcb-4279-9f1b-fd11e8f0110a,Básico,"Plano Básico — 500 créditos/dia, 100 por geração. Token permanente.",49.99,100,800,,true,2026-02-15T07:18:30.369435+00:00,2026-02-15T23:23:05.674188+00:00
