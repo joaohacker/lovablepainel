@@ -95,20 +95,10 @@ serve(async (req) => {
 
     // ======= WALLET DEPOSIT FLOW =======
     if (order.order_type === "deposit") {
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({ status: "paid", paid_at: new Date().toISOString() })
-        .eq("id", order.id)
-        .eq("status", "pending");
-
-      if (updateError) {
-        console.error("[brpix-webhook] Order update error:", updateError);
-        return new Response(JSON.stringify({ error: "Order update failed" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
+      // If user_id is set, credit first (idempotent by reference_id)
       if (order.user_id) {
+        console.log(`[brpix-webhook] Processing wallet deposit for user ${order.user_id}, amount ${order.amount}`);
+
         const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
           p_user_id: order.user_id,
           p_amount: Number(order.amount),
@@ -123,14 +113,39 @@ serve(async (req) => {
           });
         }
 
-        const alreadyCredited = creditResult?.already_credited;
-        console.log(`[brpix-webhook] Deposit ${order.id} ${alreadyCredited ? "(already credited)" : "paid"} → R$${order.amount}`);
-      } else {
+        const alreadyCredited = creditResult?.already_credited === true;
+        console.log(`[brpix-webhook] Wallet deposit ${order.id} ${alreadyCredited ? '(already credited)' : 'credited'} → R$${order.amount}`);
+      }
+
+      // Mark as paid (or keep paid if already processed by another worker)
+      const { data: updatedRows, error: updateError } = await supabase
+        .from("orders")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("id", order.id)
+        .eq("status", "pending")
+        .select("id");
+
+      if (updateError) {
+        console.error("[brpix-webhook] Order update error:", updateError);
+        return new Response(JSON.stringify({ error: "Order update failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        console.log(`[brpix-webhook] Order ${order.id} already marked as paid`);
+      }
+
+      // Anonymous deposit — just mark as paid. Balance will be credited when user claims.
+      if (!order.user_id) {
         console.log(`[brpix-webhook] Anonymous deposit ${order.id} paid → R$${order.amount}. Awaiting claim.`);
       }
 
-      if (order.coupon_id) {
-        await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
+      // Increment coupon usage only when we actually transitioned pending -> paid
+      if (order.coupon_id && updatedRows && updatedRows.length > 0) {
+        await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch((e: any) => {
+          console.error("[brpix-webhook] Coupon increment error:", e);
+        });
       }
 
       return new Response(JSON.stringify({ ok: true, type: "deposit" }), {

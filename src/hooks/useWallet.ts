@@ -35,14 +35,44 @@ export function useWallet(user: User | null) {
     }
   }, [user]);
 
+  const syncPendingDeposits = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data: pendingOrders, error } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("order_type", "deposit")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (error || !pendingOrders?.length) return;
+
+      for (const order of pendingOrders) {
+        await supabase.functions.invoke("check-order-status", { body: { order_id: order.id } });
+      }
+
+      await fetchWallet();
+    } catch {
+      // silent fallback sync
+    }
+  }, [user, fetchWallet]);
+
   useEffect(() => {
     fetchWallet();
+    syncPendingDeposits();
 
-    // Polling fallback: re-fetch every 15s to catch missed realtime events
+    // Polling fallback: re-fetch every 15s and reconcile latest pending deposits
     if (!user) return;
-    const interval = setInterval(fetchWallet, 15000);
+    const interval = setInterval(() => {
+      fetchWallet();
+      syncPendingDeposits();
+    }, 15000);
+
     return () => clearInterval(interval);
-  }, [fetchWallet, user]);
+  }, [fetchWallet, syncPendingDeposits, user]);
 
   // Realtime: atualiza saldo automaticamente quando muda no banco
   useEffect(() => {

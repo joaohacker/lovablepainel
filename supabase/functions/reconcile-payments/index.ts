@@ -119,23 +119,7 @@ serve(async (req) => {
 
         // === DEPOSIT FLOW ===
         if (order.order_type === "deposit") {
-          const { data: updatedRows, error: updateError } = await supabase
-            .from("orders")
-            .update({ status: "paid", paid_at: new Date().toISOString() })
-            .eq("id", order.id)
-            .eq("status", "pending")
-            .select("id");
-
-          if (updateError) {
-            console.error(`[reconcile] UPDATE ERROR for order ${order.id}:`, updateError);
-            continue;
-          }
-
-          if (!updatedRows || updatedRows.length === 0) {
-            console.log(`[reconcile] Order ${order.id} already processed by another worker, skipping`);
-            continue;
-          }
-
+          // Credit first (idempotent by reference_id) to avoid paid-without-credit edge case
           if (order.user_id) {
             const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
               p_user_id: order.user_id,
@@ -150,10 +134,22 @@ serve(async (req) => {
             const alreadyCredited = creditResult?.already_credited;
             console.log(`[reconcile] ${alreadyCredited ? 'SKIP (already credited)' : 'Credited'} R$${order.amount} to user ${order.user_id}`);
           } else {
-            console.log(`[reconcile] Anonymous deposit ${order.id} — marked paid, awaiting claim`);
+            console.log(`[reconcile] Anonymous deposit ${order.id} — awaiting claim`);
           }
 
-          if (order.coupon_id) {
+          const { data: updatedRows, error: updateError } = await supabase
+            .from("orders")
+            .update({ status: "paid", paid_at: new Date().toISOString() })
+            .eq("id", order.id)
+            .eq("status", "pending")
+            .select("id");
+
+          if (updateError) {
+            console.error(`[reconcile] UPDATE ERROR for order ${order.id}:`, updateError);
+            continue;
+          }
+
+          if (order.coupon_id && updatedRows && updatedRows.length > 0) {
             await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
           }
 
