@@ -16,6 +16,11 @@ interface TokenInfo {
   remaining: number;
 }
 
+interface Branding {
+  brand_name: string | null;
+  brand_logo_url: string | null;
+}
+
 const ClientGenerate = () => {
   const { token } = useParams<{ token: string }>();
   const farm = useFarmGeneration();
@@ -30,11 +35,18 @@ const ClientGenerate = () => {
   const activeFarmIdRef = useRef<string | null>(null);
   const lastPushedEarnedRef = useRef(0);
   const lastPushedStatusRef = useRef("");
+  const [branding, setBranding] = useState<Branding>({ brand_name: null, brand_logo_url: null });
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
     if (token) {
       sessionStorage.setItem("client_token_path", `/tokenclientes/${token}`);
+      // Fetch branding
+      supabase.functions.invoke("get-branding", { body: { token } })
+        .then(({ data }) => {
+          if (data) setBranding({ brand_name: data.brand_name, brand_logo_url: data.brand_logo_url });
+        })
+        .catch(() => {});
     }
   }, [token]);
 
@@ -220,6 +232,22 @@ const ClientGenerate = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-lg">
+        {/* Branding header */}
+        {(branding.brand_name || branding.brand_logo_url) && (
+          <div className="flex items-center justify-center gap-3 mb-4 py-3">
+            {branding.brand_logo_url && (
+              <img
+                src={branding.brand_logo_url}
+                alt="Logo"
+                className="h-10 w-10 rounded-lg object-contain"
+              />
+            )}
+            {branding.brand_name && (
+              <span className="text-xl font-bold text-foreground">{branding.brand_name}</span>
+            )}
+          </div>
+        )}
+
         <Card className="glass-card">
           <CardContent className="p-6 md:p-8">
             {isIdle ? (

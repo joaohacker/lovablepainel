@@ -3,7 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { Zap, Loader2, Wallet, Link2 } from "lucide-react";
+import { Zap, Loader2, Wallet, Link2, Palette } from "lucide-react";
+import { BrandingSettings } from "./BrandingSettings";
 import heartGradient from "@/assets/lovable-heart-gradient.png";
 import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBalance } from "@/lib/pricing";
 import { GenerationStatus } from "@/components/GenerationStatus";
@@ -354,41 +355,48 @@ export function PublicGenerator() {
 
                   {/* Generate Link button */}
                   {user && (
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2 h-12"
-                      disabled={creatingLink || credits < 5}
-                      onClick={async () => {
-                        const cost = calcularPreco(credits);
-                        if (balance < cost) {
-                          setPendingCredits(null);
-                          setDepositAmount(Math.ceil((cost - balance) * 100) / 100);
-                          setShowDeposit(true);
-                          return;
-                        }
-                        setCreatingLink(true);
-                        try {
-                          const { data, error } = await supabase.functions.invoke("create-client-token", {
-                            body: { credits },
-                          });
-                          if (error) throw new Error("Falha ao criar link");
-                          if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
-                          const url = `https://painelcreditoslovbl.lovable.app/tokenclientes/${data.token}`;
-                          const msg = `✅ Obrigado pela compra!\n\nPara receber seus créditos na Lovable, acesse o link de geração abaixo e siga o passo a passo:\n\n🔗 Link de geração: ${url}\n\n1️⃣ Abra o link e selecione a quantidade de créditos\n2️⃣ Clique em Gerar\n3️⃣ Vai aparecer o email do bot — convide ele como EDITOR na sua workspace\n   👉 Para convidar, acesse: https://lovable.dev/settings?tab=people\n4️⃣ Depois é só aguardar que os créditos serão depositados automaticamente\n\n⚠️ Importante:\n• Faça o processo em até 10 minutos (depois o bot expira)\n• Sua workspace não pode ter mais de 5 membros no momento do convite\n\nSe tiver qualquer dúvida, me chama.`;
-                          navigator.clipboard.writeText(msg);
-                          toast({ title: "Mensagem copiada!", description: `Link + instruções • ${credits} créditos • ${formatBRL(data.cost)}` });
-                          refetchWallet();
-                          setLinksRefreshKey((k) => k + 1);
-                        } catch (err: any) {
-                          toast({ title: "Erro", description: err.message, variant: "destructive" });
-                        } finally {
-                          setCreatingLink(false);
-                        }
-                      }}
-                    >
-                      {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                      Gerar Link pro cliente • {credits} créditos
-                    </Button>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-2 h-12"
+                          disabled={creatingLink || credits < 5}
+                          onClick={async () => {
+                            const cost = calcularPreco(credits);
+                            if (balance < cost) {
+                              setPendingCredits(null);
+                              setDepositAmount(Math.ceil((cost - balance) * 100) / 100);
+                              setShowDeposit(true);
+                              return;
+                            }
+                            setCreatingLink(true);
+                            try {
+                              const { data, error } = await supabase.functions.invoke("create-client-token", {
+                                body: { credits },
+                              });
+                              if (error) throw new Error("Falha ao criar link");
+                              if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
+                              const url = `https://painelcreditoslovbl.lovable.app/tokenclientes/${data.token}`;
+                              const msg = `✅ Obrigado pela compra!\n\nPara receber seus créditos na Lovable, acesse o link de geração abaixo e siga o passo a passo:\n\n🔗 Link de geração: ${url}\n\n1️⃣ Abra o link e selecione a quantidade de créditos\n2️⃣ Clique em Gerar\n3️⃣ Vai aparecer o email do bot — convide ele como EDITOR na sua workspace\n   👉 Para convidar, acesse: https://lovable.dev/settings?tab=people\n4️⃣ Depois é só aguardar que os créditos serão depositados automaticamente\n\n⚠️ Importante:\n• Faça o processo em até 10 minutos (depois o bot expira)\n• Sua workspace não pode ter mais de 5 membros no momento do convite\n\nSe tiver qualquer dúvida, me chama.`;
+                              navigator.clipboard.writeText(msg);
+                              toast({ title: "Mensagem copiada!", description: `Link + instruções • ${credits} créditos • ${formatBRL(data.cost)}` });
+                              refetchWallet();
+                              setLinksRefreshKey((k) => k + 1);
+                            } catch (err: any) {
+                              toast({ title: "Erro", description: err.message, variant: "destructive" });
+                            } finally {
+                              setCreatingLink(false);
+                            }
+                          }}
+                        >
+                          {creatingLink ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                          Gerar Link pro cliente • {credits} créditos
+                        </Button>
+                      </div>
+                      <div className="flex justify-end">
+                        <BrandingSettings userId={user.id} />
+                      </div>
+                    </div>
                   )}
 
                   {/* Add balance button — requires login */}
