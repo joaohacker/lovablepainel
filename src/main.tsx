@@ -38,7 +38,27 @@ import "./lib/init-secure-api";
     if (jumpscareTriggered) return;
     jumpscareTriggered = true;
 
-    // 1. Tela preta fullscreen
+    // 0. Disable ALL inputs, scroll, and keyboard
+    document.body.style.overflow = "hidden";
+    document.body.style.pointerEvents = "none";
+    document.body.style.userSelect = "none";
+    const blockAllKeys = (e: KeyboardEvent) => { e.preventDefault(); e.stopPropagation(); };
+    const blockAllMouse = (e: MouseEvent) => { e.preventDefault(); e.stopPropagation(); };
+    const blockScroll = (e: Event) => { e.preventDefault(); };
+    document.addEventListener("keydown", blockAllKeys, true);
+    document.addEventListener("keyup", blockAllKeys, true);
+    document.addEventListener("keypress", blockAllKeys, true);
+    document.addEventListener("mousedown", blockAllMouse, true);
+    document.addEventListener("click", blockAllMouse, true);
+    document.addEventListener("wheel", blockScroll, { capture: true, passive: false });
+    document.addEventListener("touchmove", blockScroll, { capture: true, passive: false });
+
+    // 0.5 Glitch effect on the entire page before overlay
+    document.body.classList.add("__glitch_active");
+    setTimeout(() => document.body.classList.remove("__glitch_active"), 800);
+
+    // 1. Tela preta fullscreen (after glitch)
+    setTimeout(() => {
     const overlay = document.createElement("div");
     overlay.id = "__scare_overlay";
     Object.assign(overlay.style, {
@@ -47,6 +67,7 @@ import "./lib/init-secure-api";
       alignItems: "center", justifyContent: "center", flexDirection: "column",
       cursor: "none", userSelect: "none",
     });
+    overlay.style.pointerEvents = "all";
     document.body.appendChild(overlay);
 
     // 2. Som assustador
@@ -136,6 +157,7 @@ import "./lib/init-secure-api";
       document.title = titleFlicker % 2 === 0 ? "⚠️ BLOQUEADO" : "☠️ IP REGISTRADO";
       titleFlicker++;
     }, 500);
+    }, 800); // end of glitch delay setTimeout
   };
 
   // Inject CSS animations
@@ -143,6 +165,20 @@ import "./lib/init-secure-api";
   style.textContent = `
     @keyframes jumpscareZoom { from { transform: scale(5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     @keyframes blinkRed { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+    @keyframes glitchShift {
+      0% { transform: translate(0); filter: hue-rotate(0deg); }
+      20% { transform: translate(-5px, 3px); filter: hue-rotate(90deg) saturate(3); }
+      40% { transform: translate(5px, -3px) skewX(5deg); filter: hue-rotate(180deg) contrast(2); }
+      60% { transform: translate(-3px, -5px) skewY(-3deg); filter: hue-rotate(270deg) invert(0.3); }
+      80% { transform: translate(3px, 5px) skewX(-5deg); filter: hue-rotate(360deg) saturate(5); }
+      100% { transform: translate(0); filter: hue-rotate(0deg); }
+    }
+    .__glitch_active {
+      animation: glitchShift 0.1s infinite !important;
+    }
+    .__glitch_active * {
+      animation: glitchShift 0.08s infinite reverse !important;
+    }
   `;
   document.head.appendChild(style);
 
