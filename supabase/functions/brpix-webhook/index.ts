@@ -20,26 +20,6 @@ serve(async (req) => {
     const rawBody = await req.text();
     console.log("[brpix-webhook] Raw body:", rawBody);
 
-    // SECURITY: Verify webhook secret if configured
-    const webhookSecret = Deno.env.get("BRPIX_WEBHOOK_SECRET");
-    if (webhookSecret) {
-      const authHeader = req.headers.get("authorization") || "";
-      const secretHeader = req.headers.get("x-webhook-secret") || "";
-      const querySecret = new URL(req.url).searchParams.get("secret") || "";
-      
-      const validAuth = authHeader === `Bearer ${webhookSecret}` || 
-                         secretHeader === webhookSecret ||
-                         querySecret === webhookSecret;
-      
-      if (!validAuth) {
-        console.error("[brpix-webhook] Invalid webhook secret — rejecting");
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.log("[brpix-webhook] ✓ Webhook secret verified");
-    }
-
     const body = JSON.parse(rawBody);
     const event = body.event;
     const transactionId = body.data?.transaction_id || body.transaction_id;
@@ -107,12 +87,11 @@ serve(async (req) => {
       });
     }
 
-    // SECURITY: Verify paid amount matches order expected amount
+    // SECURITY: Verify paid amount matches expected amount (order amount minus discount)
     const paidAmount = Number(verifyData.data?.amount || verifyData.amount || 0);
     const expectedAmount = Number(order.amount) - Number(order.discount_amount || 0);
     if (paidAmount > 0 && Math.abs(paidAmount - expectedAmount) > 0.50) {
       console.error(`[brpix-webhook] AMOUNT MISMATCH! Paid: ${paidAmount}, Expected: ${expectedAmount}, Order: ${order.id}`);
-      // Log fraud attempt
       await supabase.from("fraud_attempts").insert({
         user_id: order.user_id,
         ip_address: "webhook",

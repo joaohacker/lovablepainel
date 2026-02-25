@@ -63,7 +63,7 @@ serve(async (req) => {
     // Get order from DB — SECURITY: must belong to the authenticated user
     const { data: order, error } = await supabase
       .from("orders")
-      .select("status, transaction_id, amount, user_id, order_type, coupon_id")
+      .select("status, transaction_id, amount, user_id, order_type, coupon_id, discount_amount")
       .eq("id", order_id)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -118,10 +118,26 @@ serve(async (req) => {
         });
       }
 
+      // SECURITY: Verify paid amount matches expected amount
+      const paidAmount = Number(verifyData.data?.amount || verifyData.amount || 0);
+      const expectedAmount = Number(order.amount) - Number(order.discount_amount || 0);
+      if (paidAmount > 0 && Math.abs(paidAmount - expectedAmount) > 0.50) {
+        console.error(`[check-order-status] AMOUNT MISMATCH! Paid: ${paidAmount}, Expected: ${expectedAmount}, Order: ${order_id}`);
+        await supabase.from("fraud_attempts").insert({
+          user_id: user.id,
+          ip_address: clientIp,
+          action: "amount_mismatch",
+          details: { order_id, paid: paidAmount, expected: expectedAmount },
+        }).catch(() => {});
+        return new Response(JSON.stringify({ status: "error", error: "Valor divergente" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // === PAYMENT CONFIRMED ON BRPIX — process immediately ===
       console.log(`[check-order-status] Payment confirmed on BrPix for order ${order_id}! Processing inline...`);
 
-      // For deposits, credit first (idempotent by reference_id) to avoid "paid without balance"
+      // For deposits, credit first (idempotent by reference_id)
       if (order.order_type === "deposit" && order.user_id) {
         const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
           p_user_id: order.user_id,
