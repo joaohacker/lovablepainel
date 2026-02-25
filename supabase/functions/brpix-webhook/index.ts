@@ -7,8 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// No HMAC — security is handled by double-checking payment status directly with BrPix API
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -22,6 +20,26 @@ serve(async (req) => {
     const rawBody = await req.text();
     console.log("[brpix-webhook] Raw body:", rawBody);
 
+    // SECURITY: Verify webhook secret if configured
+    const webhookSecret = Deno.env.get("BRPIX_WEBHOOK_SECRET");
+    if (webhookSecret) {
+      const authHeader = req.headers.get("authorization") || "";
+      const secretHeader = req.headers.get("x-webhook-secret") || "";
+      const querySecret = new URL(req.url).searchParams.get("secret") || "";
+      
+      const validAuth = authHeader === `Bearer ${webhookSecret}` || 
+                         secretHeader === webhookSecret ||
+                         querySecret === webhookSecret;
+      
+      if (!validAuth) {
+        console.error("[brpix-webhook] Invalid webhook secret — rejecting");
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.log("[brpix-webhook] ✓ Webhook secret verified");
+    }
+
     const body = JSON.parse(rawBody);
     const event = body.event;
     const transactionId = body.data?.transaction_id || body.transaction_id;
@@ -29,18 +47,15 @@ serve(async (req) => {
     console.log(`[brpix-webhook] Event: ${event}, TXN: ${transactionId}`);
 
     if (event !== "transaction.paid") {
-      console.log(`[brpix-webhook] Ignoring event: ${event}`);
-      return new Response(
-        JSON.stringify({ ok: true, message: "Event ignored" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ ok: true, message: "Event ignored" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     if (!transactionId) {
-      return new Response(
-        JSON.stringify({ error: "Missing transaction_id" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Missing transaction_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // SECURITY: Double-check payment status directly with BrPix API
@@ -63,7 +78,7 @@ serve(async (req) => {
     const hasPaidAt = !!(verifyData.paid_at || verifyData.data?.paid_at);
 
     if (!isPaid && !hasPaidAt && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
-      console.error(`[brpix-webhook] Payment NOT confirmed. Status: ${paymentStatus}, paid: ${isPaid}, paid_at: ${hasPaidAt} — rejecting`);
+      console.error(`[brpix-webhook] Payment NOT confirmed. Status: ${paymentStatus} — rejecting`);
       return new Response(JSON.stringify({ error: "Payment not confirmed by provider" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -87,15 +102,30 @@ serve(async (req) => {
 
     if (!order) {
       console.log("[brpix-webhook] No pending order for TXN:", transactionId);
-      return new Response(
-        JSON.stringify({ ok: true, message: "No pending order" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ ok: true, message: "No pending order" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Verify paid amount matches order expected amount
+    const paidAmount = Number(verifyData.data?.amount || verifyData.amount || 0);
+    const expectedAmount = Number(order.amount) - Number(order.discount_amount || 0);
+    if (paidAmount > 0 && Math.abs(paidAmount - expectedAmount) > 0.50) {
+      console.error(`[brpix-webhook] AMOUNT MISMATCH! Paid: ${paidAmount}, Expected: ${expectedAmount}, Order: ${order.id}`);
+      // Log fraud attempt
+      await supabase.from("fraud_attempts").insert({
+        user_id: order.user_id,
+        ip_address: "webhook",
+        action: "amount_mismatch",
+        details: { order_id: order.id, paid: paidAmount, expected: expectedAmount, transaction_id: transactionId },
+      }).catch(() => {});
+      return new Response(JSON.stringify({ error: "Amount mismatch" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // ======= WALLET DEPOSIT FLOW =======
     if (order.order_type === "deposit") {
-      // If user_id is set, credit first (idempotent by reference_id)
       if (order.user_id) {
         console.log(`[brpix-webhook] Processing wallet deposit for user ${order.user_id}, amount ${order.amount}`);
 
@@ -117,7 +147,6 @@ serve(async (req) => {
         console.log(`[brpix-webhook] Wallet deposit ${order.id} ${alreadyCredited ? '(already credited)' : 'credited'} → R$${order.amount}`);
       }
 
-      // Mark as paid (or keep paid if already processed by another worker)
       const { data: updatedRows, error: updateError } = await supabase
         .from("orders")
         .update({ status: "paid", paid_at: new Date().toISOString() })
@@ -132,16 +161,10 @@ serve(async (req) => {
         });
       }
 
-      if (!updatedRows || updatedRows.length === 0) {
-        console.log(`[brpix-webhook] Order ${order.id} already marked as paid`);
-      }
-
-      // Anonymous deposit — just mark as paid. Balance will be credited when user claims.
       if (!order.user_id) {
         console.log(`[brpix-webhook] Anonymous deposit ${order.id} paid → R$${order.amount}. Awaiting claim.`);
       }
 
-      // Increment coupon usage only when we actually transitioned pending -> paid
       if (order.coupon_id && updatedRows && updatedRows.length > 0) {
         await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch((e: any) => {
           console.error("[brpix-webhook] Coupon increment error:", e);
@@ -175,7 +198,7 @@ serve(async (req) => {
 
       const currentValue = (tokenRow as Record<string, number | null>)[field] || 0;
       await supabase.from("tokens").update({ [field]: currentValue + increment }).eq("id", order.token_id);
-      await supabase.from("orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", order.id);
+      await supabase.from("orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", order.id).eq("status", "pending");
 
       console.log(`[brpix-webhook] Upgrade ${order.order_type}: token ${order.token_id} ${field} ${currentValue} → ${currentValue + increment}`);
       return new Response(JSON.stringify({ ok: true, type: order.order_type }), {
@@ -220,7 +243,7 @@ serve(async (req) => {
 
     await supabase.from("orders").update({
       status: "paid", paid_at: new Date().toISOString(), token_id: token.id,
-    }).eq("id", order.id);
+    }).eq("id", order.id).eq("status", "pending");
 
     console.log(`[brpix-webhook] Order ${order.id} paid → token ${token.token} created`);
     return new Response(JSON.stringify({ ok: true, token_id: token.id }), {
