@@ -54,7 +54,11 @@ const SYSTEM_PROMPT = `Você é a Luna, assistente de suporte do LovablePainel. 
 - Se o usuário acessou via TOKEN (link de cliente/revendedor): NUNCA forneça número de WhatsApp. Diga: "Entre em contato com quem te vendeu o acesso para suporte humano."
 - Se o usuário acessou pelo painel principal (logado com email): "Fale com nosso suporte: https://wa.me/5521992046054"`;
 
-serve(async (req) => {
+// === PAYLOAD OBFUSCATION ===
+function _dc(p: string): any { try { const a = p.split(''); for (let i = 0; i < a.length - 1; i += 2) [a[i], a[i+1]] = [a[i+1], a[i]]; return JSON.parse(decodeURIComponent(escape(atob(a.reverse().join(''))))); } catch { return null; } }
+function _ec(d: any): string { const b = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).split('').reverse(); for (let i = 0; i < b.length - 1; i += 2) [b[i], b[i+1]] = [b[i+1], b[i]]; return b.join(''); }
+
+const _handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -150,4 +154,14 @@ serve(async (req) => {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+};
+
+serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  let _enc = false; let _rq = req;
+  try { const _t = await req.clone().text(); if (_t) { const _j = JSON.parse(_t); if (_j?._p) { _enc = true; _rq = new Request(req.url, { method: req.method, headers: req.headers, body: JSON.stringify(_dc(_j._p)) }); } } } catch {}
+  const _rs = await _handler(_rq);
+  if (!_enc) return _rs;
+  try { if (_rs.headers.get("content-type")?.includes("json")) { const _b = await _rs.json(); return new Response(JSON.stringify({ _r: _ec(_b) }), { status: _rs.status, headers: _rs.headers }); } } catch {}
+  return _rs;
 });
