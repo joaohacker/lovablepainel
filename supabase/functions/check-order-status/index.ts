@@ -38,6 +38,23 @@ serve(async (req) => {
       });
     }
 
+    // SECURITY: Check if user is banned
+    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
+    if (isBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Check if IP is banned
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { order_id } = await req.json();
     if (!order_id || typeof order_id !== "string" || order_id.length > 50) {
       return new Response(JSON.stringify({ error: "Missing order_id" }), {
@@ -46,7 +63,6 @@ serve(async (req) => {
     }
 
     // SECURITY: Rate limiting — 30 requests per 60 seconds
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
       p_user_id: user.id,
       p_ip: clientIp,

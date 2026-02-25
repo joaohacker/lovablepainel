@@ -79,6 +79,20 @@ serve(async (req) => {
       });
     }
 
+    // SECURITY: Rate limiting — 30 requests per minute per IP
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIp,
+      p_endpoint: "validate-token",
+      p_max_requests: 30,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ valid: false, error: "Muitas requisições. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { token, action, credits, farmId: bodyFarmId, status: bodyStatus, credits_earned, master_email, workspace_name, error_message } = body;
 

@@ -180,7 +180,7 @@ serve(async (req) => {
     });
 
     const pixData = await pixRes.json();
-    console.log("[wallet-deposit] BrPix response:", JSON.stringify(pixData));
+    console.log("[wallet-deposit] BrPix status:", pixData.success ? "ok" : "error", "txn:", pixData.transaction_id || "none");
 
     if (!pixData.success && !pixData.transaction_id) {
       return new Response(JSON.stringify({ error: pixData.error || "Erro ao criar PIX" }), {
