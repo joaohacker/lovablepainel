@@ -18,6 +18,21 @@ serve(async (req) => {
   );
 
   try {
+    // SECURITY: Rate limiting — 15 validations per 60 seconds per IP
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIp,
+      p_endpoint: "validate-coupon",
+      p_max_requests: 15,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ valid: false, error: "Muitas tentativas. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { code, amount } = await req.json();
 
     if (!code || typeof code !== "string" || !code.trim()) {
