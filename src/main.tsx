@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./lib/init-secure-api";
 
 // Anti-debug protection (mobile-safe — no debugger statement)
 (function antiDebug() {
