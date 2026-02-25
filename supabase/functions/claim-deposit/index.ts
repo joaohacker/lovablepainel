@@ -36,15 +36,45 @@ serve(async (req) => {
       });
     }
 
+    // SECURITY: Check if user is banned
+    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
+    if (isBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Check if IP is banned
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Rate limiting — 10 claims per 5 minutes
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIp,
+      p_endpoint: "claim-deposit",
+      p_max_requests: 10,
+      p_window_seconds: 300,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas tentativas. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { order_id } = await req.json();
-    if (!order_id) {
+    if (!order_id || typeof order_id !== "string" || order_id.length > 50) {
       return new Response(JSON.stringify({ error: "Missing order_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     // SECURITY FIX: Atomic claim — UPDATE with WHERE user_id IS NULL
-    // Only one concurrent request can succeed because the UPDATE locks the row.
     const { data: claimedOrder, error: claimError } = await supabase
       .from("orders")
       .update({ user_id: user.id })
@@ -56,7 +86,6 @@ serve(async (req) => {
       .maybeSingle();
 
     if (claimError || !claimedOrder) {
-      // Check if order was already credited by webhook (user_id already set)
       const { data: existingOrder } = await supabase
         .from("orders")
         .select("id, user_id")
@@ -66,7 +95,6 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existingOrder) {
-        // Already credited by webhook — return success silently
         return new Response(JSON.stringify({ success: true, already_credited: true }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -77,7 +105,6 @@ serve(async (req) => {
       });
     }
 
-    // Credit wallet — only runs if the atomic claim succeeded
     const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
       p_user_id: user.id,
       p_amount: Number(claimedOrder.amount),

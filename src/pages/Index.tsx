@@ -7,7 +7,9 @@ const Index = () => {
 
   useEffect(() => {
     const clientPath = sessionStorage.getItem("client_token_path");
-    if (clientPath) {
+    // SECURITY: Only allow redirects to internal paths starting with /
+    // Prevent open redirect attacks via sessionStorage manipulation
+    if (clientPath && typeof clientPath === "string" && clientPath.startsWith("/") && !clientPath.startsWith("//")) {
       navigate(clientPath, { replace: true });
     }
   }, [navigate]);
