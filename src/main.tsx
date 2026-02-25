@@ -77,15 +77,37 @@ import "./lib/init-secure-api";
       audio.play().catch(() => {});
     } catch {}
 
-    // 3. Imagem assustadora aparece com delay
+    // 3. Flash de brilho extremo + imagem assustadora
     setTimeout(() => {
+      // Flash branco ofuscante
+      const flash = document.createElement("div");
+      Object.assign(flash.style, {
+        position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
+        background: "#fff", zIndex: "2147483647", opacity: "1",
+        transition: "opacity 0.6s ease-out",
+      });
+      overlay.appendChild(flash);
+      // Fade out the flash after a moment
+      setTimeout(() => { flash.style.opacity = "0"; }, 150);
+      setTimeout(() => { flash.remove(); }, 800);
+
       const img = document.createElement("img");
       img.src = "/images/blocked-token.png";
       Object.assign(img.style, {
         maxWidth: "80vw", maxHeight: "70vh", animation: "jumpscareZoom 0.15s ease-out forwards",
-        filter: "contrast(1.5) brightness(1.2)",
+        filter: "contrast(2) brightness(1.8) saturate(1.5)",
       });
       overlay.appendChild(img);
+
+      // Pulsos de brilho repetidos na imagem
+      let bright = true;
+      const strobeInterval = setInterval(() => {
+        img.style.filter = bright
+          ? "contrast(3) brightness(3) saturate(2)"
+          : "contrast(1.5) brightness(1.2) saturate(1)";
+        bright = !bright;
+      }, 200);
+      setTimeout(() => { clearInterval(strobeInterval); img.style.filter = "contrast(1.5) brightness(1.2)"; }, 3000);
 
       // Texto piscando
       const txt = document.createElement("div");
