@@ -121,6 +121,26 @@ serve(async (req) => {
       // === PAYMENT CONFIRMED ON BRPIX — process immediately ===
       console.log(`[check-order-status] Payment confirmed on BrPix for order ${order_id}! Processing inline...`);
 
+      // For deposits, credit first (idempotent by reference_id) to avoid "paid without balance"
+      if (order.order_type === "deposit" && order.user_id) {
+        const { data: creditResult, error: creditError } = await supabase.rpc("credit_wallet", {
+          p_user_id: order.user_id,
+          p_amount: Number(order.amount),
+          p_description: "Depósito via PIX",
+          p_reference_id: order_id,
+        });
+
+        if (creditError) {
+          console.error(`[check-order-status] Credit error for ${order_id}:`, creditError);
+          return new Response(JSON.stringify({ status: "pending" }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const alreadyCredited = creditResult?.already_credited === true;
+        console.log(`[check-order-status] ${alreadyCredited ? "Credit already applied" : "Wallet credited"} for ${order_id}`);
+      }
+
       // Mark as paid atomically (only if still pending)
       const { data: updated, error: updateError } = await supabase
         .from("orders")
@@ -137,23 +157,7 @@ serve(async (req) => {
         });
       }
 
-      // Credit wallet if user_id is set and it's a deposit
-      if (order.order_type === "deposit" && order.user_id) {
-        const { error: creditError } = await supabase.rpc("credit_wallet", {
-          p_user_id: order.user_id,
-          p_amount: Number(order.amount),
-          p_description: "Depósito via PIX",
-          p_reference_id: order_id,
-        });
-
-        if (creditError) {
-          console.error(`[check-order-status] Credit error for ${order_id}:`, creditError);
-        } else {
-          console.log(`[check-order-status] Credited R$${order.amount} to user ${order.user_id}`);
-        }
-      }
-
-      // Increment coupon usage if applicable
+      // Increment coupon usage only when we transitioned pending -> paid
       if (order.coupon_id) {
         await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
       }
