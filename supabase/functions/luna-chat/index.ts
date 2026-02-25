@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,31 +54,34 @@ const SYSTEM_PROMPT = `Você é a Luna, assistente de suporte do LovablePainel. 
 - Se o usuário acessou via TOKEN (link de cliente/revendedor): NUNCA forneça número de WhatsApp. Diga: "Entre em contato com quem te vendeu o acesso para suporte humano."
 - Se o usuário acessou pelo painel principal (logado com email): "Fale com nosso suporte: https://wa.me/5521992046054"`;
 
-// Simple in-memory rate limiter for luna-chat (per-isolate)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 20; // max 20 requests per 60 seconds per IP
-const RATE_WINDOW = 60_000;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
-    return true;
-  }
-  entry.count++;
-  return entry.count <= RATE_LIMIT;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // SECURITY: Rate limit by IP
+    // SECURITY: DB-based rate limit by IP (persistent across isolate restarts)
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!checkRateLimit(clientIp)) {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: "00000000-0000-0000-0000-000000000000",
+      p_ip: clientIp,
+      p_endpoint: "luna-chat",
+      p_max_requests: 20,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !rateCheck.allowed) {
       return new Response(JSON.stringify({ error: "Muitas solicitações. Aguarde um minuto." }), {
         status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -88,12 +92,20 @@ serve(async (req) => {
 
     const { messages } = await req.json();
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "messages array is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // SECURITY: Limit conversation length to prevent token abuse
+    const limitedMessages = messages.slice(-20);
+
+    // SECURITY: Sanitize message content length
+    const sanitizedMessages = limitedMessages.map((m: any) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: typeof m.content === "string" ? m.content.slice(0, 2000) : "",
+    }));
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -105,7 +117,7 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          ...messages,
+          ...sanitizedMessages,
         ],
         stream: true,
       }),

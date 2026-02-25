@@ -4,7 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -21,25 +21,49 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Não autenticado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const token = authHeader.replace("Bearer ", "");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const {
-      data: { user },
-      error: authError,
-    } = await userClient.auth.getUser();
-
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Não autenticado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Check if user is banned
+    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
+    if (isBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Check if IP is banned
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
+    if (isIpBanned) {
+      return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECURITY: Rate limiting — 20 requests per 60 seconds
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIp,
+      p_endpoint: "manage-client-token",
+      p_max_requests: 20,
+      p_window_seconds: 60,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Muitas tentativas. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -69,7 +93,6 @@ serve(async (req) => {
       const { data: tokens, error } = await query;
       if (error) throw error;
 
-      // For "exhausted" filter, post-filter where credits_used >= total_credits
       let filtered = tokens || [];
       if (filter === "exhausted") {
         filtered = filtered.filter((t: any) => t.credits_used >= t.total_credits);
@@ -84,14 +107,12 @@ serve(async (req) => {
 
     // ACTION: details
     if (action === "details") {
-      if (!tokenId) {
+      if (!tokenId || typeof tokenId !== "string" || tokenId.length > 50) {
         return new Response(JSON.stringify({ error: "tokenId obrigatório" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Verify ownership
       const { data: tok, error: tokErr } = await supabase
         .from("client_tokens")
         .select("*")
@@ -101,17 +122,13 @@ serve(async (req) => {
 
       if (tokErr || !tok) {
         return new Response(JSON.stringify({ error: "Token não encontrado" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Fetch generations linked to this client token
       const { data: generations, error: genErr } = await supabase
         .from("generations")
-        .select(
-          "id, status, credits_requested, credits_earned, workspace_name, master_email, created_at, updated_at, farm_id, error_message"
-        )
+        .select("id, status, credits_requested, credits_earned, workspace_name, master_email, created_at, updated_at, farm_id, error_message")
         .eq("client_token_id", tokenId)
         .order("created_at", { ascending: false })
         .limit(50);
@@ -126,14 +143,12 @@ serve(async (req) => {
 
     // ACTION: deactivate
     if (action === "deactivate") {
-      if (!tokenId) {
+      if (!tokenId || typeof tokenId !== "string" || tokenId.length > 50) {
         return new Response(JSON.stringify({ error: "tokenId obrigatório" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Verify ownership — fetch full token data
       const { data: tok, error: tokErr } = await supabase
         .from("client_tokens")
         .select("*")
@@ -143,20 +158,17 @@ serve(async (req) => {
 
       if (tokErr || !tok) {
         return new Response(JSON.stringify({ error: "Token não encontrado" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // SECURITY: Block if already deactivated (prevents double-refund)
       if (!tok.is_active) {
-        return new Response(
-          JSON.stringify({ error: "Link já está desativado" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Link já está desativado" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      // 1) Check for active generations that block deactivation
+      // Check for active generations
       const { data: gens } = await supabase
         .from("generations")
         .select("id, credits_earned, credits_requested, status, settled_at, farm_id, created_at")
@@ -165,7 +177,6 @@ serve(async (req) => {
       const now = Date.now();
       const TEN_MINUTES = 10 * 60 * 1000;
 
-      // Block if any generation is actively running or recently waiting_invite/creating
       const activeGen = (gens || []).find((g: any) => {
         if (g.settled_at) return false;
         const age = now - new Date(g.created_at).getTime();
@@ -178,17 +189,15 @@ serve(async (req) => {
         const age = now - new Date(activeGen.created_at).getTime();
         const remainingMin = Math.max(1, Math.ceil((TEN_MINUTES - age) / 60000));
         const msg = activeGen.status === "running"
-          ? "Não é possível desativar: há uma geração em andamento. Aguarde ela finalizar."
-          : `Não é possível desativar: aguarde o cliente convidar ou a geração expirar (~${remainingMin} min).`;
-        return new Response(
-          JSON.stringify({ error: msg }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+          ? "Não é possível desativar: há uma geração em andamento."
+          : `Não é possível desativar: aguarde a geração expirar (~${remainingMin} min).`;
+        return new Response(JSON.stringify({ error: msg }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      // 2) Settle expired/queued pending generations and refund credits back to token
+      // Settle pending generations
       let totalCreditsRefundedToToken = 0;
-
       for (const g of (gens || [])) {
         const isPending = ["queued", "waiting_invite", "creating"].includes(g.status);
         const isUnsettled = !g.settled_at;
@@ -221,7 +230,6 @@ serve(async (req) => {
         }
       }
 
-      // 2) Re-read token to get updated credits_used after refunds
       const { data: tokRefreshed } = await supabase
         .from("client_tokens")
         .select("*")
@@ -231,7 +239,6 @@ serve(async (req) => {
       const currentToken = tokRefreshed || tok;
       const actualRemaining = currentToken.total_credits - currentToken.credits_used;
 
-      // 3) Atomic deactivate: only update if still active
       const { data: updated, error: updateErr } = await supabase
         .from("client_tokens")
         .update({ is_active: false })
@@ -241,21 +248,16 @@ serve(async (req) => {
         .single();
 
       if (updateErr || !updated) {
-        return new Response(
-          JSON.stringify({ error: "Link já foi desativado" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Link já foi desativado" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
-      // 4) Refund remaining credits value to wallet
       let refunded = false;
       let refundAmount = 0;
 
       if (actualRemaining > 0) {
-        const { data: priceData } = await supabase.rpc("calc_credit_price", {
-          creditos: actualRemaining,
-        });
-
+        const { data: priceData } = await supabase.rpc("calc_credit_price", { creditos: actualRemaining });
         refundAmount = priceData ?? 0;
 
         if (refundAmount > 0) {
@@ -276,13 +278,11 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ error: "Ação inválida" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

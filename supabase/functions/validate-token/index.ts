@@ -408,7 +408,8 @@ serve(async (req) => {
       }
 
       // SECURITY: Whitelist allowed status values
-      const ALLOWED_STATUSES = ["running", "completed", "expired", "cancelled", "error", "waiting_invite", "queued", "creating", "active"];
+      // NOTE: "completed" is intentionally EXCLUDED — only backend (farm-proxy/auto-refund/sync-status) can mark completed
+      const ALLOWED_STATUSES = ["running", "expired", "cancelled", "error", "waiting_invite", "queued", "creating", "active"];
       if (status && !ALLOWED_STATUSES.includes(status)) {
         return new Response(
           JSON.stringify({ success: false, error: "Status inválido" }),

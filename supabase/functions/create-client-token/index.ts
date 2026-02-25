@@ -92,6 +92,21 @@ serve(async (req) => {
       );
     }
 
+    // SECURITY: Rate limiting — 10 token creations per 5 minutes
+    const { data: rateCheck } = await serviceSupabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIpCheck,
+      p_endpoint: "create-client-token",
+      p_max_requests: 10,
+      p_window_seconds: 300,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(
+        JSON.stringify({ error: "Muitas tentativas. Aguarde alguns minutos." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Calculate price
     const price = calcularPreco(credits);
 

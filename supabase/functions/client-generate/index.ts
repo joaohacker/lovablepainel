@@ -11,8 +11,9 @@ const API_BASE = "https://api.lovablextensao.shop";
 const MAX_CONCURRENT = 8;
 
 // SECURITY: Whitelist of allowed status values from frontend
+// NOTE: "completed" is intentionally EXCLUDED — only the backend (farm-proxy/auto-refund) can mark completed
 const ALLOWED_STATUS_VALUES = [
-  "running", "completed", "expired", "cancelled", "error",
+  "running", "expired", "cancelled", "error",
   "waiting_invite", "queued", "creating", "active",
 ];
 
