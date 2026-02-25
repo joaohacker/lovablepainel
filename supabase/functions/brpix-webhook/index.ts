@@ -59,8 +59,11 @@ serve(async (req) => {
     console.log(`[brpix-webhook] BrPix verify response:`, JSON.stringify(verifyData));
 
     const paymentStatus = verifyData.data?.status || verifyData.status;
-    if (paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
-      console.error(`[brpix-webhook] Payment NOT confirmed. Status: ${paymentStatus} — rejecting`);
+    const isPaid = verifyData.paid === true || verifyData.data?.paid === true;
+    const hasPaidAt = !!(verifyData.paid_at || verifyData.data?.paid_at);
+
+    if (!isPaid && !hasPaidAt && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+      console.error(`[brpix-webhook] Payment NOT confirmed. Status: ${paymentStatus}, paid: ${isPaid}, paid_at: ${hasPaidAt} — rejecting`);
       return new Response(JSON.stringify({ error: "Payment not confirmed by provider" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

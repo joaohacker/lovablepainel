@@ -107,10 +107,11 @@ serve(async (req) => {
         
         const paymentStatus = verifyData.data?.status || verifyData.status;
         const isPaidBoolean = verifyData.paid === true || verifyData.data?.paid === true;
+        const hasPaidAt = !!(verifyData.paid_at || verifyData.data?.paid_at);
         
-        console.log(`[reconcile] Order ${order.id}: parsed status = ${paymentStatus}, paid flag = ${isPaidBoolean}`);
+        console.log(`[reconcile] Order ${order.id}: parsed status = ${paymentStatus}, paid flag = ${isPaidBoolean}, paid_at = ${hasPaidAt}`);
 
-        if (!isPaidBoolean && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+        if (!isPaidBoolean && !hasPaidAt && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
           continue;
         }
 

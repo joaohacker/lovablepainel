@@ -110,8 +110,9 @@ serve(async (req) => {
       const verifyData = await verifyRes.json();
       const paymentStatus = verifyData.data?.status || verifyData.status;
       const isPaidBoolean = verifyData.paid === true || verifyData.data?.paid === true;
+      const hasPaidAt = !!(verifyData.paid_at || verifyData.data?.paid_at);
 
-      if (!isPaidBoolean && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+      if (!isPaidBoolean && !hasPaidAt && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
         return new Response(JSON.stringify({ status: "pending" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
