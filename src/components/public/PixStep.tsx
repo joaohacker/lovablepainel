@@ -2,17 +2,19 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, CheckCircle2, Loader2, Clock, AlertTriangle } from "lucide-react";
+import { Copy, CheckCircle2, Loader2, Clock, AlertTriangle, RefreshCw } from "lucide-react";
 import { formatBRL } from "@/lib/pricing";
 
 interface PixStepProps {
   pixCode: string;
   amount: number;
+  onCheckPayment?: () => Promise<void>;
 }
 
-export function PixStep({ pixCode, amount }: PixStepProps) {
+export function PixStep({ pixCode, amount, onCheckPayment }: PixStepProps) {
   const [copied, setCopied] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(600); // 10 minutes
+  const [secondsLeft, setSecondsLeft] = useState(600);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -30,6 +32,16 @@ export function PixStep({ pixCode, amount }: PixStepProps) {
     navigator.clipboard.writeText(pixCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  const handleCheckPayment = async () => {
+    if (!onCheckPayment || checking) return;
+    setChecking(true);
+    try {
+      await onCheckPayment();
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
@@ -71,7 +83,7 @@ export function PixStep({ pixCode, amount }: PixStepProps) {
         <QRCodeSVG value={pixCode} size={200} />
       </div>
 
-      {/* Copy button - prominent */}
+      {/* Copy button */}
       <Button
         onClick={handleCopy}
         size="lg"
@@ -90,6 +102,29 @@ export function PixStep({ pixCode, amount }: PixStepProps) {
           </>
         )}
       </Button>
+
+      {/* "Já paguei" button */}
+      {onCheckPayment && (
+        <Button
+          onClick={handleCheckPayment}
+          disabled={checking}
+          variant="outline"
+          size="lg"
+          className="w-full gap-2 text-base font-semibold h-12 border-primary/30 hover:bg-primary/10"
+        >
+          {checking ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Verificando...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-5 w-5" />
+              Já fiz o pagamento
+            </>
+          )}
+        </Button>
+      )}
 
       {/* Pix code preview */}
       <div className="w-full">

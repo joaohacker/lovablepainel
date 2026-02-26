@@ -119,28 +119,31 @@ export function DepositModal({
     }
   };
 
-  // Poll for payment confirmation — user is always logged in now
+  // Manual check triggered by "Já fiz o pagamento" button
+  const checkPaymentNow = async () => {
+    if (!orderId) return;
+    const { data } = await supabase.functions.invoke("check-order-status", {
+      body: { order_id: orderId },
+    });
+    if (data?.status === "paid") {
+      try {
+        await supabase.functions.invoke("claim-deposit", {
+          body: { order_id: orderId },
+        });
+      } catch {
+        // Ignore — webhook already handled it
+      }
+      setStep("done");
+      onSuccess();
+    }
+  };
+
+  // Poll for payment confirmation
   useEffect(() => {
     if (step !== "pix" || !orderId) return;
 
     const interval = setInterval(async () => {
-      const { data } = await supabase.functions.invoke("check-order-status", {
-        body: { order_id: orderId },
-      });
-
-      if (data?.status === "paid") {
-        clearInterval(interval);
-        // Try claim-deposit in case webhook didn't credit yet
-        try {
-          await supabase.functions.invoke("claim-deposit", {
-            body: { order_id: orderId },
-          });
-        } catch {
-          // Ignore — webhook already handled it
-        }
-        setStep("done");
-        onSuccess();
-      }
+      await checkPaymentNow();
     }, 12000);
 
     return () => clearInterval(interval);
@@ -279,6 +282,7 @@ export function DepositModal({
           <PixStep
             pixCode={pixCode}
             amount={couponApplied ? amount - couponApplied.discount : amount}
+            onCheckPayment={checkPaymentNow}
           />
         ) : step === "pix" && !pixCode ? (
           <div className="flex flex-col items-center gap-4 py-8">
