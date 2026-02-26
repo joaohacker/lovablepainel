@@ -435,6 +435,28 @@ const _handler = async (req: Request): Promise<Response> => {
         );
       }
 
+      // SECURITY: Block frontend from setting terminal statuses on running generations with earned credits
+      if (status && ["cancelled", "expired", "error"].includes(status)) {
+        const { data: currentGenCheck } = await supabase
+          .from("generations")
+          .select("status, credits_earned")
+          .eq("farm_id", farmId)
+          .maybeSingle();
+
+        if (currentGenCheck && currentGenCheck.status === "running") {
+          return new Response(
+            JSON.stringify({ success: false, error: "Não é possível cancelar geração em execução pelo frontend" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (currentGenCheck && (currentGenCheck.credits_earned ?? 0) > 0) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Geração já recebeu créditos, cancelamento bloqueado" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
       const updateData: Record<string, unknown> = {};
       if (status) updateData.status = status;
       if (master_email !== undefined && typeof master_email === "string" && master_email.length <= 200) updateData.master_email = master_email;
