@@ -536,8 +536,20 @@ const _handler = async (req: Request): Promise<Response> => {
         }
         
         if (!["completed", "error", "expired", "cancelled"].includes(upstreamStatus)) {
+          // SECURITY: Never decrease credits_earned — only increase or keep same
+          const { data: currentGenForSync } = await supabase
+            .from("generations")
+            .select("credits_earned, credits_requested")
+            .eq("farm_id", farmId)
+            .is("settled_at", null)
+            .maybeSingle();
+
+          const safeCreditsEarned = currentGenForSync
+            ? Math.min(Math.max(creditsEarned, currentGenForSync.credits_earned ?? 0), currentGenForSync.credits_requested)
+            : creditsEarned;
+
           const updatePayload: Record<string, unknown> = {
-            credits_earned: creditsEarned,
+            credits_earned: safeCreditsEarned,
           };
           if (dbStatus && ["running", "waiting_invite", "queued", "error", "expired", "cancelled"].includes(dbStatus)) {
             updatePayload.status = dbStatus;

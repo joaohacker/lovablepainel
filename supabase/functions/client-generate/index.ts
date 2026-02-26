@@ -238,6 +238,32 @@ const _handler = async (req: Request): Promise<Response> => {
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+
+        // SECURITY: Block frontend from setting terminal statuses on running generations
+        // This prevents the exploit where client cancels a running generation to trigger refund
+        if (["cancelled", "expired", "error"].includes(status)) {
+          const { data: currentGen } = await supabase
+            .from("generations")
+            .select("status, credits_earned")
+            .eq("farm_id", farmId)
+            .eq("client_token_id", clientToken.id)
+            .maybeSingle();
+
+          if (currentGen && currentGen.status === "running") {
+            return new Response(
+              JSON.stringify({ error: "Não é possível cancelar geração em execução pelo frontend" }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          // Also block if credits were already earned (partial delivery)
+          if (currentGen && (currentGen.credits_earned ?? 0) > 0) {
+            return new Response(
+              JSON.stringify({ error: "Geração já recebeu créditos, cancelamento bloqueado" }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+
         updateData.status = status;
       }
 
@@ -284,7 +310,66 @@ const _handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      const earned = gen.credits_earned ?? 0;
+      // SECURITY: Block refund if generation is running or completed — only pre-running statuses can be refunded
+      if (["running", "completed"].includes(gen.status)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Geração em andamento ou concluída, reembolso não permitido" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // SECURITY: Only allow refund for pre-running statuses
+      if (!["waiting_invite", "queued", "creating", "expired", "cancelled", "error"].includes(gen.status)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Status inválido para reembolso" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // SECURITY: Verify with upstream API if farm actually completed before refunding
+      let upstreamEarned = 0;
+      const FARM_API_KEY_CHECK = Deno.env.get("FARM_API_KEY");
+      if (FARM_API_KEY_CHECK && !farmId.startsWith("queued-")) {
+        try {
+          const statusRes = await fetch(`${API_BASE}/farm/status/${farmId}`, {
+            headers: { "x-api-key": FARM_API_KEY_CHECK },
+          });
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            // If upstream says completed or running with credits, block refund
+            if (statusData.status === "completed" || statusData.status === "running") {
+              let realCredits = statusData.creditsEarned ?? statusData.result?.credits ?? 0;
+              if (realCredits === 0 && Array.isArray(statusData.logs)) {
+                for (const log of statusData.logs) {
+                  if (log.type === "credit") {
+                    const match = log.message?.match(/^\+(\d+)\s/);
+                    if (match) realCredits += parseInt(match[1], 10);
+                  }
+                }
+              }
+              upstreamEarned = realCredits;
+              if (statusData.status === "completed" || statusData.status === "running") {
+                // Sync credits_earned to DB before deciding refund
+                const capCredits = gen.credits_requested;
+                const syncedEarned = Math.min(Math.max(realCredits, gen.credits_earned ?? 0), capCredits);
+                await supabase.from("generations").update({ credits_earned: syncedEarned }).eq("id", gen.id);
+                gen.credits_earned = syncedEarned;
+
+                if (statusData.status === "completed" || syncedEarned >= capCredits) {
+                  return new Response(
+                    JSON.stringify({ success: false, error: "Geração já concluída na API, reembolso bloqueado" }),
+                    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                  );
+                }
+              }
+            }
+          }
+        } catch {
+          // API unreachable — proceed with DB data only for pre-running statuses
+        }
+      }
+
+      const earned = Math.max(gen.credits_earned ?? 0, upstreamEarned);
       const requested = gen.credits_requested;
       const refundCredits = requested - earned;
 
