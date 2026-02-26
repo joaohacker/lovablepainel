@@ -1,13 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { verifyBrPixPayment, extractBrPixAmount } from "../_shared/brpix-helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const BRPIX_BASE = "https://finance.brpixpayments.com/api";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -112,30 +111,26 @@ serve(async (req) => {
     }
 
     try {
-      const verifyRes = await fetch(`${BRPIX_BASE}/payments/${order.transaction_id}`, {
-        headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
-      });
+      const verification = await verifyBrPixPayment(order.transaction_id, BRPIX_API_KEY);
 
-      if (!verifyRes.ok) {
-        console.log(`[check-order-status] BrPix API error: HTTP ${verifyRes.status}`);
+      if (verification.error) {
+        console.log(`[check-order-status] BrPix API error: ${verification.error}`);
         return new Response(JSON.stringify({ status: "pending" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const verifyData = await verifyRes.json();
-      const paymentStatus = verifyData.data?.status || verifyData.status;
-      const isPaidBoolean = verifyData.paid === true || verifyData.data?.paid === true;
-      const hasPaidAt = !!(verifyData.paid_at || verifyData.data?.paid_at);
+      // Log full response for debugging
+      console.log(`[check-order-status] Order ${order_id}: paid=${verification.paid}, amount=${verification.amount}, raw=${JSON.stringify(verification.rawData).substring(0, 500)}`);
 
-      if (!isPaidBoolean && !hasPaidAt && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
+      if (!verification.paid) {
         return new Response(JSON.stringify({ status: "pending" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       // SECURITY: Verify paid amount matches expected amount
-      const paidAmount = Number(verifyData.data?.amount || verifyData.amount || 0);
+      const paidAmount = verification.amount;
       const expectedAmount = Number(order.amount) - Number(order.discount_amount || 0);
       if (paidAmount > 0 && Math.abs(paidAmount - expectedAmount) > 0.50) {
         console.error(`[check-order-status] AMOUNT MISMATCH! Paid: ${paidAmount}, Expected: ${expectedAmount}, Order: ${order_id}`);
