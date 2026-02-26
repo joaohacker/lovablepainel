@@ -336,6 +336,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "public_products"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_token_id_fkey"
             columns: ["token_id"]
             isOneToOne: false
@@ -715,7 +722,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_products: {
+        Row: {
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          name: string | null
+          price: number | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          price?: number | null
+        }
+        Update: {
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          name?: string | null
+          price?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       auto_refund_cron: { Args: never; Returns: undefined }

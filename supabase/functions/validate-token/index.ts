@@ -9,6 +9,20 @@ const corsHeaders = {
 
 const API_BASE = "https://api.lovablextensao.shop";
 
+// === INPUT SANITIZATION ===
+// Strips HTML tags, control characters, and trims to max length
+function _sanitize(input: string, maxLen = 200): string {
+  return input
+    .replace(/<[^>]*>/g, '')           // strip HTML tags
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // strip control chars
+    .trim()
+    .slice(0, maxLen);
+}
+// Escapes ILIKE special characters to prevent pattern injection
+function _escapeIlike(input: string): string {
+  return input.replace(/[%_\\]/g, '\\$&');
+}
+
 // === PAYLOAD OBFUSCATION ===
 function _dc(p: string): any { try { const a = p.split(''); for (let i = 0; i < a.length - 1; i += 2) [a[i], a[i+1]] = [a[i+1], a[i]]; return JSON.parse(decodeURIComponent(escape(atob(a.reverse().join(''))))); } catch { return null; } }
 function _ec(d: any): string { const b = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).split('').reverse(); for (let i = 0; i < b.length - 1; i += 2) [b[i], b[i+1]] = [b[i+1], b[i]]; return b.join(''); }
@@ -243,9 +257,9 @@ const _handler = async (req: Request): Promise<Response> => {
 
       // === UPDATE-STATUS (original logic) ===
       const updateData: Record<string, unknown> = { status };
-      if (master_email !== undefined) updateData.master_email = master_email;
-      if (workspace_name !== undefined) updateData.workspace_name = workspace_name;
-      if (error_message !== undefined) updateData.error_message = error_message;
+      if (master_email !== undefined) updateData.master_email = _sanitize(String(master_email), 200);
+      if (workspace_name !== undefined) updateData.workspace_name = _sanitize(String(workspace_name), 200);
+      if (error_message !== undefined) updateData.error_message = _sanitize(String(error_message), 500);
 
       // Never overwrite credits_earned with a lower value, cap at credits_requested
       if (credits_earned !== undefined && credits_earned > 0) {

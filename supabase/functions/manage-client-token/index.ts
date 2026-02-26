@@ -78,8 +78,9 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (search) {
-        query = query.ilike("token", `%${search}%`);
+      if (search && typeof search === "string") {
+        const escapedSearch = search.replace(/[%_\\]/g, '\\$&').slice(0, 100);
+        query = query.ilike("token", `%${escapedSearch}%`);
       }
 
       if (filter === "active") {

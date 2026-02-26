@@ -133,8 +133,8 @@ const _handler = async (req: Request): Promise<Response> => {
         );
       }
 
-      // Validate username
-      const trimmedUsername = (username || "").trim();
+      // Validate and sanitize username
+      const trimmedUsername = (username || "").replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, 50);
       if (!trimmedUsername || trimmedUsername.length < 2) {
         return new Response(
           JSON.stringify({ success: false, error: "Nome de usuário deve ter pelo menos 2 caracteres" }),
