@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
@@ -14,6 +14,12 @@ import Plans from "./pages/Plans";
 import { LunaChat } from "./components/public/LunaChat";
 
 const queryClient = new QueryClient();
+
+function ConditionalLunaChat() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/tokenclientes")) return null;
+  return <LunaChat />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -32,7 +38,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <LunaChat />
+        <ConditionalLunaChat />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
