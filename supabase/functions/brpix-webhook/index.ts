@@ -181,23 +181,34 @@ serve(async (req) => {
             .maybeSingle();
 
           if (referral && !referral.commission_paid) {
-            const commission = Math.round(Number(order.amount) * 0.10 * 100) / 100; // 10%
-            if (commission > 0) {
-              const refId = `referral_${referral.id}_${order.id}`;
-              const { data: creditResult } = await supabase.rpc("credit_wallet", {
-                p_user_id: referral.referrer_id,
-                p_amount: commission,
-                p_description: `Comissão de indicação (10% de R$${Number(order.amount).toFixed(2)})`,
-                p_reference_id: refId,
-              });
+            // Atomic update to prevent race condition: only pay if commission_paid is still false
+            const { data: lockResult, error: lockError } = await supabase
+              .from("referrals")
+              .update({ commission_paid: true })
+              .eq("id", referral.id)
+              .eq("commission_paid", false)
+              .select("id");
 
-              if (creditResult?.success && !creditResult?.already_credited) {
-                // Mark commission as paid
-                await supabase
-                  .from("referrals")
-                  .update({ commission_paid: true, commission_amount: commission })
-                  .eq("id", referral.id);
-                console.log(`[brpix-webhook] Referral commission: R$${commission} credited to ${referral.referrer_id}`);
+            // If no rows updated, another webhook already paid the commission
+            if (!lockError && lockResult && lockResult.length > 0) {
+              const commission = Math.round(Number(order.amount) * 0.10 * 100) / 100; // 10%
+              if (commission > 0) {
+                const refId = `referral_${referral.id}_${order.id}`;
+                const { data: creditResult } = await supabase.rpc("credit_wallet", {
+                  p_user_id: referral.referrer_id,
+                  p_amount: commission,
+                  p_description: `Comissão de indicação (10% de R$${Number(order.amount).toFixed(2)})`,
+                  p_reference_id: refId,
+                });
+
+                if (creditResult?.success && !creditResult?.already_credited) {
+                  // Update commission amount
+                  await supabase
+                    .from("referrals")
+                    .update({ commission_amount: commission })
+                    .eq("id", referral.id);
+                  console.log(`[brpix-webhook] Referral commission: R$${commission} credited to ${referral.referrer_id}`);
+                }
               }
             }
           }
