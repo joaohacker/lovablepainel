@@ -78,17 +78,20 @@ export function BrandingSettings({ userId }: BrandingSettingsProps) {
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from("brand-logos").getPublicUrl(filePath);
-      // Save clean URL without cache buster — add buster only at display time
-      setLogoUrl(urlData.publicUrl);
+      // Add cache buster so browser fetches the new version
+      setLogoUrl(`${urlData.publicUrl}?t=${Date.now()}`);
     } catch (err: any) {
       toast({ title: "Erro no upload", description: err.message, variant: "destructive" });
     } finally {
       setUploading(false);
+      // Reset file input so re-selecting the same file triggers onChange
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const removeLogo = () => {
     setLogoUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
 
