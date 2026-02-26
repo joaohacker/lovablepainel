@@ -772,10 +772,16 @@ export type Database = {
           r_user_id: string
         }[]
       }
-      refund_client_token_credits: {
-        Args: { p_credits: number; p_token_id: string }
-        Returns: Json
-      }
+      refund_client_token_credits:
+        | { Args: { p_credits: number; p_token_id: string }; Returns: Json }
+        | {
+            Args: {
+              p_credits: number
+              p_reference_id?: string
+              p_token_id: string
+            }
+            Returns: Json
+          }
       reserve_credits: {
         Args: {
           p_client_ip?: string
