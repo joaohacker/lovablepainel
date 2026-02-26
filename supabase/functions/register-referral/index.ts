@@ -37,7 +37,9 @@ serve(async (req) => {
 
     const { referrer_id } = await req.json();
 
-    if (!referrer_id || typeof referrer_id !== "string") {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!referrer_id || typeof referrer_id !== "string" || !uuidRegex.test(referrer_id)) {
       return new Response(JSON.stringify({ error: "ID de indicação inválido" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
