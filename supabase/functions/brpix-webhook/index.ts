@@ -15,20 +15,23 @@ serve(async (req) => {
 
   // SECURITY: Validate webhook secret to prevent forged calls
   const WEBHOOK_SECRET = Deno.env.get("BRPIX_WEBHOOK_SECRET");
-  if (WEBHOOK_SECRET) {
-    const incomingSecret =
-      req.headers.get("x-webhook-secret") ||
-      req.headers.get("authorization")?.replace("Bearer ", "") ||
-      new URL(req.url).searchParams.get("secret");
+  if (!WEBHOOK_SECRET) {
+    console.error("[brpix-webhook] REJECTED: BRPIX_WEBHOOK_SECRET not configured");
+    return new Response(JSON.stringify({ error: "Service unavailable" }), {
+      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
-    if (incomingSecret !== WEBHOOK_SECRET) {
-      console.error("[brpix-webhook] REJECTED: Invalid or missing webhook secret");
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  } else {
-    console.warn("[brpix-webhook] WARNING: BRPIX_WEBHOOK_SECRET not configured — webhook is unprotected!");
+  const incomingSecret =
+    req.headers.get("x-webhook-secret") ||
+    req.headers.get("authorization")?.replace("Bearer ", "") ||
+    new URL(req.url).searchParams.get("secret");
+
+  if (incomingSecret !== WEBHOOK_SECRET) {
+    console.error("[brpix-webhook] REJECTED: Invalid or missing webhook secret");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
