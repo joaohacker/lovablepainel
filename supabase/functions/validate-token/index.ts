@@ -219,6 +219,28 @@ const _handler = async (req: Request): Promise<Response> => {
           }
         }
 
+        // SECURITY: Atomically mark as settled first to prevent double-refund
+        const { data: settledGen } = await supabase
+          .from("generations")
+          .update({
+            status: "expired",
+            settled_at: new Date().toISOString(),
+            error_message: "Expirou sem detectar workspace - créditos reembolsados",
+          })
+          .eq("farm_id", farmId)
+          .eq("user_id", user.id)
+          .is("settled_at", null)
+          .select("id")
+          .maybeSingle();
+
+        if (!settledGen) {
+          // Already settled by another process — no double refund
+          return new Response(
+            JSON.stringify({ success: true, refunded: 0, credits: creditos, already_settled: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         if (refundAmount > 0) {
           await supabase.rpc("credit_wallet", {
             p_user_id: user.id,
@@ -227,13 +249,6 @@ const _handler = async (req: Request): Promise<Response> => {
             p_reference_id: farmId,
           });
         }
-
-        // Mark generation as expired
-        await supabase
-          .from("generations")
-          .update({ status: "expired", error_message: "Expirou sem detectar workspace - créditos reembolsados" })
-          .eq("farm_id", farmId)
-          .eq("user_id", user.id);
 
         console.log(`[refund-expired] Refunded R$${refundAmount} for ${creditos} credits, farmId=${farmId}, userId=${user.id}`);
 
