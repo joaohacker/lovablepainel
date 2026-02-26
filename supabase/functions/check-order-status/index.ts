@@ -35,15 +35,15 @@ serve(async (req) => {
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       try {
-        // SECURITY FIX: Use proper Supabase auth verification instead of manual JWT decode
-        // Manual decode without signature verification allows forged JWTs when verify_jwt=false
+        // Use getClaims for signing-keys compatibility
         const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
         const userClient = createClient(supabaseUrl, anonKey, {
           global: { headers: { Authorization: authHeader } },
         });
-        const { data: { user }, error: authError } = await userClient.auth.getUser();
-        if (!authError && user) {
-          userId = user.id;
+        const token = authHeader.replace("Bearer ", "");
+        const { data: claimsData, error: authError } = await userClient.auth.getClaims(token);
+        if (!authError && claimsData?.claims) {
+          userId = claimsData.claims.sub as string;
 
           // SECURITY: Check if user is banned
           const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
