@@ -118,7 +118,7 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`[reconcile] Order ${order.id} is PAID on BrPix (status: ${paymentStatus}). Processing...`);
+        console.log(`[reconcile] Order ${order.id} is PAID on BrPix. Processing...`);
 
         // === DEPOSIT FLOW ===
         if (order.order_type === "deposit") {
