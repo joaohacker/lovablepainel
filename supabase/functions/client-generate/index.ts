@@ -59,6 +59,11 @@ async function getQueuePosition(supabase: ReturnType<typeof createClient>, gener
   return (count || 0) + 1;
 }
 
+// === INPUT SANITIZATION ===
+function _sanitize(input: string, maxLen = 200): string {
+  return input.replace(/<[^>]*>/g, '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').trim().slice(0, maxLen);
+}
+
 // === PAYLOAD OBFUSCATION ===
 function _dc(p: string): any { try { const a = p.split(''); for (let i = 0; i < a.length - 1; i += 2) [a[i], a[i+1]] = [a[i+1], a[i]]; return JSON.parse(decodeURIComponent(escape(atob(a.reverse().join(''))))); } catch { return null; } }
 function _ec(d: any): string { const b = btoa(unescape(encodeURIComponent(JSON.stringify(d)))).split('').reverse(); for (let i = 0; i < b.length - 1; i += 2) [b[i], b[i+1]] = [b[i+1], b[i]]; return b.join(''); }
@@ -267,8 +272,8 @@ const _handler = async (req: Request): Promise<Response> => {
         updateData.status = status;
       }
 
-      if (workspaceName && typeof workspaceName === "string" && workspaceName.length <= 200) {
-        updateData.workspace_name = workspaceName;
+      if (workspaceName && typeof workspaceName === "string") {
+        updateData.workspace_name = _sanitize(workspaceName, 200);
       }
 
       updateData.updated_at = new Date().toISOString();
