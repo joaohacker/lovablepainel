@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, LogOut, Key, Activity } from "lucide-react";
+import { Loader2, LogOut, Key, Activity, ShieldAlert } from "lucide-react";
 import { TokenManager } from "@/components/admin/TokenManager";
 import { LiveDashboard } from "@/components/admin/LiveDashboard";
 import { StockMonitor } from "@/components/admin/StockMonitor";
+import { SecurityDashboard } from "@/components/admin/SecurityDashboard";
 
 const Admin = () => {
   const { user, loading, isAdmin, signOut } = useAuth();
@@ -67,6 +68,10 @@ const Admin = () => {
               <Activity className="h-4 w-4" />
               Ao Vivo
             </TabsTrigger>
+            <TabsTrigger value="security" className="gap-2">
+              <ShieldAlert className="h-4 w-4" />
+              Segurança
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="tokens">
@@ -75,6 +80,10 @@ const Admin = () => {
 
           <TabsContent value="live">
             <LiveDashboard />
+          </TabsContent>
+
+          <TabsContent value="security">
+            <SecurityDashboard />
           </TabsContent>
         </Tabs>
       </main>
