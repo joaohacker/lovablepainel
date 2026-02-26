@@ -88,7 +88,7 @@ const _handler = async (req: Request): Promise<Response> => {
       p_user_id: "00000000-0000-0000-0000-000000000000",
       p_ip: clientIp,
       p_endpoint: "validate-token",
-      p_max_requests: 30,
+      p_max_requests: 60,
       p_window_seconds: 60,
     });
     if (rateCheck && !rateCheck.allowed) {
