@@ -51,6 +51,21 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting — 3 announcements per 10 minutes
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_ip: clientIp,
+      p_endpoint: "send-announcement",
+      p_max_requests: 3,
+      p_window_seconds: 600,
+    });
+    if (rateCheck && !rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Aguarde." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const skip = body.skip || 0; // Skip first N users (already sent)
 
