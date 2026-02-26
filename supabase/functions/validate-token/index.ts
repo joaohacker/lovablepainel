@@ -32,25 +32,8 @@ const _handler = async (req: Request): Promise<Response> => {
     // Tokens allowed to bypass maintenance (for testing) - loaded from env
     const MAINTENANCE_BYPASS_TOKENS: string[] = (Deno.env.get("MAINTENANCE_BYPASS_TOKENS") || "").split(",").filter(Boolean);
     // Tokens that should NOT show "painel por demanda" info in maintenance banner
-    const HIDE_DEMAND_INFO_TOKENS: string[] = [
-      "98a1475498ba92e7c793344107724ff0",
-      "766d4a700eacb309c910c49ef2d83578",
-      "90de293513871b0f3d08e37f9d92e319",
-      "b94c20155a0c901fa97b933170cc8e6a",
-      "afdbb6cf98ea8deaa061973b6b8635d3",
-      "a89687d9613d9d6c1618173d24eb16db",
-      "b23ef4b1cdcf30174239cf2b3797119c",
-      "da09135be5f0bf05f81061e464823292",
-      "da9d15e0f9872633b7d282c16aed8796",
-      "9f0e233043e9cdf1ac6a3c872e34e7aa",
-      "679116352361fe8442f76f2dc32c6408",
-      "97c1bcfce9def3df3221bcbd832e7ce0",
-      "f6585ba8d34adb1979be0f5a8daaeb68",
-      "d92549d1a974eec03558fcf24366c6fa",
-      "64ef08ce5ca30a10aa12d91944d02274",
-      "1aa9c3cf7f720161df8e2e6c59289a82",
-      "c0046c7b89589c2b39d8fecf3bc749e1",
-    ];
+    // Loaded from env var for security (no hardcoded tokens in source)
+    const HIDE_DEMAND_INFO_TOKENS: string[] = (Deno.env.get("HIDE_DEMAND_INFO_TOKENS") || "").split(",").filter(Boolean);
     // ============================
 
     // ===== NIGHT MODE (BRT 00:00 - 07:00) =====
