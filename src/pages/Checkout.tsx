@@ -15,6 +15,7 @@ import {
   Zap,
   Star,
   CreditCard,
+  RefreshCw,
 } from "lucide-react";
 import lovableHeart from "@/assets/lovable-heart.png";
 import { toast } from "sonner";
@@ -63,33 +64,36 @@ const Checkout = () => {
     loadProduct();
   }, [productId]);
 
+  // Manual check triggered by "Já fiz o pagamento"
+  const checkPaymentNow = async () => {
+    if (!orderId) return;
+    const { data: order } = await supabase
+      .from("orders")
+      .select("status, token_id")
+      .eq("id", orderId)
+      .single();
+
+    if (order?.status === "paid" && order.token_id) {
+      const { data: token } = await supabase
+        .from("tokens")
+        .select("token")
+        .eq("id", order.token_id)
+        .single();
+
+      if (token) {
+        setTokenValue(token.token);
+      }
+      setStep("success");
+      setPolling(false);
+    }
+  };
+
   // Poll for payment confirmation
   useEffect(() => {
     if (step !== "pix" || !orderId) return;
 
     setPolling(true);
-    const interval = setInterval(async () => {
-      const { data: order } = await supabase
-        .from("orders")
-        .select("status, token_id")
-        .eq("id", orderId)
-        .single();
-
-      if (order?.status === "paid" && order.token_id) {
-        const { data: token } = await supabase
-          .from("tokens")
-          .select("token")
-          .eq("id", order.token_id)
-          .single();
-
-        if (token) {
-          setTokenValue(token.token);
-        }
-        setStep("success");
-        setPolling(false);
-        clearInterval(interval);
-      }
-    }, 5000);
+    const interval = setInterval(checkPaymentNow, 5000);
 
     return () => {
       clearInterval(interval);
@@ -347,6 +351,16 @@ const Checkout = () => {
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 Aguardando confirmação do pagamento...
               </div>
+
+              <Button
+                onClick={checkPaymentNow}
+                variant="outline"
+                size="lg"
+                className="w-full gap-2 font-semibold border-primary/30 hover:bg-primary/10"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Já fiz o pagamento
+              </Button>
 
               {expiresAt && (
                 <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
