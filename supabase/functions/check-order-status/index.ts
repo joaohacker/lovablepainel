@@ -18,35 +18,51 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
-    // SECURITY: Require authentication
+    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const body = await req.json();
+    const { order_id, customer_email } = body;
+
+    if (!order_id || typeof order_id !== "string" || order_id.length > 50) {
+      return new Response(JSON.stringify({ error: "Missing order_id" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Determine if authenticated or public checkout
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Auth required" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let userId: string | null = null;
+    let isPublicCheckout = false;
+
+    if (authHeader) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
       });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (user) {
+        userId = user.id;
+
+        // SECURITY: Check if user is banned
+        const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
+        if (isBanned) {
+          return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
     }
 
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Invalid user" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // SECURITY: Check if user is banned
-    const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
-    if (isBanned) {
-      return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!userId) {
+      // Public checkout mode: require customer_email for ownership verification
+      if (!customer_email || typeof customer_email !== "string" || customer_email.length > 200) {
+        return new Response(JSON.stringify({ error: "Auth or email required" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      isPublicCheckout = true;
     }
 
     // SECURITY: Check if IP is banned
-    const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
     if (isIpBanned) {
       return new Response(JSON.stringify({ error: "⛔ Acesso bloqueado." }), {
@@ -54,16 +70,10 @@ serve(async (req) => {
       });
     }
 
-    const { order_id } = await req.json();
-    if (!order_id || typeof order_id !== "string" || order_id.length > 50) {
-      return new Response(JSON.stringify({ error: "Missing order_id" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // SECURITY: Rate limiting — 30 requests per 60 seconds
+    const rateLimitId = userId || `anon_${clientIp}`;
     const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
-      p_user_id: user.id,
+      p_user_id: rateLimitId,
       p_ip: clientIp,
       p_endpoint: "check-order-status",
       p_max_requests: 30,
@@ -75,13 +85,19 @@ serve(async (req) => {
       });
     }
 
-    // Get order from DB — SECURITY: must belong to the authenticated user
-    const { data: order, error } = await supabase
+    // Get order from DB — SECURITY: ownership verified by user_id or email
+    let orderQuery = supabase
       .from("orders")
-      .select("status, transaction_id, amount, user_id, order_type, coupon_id, discount_amount")
-      .eq("id", order_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .select("status, transaction_id, amount, user_id, order_type, coupon_id, discount_amount, token_id")
+      .eq("id", order_id);
+
+    if (isPublicCheckout) {
+      orderQuery = orderQuery.eq("customer_email", customer_email).is("user_id", null);
+    } else {
+      orderQuery = orderQuery.eq("user_id", userId!);
+    }
+
+    const { data: order, error } = await orderQuery.maybeSingle();
 
     if (error || !order) {
       return new Response(JSON.stringify({ status: "not_found" }), {
@@ -89,9 +105,17 @@ serve(async (req) => {
       });
     }
 
+    // Helper: resolve token value from token_id for public checkout responses
+    const resolveTokenValue = async (tokenId: string | null) => {
+      if (!tokenId || !isPublicCheckout) return undefined;
+      const { data: t } = await supabase.from("tokens").select("token").eq("id", tokenId).maybeSingle();
+      return t?.token || undefined;
+    };
+
     // If already paid, return immediately
     if (order.status !== "pending") {
-      return new Response(JSON.stringify({ status: order.status }), {
+      const tv = await resolveTokenValue(order.token_id);
+      return new Response(JSON.stringify({ status: order.status, ...(tv ? { token_value: tv } : {}) }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -120,7 +144,6 @@ serve(async (req) => {
         });
       }
 
-      // Log full response for debugging
       console.log(`[check-order-status] Order ${order_id}: paid=${verification.paid}, amount=${verification.amount}, raw=${JSON.stringify(verification.rawData).substring(0, 500)}`);
 
       if (!verification.paid) {
@@ -135,7 +158,7 @@ serve(async (req) => {
       if (paidAmount > 0 && Math.abs(paidAmount - expectedAmount) > 0.50) {
         console.error(`[check-order-status] AMOUNT MISMATCH! Paid: ${paidAmount}, Expected: ${expectedAmount}, Order: ${order_id}`);
         await supabase.from("fraud_attempts").insert({
-          user_id: user.id,
+          user_id: userId,
           ip_address: clientIp,
           action: "amount_mismatch",
           details: { order_id, paid: paidAmount, expected: expectedAmount },
@@ -179,17 +202,15 @@ serve(async (req) => {
 
       if (updateError || !updated) {
         console.log(`[check-order-status] Order ${order_id} already processed`);
-        return new Response(JSON.stringify({ status: "paid" }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
       }
 
       // Increment coupon usage only when we transitioned pending -> paid
-      if (order.coupon_id) {
+      if (updated && order.coupon_id) {
         await supabase.rpc("increment_coupon_usage", { p_coupon_id: order.coupon_id }).catch(() => {});
       }
 
-      return new Response(JSON.stringify({ status: "paid" }), {
+      const tv = await resolveTokenValue(order.token_id);
+      return new Response(JSON.stringify({ status: "paid", ...(tv ? { token_value: tv } : {}) }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (verifyErr) {

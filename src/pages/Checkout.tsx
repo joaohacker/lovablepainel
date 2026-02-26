@@ -67,24 +67,27 @@ const Checkout = () => {
   // Manual check triggered by "Já fiz o pagamento"
   const checkPaymentNow = async () => {
     if (!orderId) return;
-    const { data: order } = await supabase
-      .from("orders")
-      .select("status, token_id")
-      .eq("id", orderId)
-      .single();
+    try {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/check-order-status`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ order_id: orderId, customer_email: email }),
+      });
+      const data = await res.json();
 
-    if (order?.status === "paid" && order.token_id) {
-      const { data: token } = await supabase
-        .from("tokens")
-        .select("token")
-        .eq("id", order.token_id)
-        .single();
-
-      if (token) {
-        setTokenValue(token.token);
+      if (data?.status === "paid") {
+        if (data.token_value) {
+          setTokenValue(data.token_value);
+        }
+        setStep("success");
+        setPolling(false);
       }
-      setStep("success");
-      setPolling(false);
+    } catch {
+      // Silently fail — will retry on next poll
     }
   };
 
