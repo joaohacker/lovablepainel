@@ -170,6 +170,43 @@ serve(async (req) => {
         });
       }
 
+      // ======= REFERRAL COMMISSION (10% on FIRST deposit only) =======
+      if (order.user_id && updatedRows && updatedRows.length > 0) {
+        try {
+          // Check if this user was referred
+          const { data: referral } = await supabase
+            .from("referrals")
+            .select("id, referrer_id, commission_paid")
+            .eq("referred_id", order.user_id)
+            .maybeSingle();
+
+          if (referral && !referral.commission_paid) {
+            const commission = Math.round(Number(order.amount) * 0.10 * 100) / 100; // 10%
+            if (commission > 0) {
+              const refId = `referral_${referral.id}_${order.id}`;
+              const { data: creditResult } = await supabase.rpc("credit_wallet", {
+                p_user_id: referral.referrer_id,
+                p_amount: commission,
+                p_description: `Comissão de indicação (10% de R$${Number(order.amount).toFixed(2)})`,
+                p_reference_id: refId,
+              });
+
+              if (creditResult?.success && !creditResult?.already_credited) {
+                // Mark commission as paid
+                await supabase
+                  .from("referrals")
+                  .update({ commission_paid: true, commission_amount: commission })
+                  .eq("id", referral.id);
+                console.log(`[brpix-webhook] Referral commission: R$${commission} credited to ${referral.referrer_id}`);
+              }
+            }
+          }
+        } catch (refErr) {
+          // Don't fail the whole webhook for referral errors
+          console.error("[brpix-webhook] Referral commission error:", refErr);
+        }
+      }
+
       return new Response(JSON.stringify({ ok: true, type: "deposit" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

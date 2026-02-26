@@ -42,6 +42,15 @@ export function useAuth() {
           setIsAdmin(admin);
           adminCheckDone.current = true;
         }
+
+        // Register referral if ref was stored
+        const referrerId = sessionStorage.getItem("referrer_id");
+        if (referrerId && referrerId !== s.user.id) {
+          sessionStorage.removeItem("referrer_id");
+          supabase.functions.invoke("register-referral", {
+            body: { referrer_id: referrerId },
+          }).catch(() => {});
+        }
       } else {
         setIsAdmin(false);
         adminCheckDone.current = true;
