@@ -74,11 +74,13 @@ const Landing = () => {
 
   useEffect(() => {
     document.documentElement.classList.add("dark");
-    // Capture ref param for tracking
+    // Capture ref param for referral system
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
     if (ref) {
       sessionStorage.setItem("traffic_source", ref.toLowerCase());
+      // Store referrer ID for registration
+      sessionStorage.setItem("referrer_id", ref);
     }
   }, []);
 

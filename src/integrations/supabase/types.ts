@@ -440,6 +440,33 @@ export type Database = {
         }
         Relationships: []
       }
+      referrals: {
+        Row: {
+          commission_amount: number | null
+          commission_paid: boolean
+          created_at: string
+          id: string
+          referred_id: string
+          referrer_id: string
+        }
+        Insert: {
+          commission_amount?: number | null
+          commission_paid?: boolean
+          created_at?: string
+          id?: string
+          referred_id: string
+          referrer_id: string
+        }
+        Update: {
+          commission_amount?: number | null
+          commission_paid?: boolean
+          created_at?: string
+          id?: string
+          referred_id?: string
+          referrer_id?: string
+        }
+        Relationships: []
+      }
       refund_locks: {
         Row: {
           debit_transaction_id: string
