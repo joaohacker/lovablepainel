@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { verifyBrPixPayment } from "../_shared/brpix-helpers.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,23 +66,24 @@ serve(async (req) => {
       });
     }
 
-    const verifyRes = await fetch(`https://finance.brpixpayments.com/api/payments/${transactionId}`, {
-      headers: { "Authorization": `Bearer ${BRPIX_API_KEY}` },
-    });
-    const verifyData = await verifyRes.json();
-    console.log(`[brpix-webhook] BrPix verify status:`, verifyData.data?.status || verifyData.status);
+    const verification = await verifyBrPixPayment(transactionId, BRPIX_API_KEY);
+    
+    if (verification.error) {
+      console.error(`[brpix-webhook] BrPix verify error: ${verification.error}`);
+      return new Response(JSON.stringify({ error: "Payment verification failed" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const paymentStatus = verifyData.data?.status || verifyData.status;
-    const isPaid = verifyData.paid === true || verifyData.data?.paid === true;
-    const hasPaidAt = !!(verifyData.paid_at || verifyData.data?.paid_at);
+    console.log(`[brpix-webhook] BrPix verify: paid=${verification.paid}, amount=${verification.amount}, raw=${JSON.stringify(verification.rawData).substring(0, 500)}`);
 
-    if (!isPaid && !hasPaidAt && paymentStatus !== "paid" && paymentStatus !== "completed" && paymentStatus !== "approved") {
-      console.error(`[brpix-webhook] Payment NOT confirmed. Status: ${paymentStatus} — rejecting`);
+    if (!verification.paid) {
+      console.error(`[brpix-webhook] Payment NOT confirmed — rejecting`);
       return new Response(JSON.stringify({ error: "Payment not confirmed by provider" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    console.log(`[brpix-webhook] ✓ Payment verified (status: ${paymentStatus})`);
+    console.log(`[brpix-webhook] ✓ Payment verified`);
 
     // Find the pending order
     const { data: order, error: orderError } = await supabase
@@ -106,7 +108,7 @@ serve(async (req) => {
     }
 
     // SECURITY: Verify paid amount matches expected amount (order amount minus discount)
-    const paidAmount = Number(verifyData.data?.amount || verifyData.amount || 0);
+    const paidAmount = verification.amount;
     const expectedAmount = Number(order.amount) - Number(order.discount_amount || 0);
     if (paidAmount > 0 && Math.abs(paidAmount - expectedAmount) > 0.50) {
       console.error(`[brpix-webhook] AMOUNT MISMATCH! Paid: ${paidAmount}, Expected: ${expectedAmount}, Order: ${order.id}`);
