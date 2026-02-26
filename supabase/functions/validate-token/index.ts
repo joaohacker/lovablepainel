@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -150,7 +150,9 @@ const _handler = async (req: Request): Promise<Response> => {
       const userClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: { user } } = await userClient.auth.getUser();
+      const _jwt1 = authHeader.replace("Bearer ", "");
+      const { data: _claims1 } = await userClient.auth.getClaims(_jwt1);
+      const user = _claims1?.claims ? { id: _claims1.claims.sub as string, email: (_claims1.claims as any).email as string } : null;
       if (!user) {
         return new Response(
           JSON.stringify({ success: false, error: "Invalid user" }),
@@ -315,7 +317,9 @@ const _handler = async (req: Request): Promise<Response> => {
       const userClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: { user } } = await userClient.auth.getUser();
+      const _jwt2 = authHeader.replace("Bearer ", "");
+      const { data: _claims2 } = await userClient.auth.getClaims(_jwt2);
+      const user = _claims2?.claims ? { id: _claims2.claims.sub as string, email: (_claims2.claims as any).email as string } : null;
       if (!user) {
         return new Response(JSON.stringify({ success: false, error: "Invalid user" }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -406,7 +410,9 @@ const _handler = async (req: Request): Promise<Response> => {
         const userClient = createClient(supabaseUrl, anonKey, {
           global: { headers: { Authorization: authHeader } },
         });
-        const { data: { user } } = await userClient.auth.getUser();
+        const _jwt3 = authHeader.replace("Bearer ", "");
+        const { data: _claims3 } = await userClient.auth.getClaims(_jwt3);
+        const user = _claims3?.claims ? { id: _claims3.claims.sub as string, email: (_claims3.claims as any).email as string } : null;
         if (!user) {
           return new Response(
             JSON.stringify({ success: false, error: "Invalid user" }),

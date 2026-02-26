@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,7 +38,9 @@ serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user } } = await userClient.auth.getUser();
+    const _jwt = authHeader.replace("Bearer ", "");
+    const { data: _claims } = await userClient.auth.getClaims(_jwt);
+    const user = _claims?.claims ? { id: _claims.claims.sub as string, email: (_claims.claims as any).email as string } : null;
     if (!user) {
       return new Response(JSON.stringify({ error: "Usuário inválido" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
