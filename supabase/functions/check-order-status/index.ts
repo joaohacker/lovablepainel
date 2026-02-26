@@ -76,13 +76,13 @@ serve(async (req) => {
       });
     }
 
-    // SECURITY: Rate limiting — 30 requests per 60 seconds
+    // SECURITY: Rate limiting — 60 requests per 60 seconds (high because of polling)
     const rateLimitId = userId || `anon_${clientIp}`;
     const { data: rateCheck } = await supabase.rpc("check_rate_limit", {
       p_user_id: rateLimitId,
       p_ip: clientIp,
       p_endpoint: "check-order-status",
-      p_max_requests: 30,
+      p_max_requests: 60,
       p_window_seconds: 60,
     });
     if (rateCheck && !rateCheck.allowed) {
