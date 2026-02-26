@@ -35,25 +35,26 @@ serve(async (req) => {
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       try {
-        const token = authHeader.replace("Bearer ", "");
-        // Decode JWT payload to extract user ID (verification done by Supabase gateway)
-        const payloadB64 = token.split(".")[1];
-        if (payloadB64) {
-          const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
-          if (payload.sub && payload.aud === "authenticated") {
-            userId = payload.sub;
+        // SECURITY FIX: Use proper Supabase auth verification instead of manual JWT decode
+        // Manual decode without signature verification allows forged JWTs when verify_jwt=false
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+        const userClient = createClient(supabaseUrl, anonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user }, error: authError } = await userClient.auth.getUser();
+        if (!authError && user) {
+          userId = user.id;
 
-            // SECURITY: Check if user is banned
-            const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
-            if (isBanned) {
-              return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
-                status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-              });
-            }
+          // SECURITY: Check if user is banned
+          const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
+          if (isBanned) {
+            return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
+              status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
           }
         }
       } catch (authErr) {
-        console.warn("[check-order-status] Auth decode failed:", authErr);
+        console.warn("[check-order-status] Auth verification failed:", authErr);
       }
     }
 
