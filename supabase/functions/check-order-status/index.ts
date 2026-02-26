@@ -33,22 +33,27 @@ serve(async (req) => {
     let userId: string | null = null;
     let isPublicCheckout = false;
 
-    if (authHeader) {
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data: { user } } = await userClient.auth.getUser();
-      if (user) {
-        userId = user.id;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        // Decode JWT payload to extract user ID (verification done by Supabase gateway)
+        const payloadB64 = token.split(".")[1];
+        if (payloadB64) {
+          const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+          if (payload.sub && payload.aud === "authenticated") {
+            userId = payload.sub;
 
-        // SECURITY: Check if user is banned
-        const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: user.id });
-        if (isBanned) {
-          return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
-            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+            // SECURITY: Check if user is banned
+            const { data: isBanned } = await supabase.rpc("is_user_banned", { p_user_id: userId });
+            if (isBanned) {
+              return new Response(JSON.stringify({ error: "⛔ Conta suspensa." }), {
+                status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          }
         }
+      } catch (authErr) {
+        console.warn("[check-order-status] Auth decode failed:", authErr);
       }
     }
 
