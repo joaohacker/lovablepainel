@@ -143,11 +143,13 @@ serve(async (req) => {
       .single();
 
     if (tokenError) {
-      // Refund on failure
+      // Refund on failure — with reference_id for idempotency
+      const refundRef = `refund-create-token-${user.id}-${Date.now()}`;
       await serviceSupabase.rpc("credit_wallet", {
         p_user_id: user.id,
         p_amount: price,
         p_description: `Reembolso - falha ao criar link`,
+        p_reference_id: refundRef,
       });
       throw new Error(tokenError.message);
     }

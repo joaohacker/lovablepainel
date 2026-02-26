@@ -122,15 +122,14 @@ serve(async (req) => {
       }
 
       // SECURITY: Count pending orders using the same coupon to prevent concurrent abuse
-      const { data: pendingWithCoupon } = await supabase
+      const { count: pendingCouponCount } = await supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("coupon_id", coupon.id)
         .eq("status", "pending")
         .gt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
 
-      const pendingCount = pendingWithCoupon ? 1 : 0; // head query — use count header
-      const effectiveUsed = coupon.times_used + pendingCount;
+      const effectiveUsed = coupon.times_used + (pendingCouponCount || 0);
       if (coupon.max_uses !== null && effectiveUsed >= coupon.max_uses) {
         return new Response(JSON.stringify({ error: "Cupom em uso em outro pedido pendente. Aguarde ou tente sem cupom." }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },

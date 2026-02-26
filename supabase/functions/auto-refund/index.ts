@@ -7,6 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const API_BASE = "https://api.lovablextensao.shop";
+
 const TIERS = [
   { credits: 100, price: 5.36 },
   { credits: 1000, price: 37.50 },
@@ -30,6 +32,36 @@ function calcularPreco(creditos: number): number {
     }
   }
   return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
+}
+
+/**
+ * Verify actual credits earned from upstream farm API.
+ * Returns the real credits_earned count, or null if API unreachable.
+ */
+async function verifyUpstreamCredits(farmId: string, farmApiKey: string): Promise<number | null> {
+  if (farmId.startsWith("queued-")) return null;
+  try {
+    const res = await fetch(`${API_BASE}/farm/status/${farmId}`, {
+      headers: { "x-api-key": farmApiKey },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    
+    let realCredits = data.creditsEarned ?? data.result?.credits ?? 0;
+    // Also count from logs if creditsEarned is 0
+    if (realCredits === 0 && Array.isArray(data.logs)) {
+      for (const log of data.logs) {
+        if (log.type === "credit" && typeof log.message === "string") {
+          const match = log.message.match(/^\+(\d+)\s/);
+          if (match) realCredits += parseInt(match[1], 10);
+        }
+      }
+    }
+    return realCredits;
+  } catch {
+    return null;
+  }
 }
 
 // Settle a generation: mark settled, refund wallet (on-demand) or client_token credits
@@ -172,9 +204,70 @@ serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const farmApiKey = Deno.env.get("FARM_API_KEY");
 
   try {
     const results: Array<{ id: string; user_id: string | null; refund: number; credits: number; reason: string }> = [];
+
+    // ========================================================
+    // 0) RUNNING GHOSTS: verify upstream before refunding
+    // This was moved from auto_refund_cron SQL to prevent the exploit
+    // where credits are delivered but credits_earned isn't synced.
+    // ========================================================
+    if (farmApiKey) {
+      const ghostCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const ghostMaxAge = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: runningGhosts } = await supabase
+        .from("generations")
+        .select("id, farm_id, user_id, credits_requested, credits_earned, status, client_token_id")
+        .is("settled_at", null)
+        .eq("status", "running")
+        .lt("updated_at", ghostCutoff)
+        .gt("created_at", ghostMaxAge)
+        .limit(20);
+
+      if (runningGhosts && runningGhosts.length > 0) {
+        for (const gen of runningGhosts) {
+          // CRITICAL: Verify upstream API for REAL credits earned before refunding
+          const upstreamCredits = await verifyUpstreamCredits(gen.farm_id, farmApiKey);
+          
+          if (upstreamCredits !== null) {
+            // Sync the real credits_earned — never decrease, cap at requested
+            const syncedEarned = Math.min(
+              Math.max(upstreamCredits, gen.credits_earned ?? 0),
+              gen.credits_requested
+            );
+            
+            // Update DB with real credits before settling
+            await supabase.from("generations")
+              .update({ credits_earned: syncedEarned })
+              .eq("id", gen.id);
+            
+            gen.credits_earned = syncedEarned;
+            
+            console.log(`[auto-refund] Ghost ${gen.farm_id}: upstream=${upstreamCredits}, synced=${syncedEarned}/${gen.credits_requested}`);
+          } else {
+            console.log(`[auto-refund] Ghost ${gen.farm_id}: upstream unreachable, using DB credits_earned=${gen.credits_earned ?? 0}`);
+            // Log fraud attempt for auditing — API unreachable during ghost refund
+            await supabase.from("fraud_attempts").insert({
+              user_id: gen.user_id,
+              ip_address: "auto-refund",
+              action: "ghost_refund_no_upstream",
+              details: {
+                farm_id: gen.farm_id,
+                credits_requested: gen.credits_requested,
+                credits_earned_db: gen.credits_earned ?? 0,
+                reason: "Upstream API unreachable during ghost refund — using DB value",
+              },
+            }).catch(() => {});
+          }
+
+          const result = await settleGeneration(supabase, gen, "ghost_auto_cancel", "cancelled");
+          if (result) results.push(result);
+        }
+      }
+    }
 
     // ========================================================
     // 1) Auto-cancel waiting_invite stuck for > 10 minutes
