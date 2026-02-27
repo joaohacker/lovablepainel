@@ -22,7 +22,7 @@ export function ReferralSection() {
   const [copied, setCopied] = useState(false);
 
   const referralLink = user
-    ? `${window.location.origin}/?ref=${user.id}`
+    ? `https://lovablepainel.com/?ref=${user.id}`
     : "";
 
   useEffect(() => {
