@@ -155,7 +155,7 @@ export function ClientLinkManager({ userId, refreshKey }: Props) {
   };
 
   const copyLink = (token: string, id: string) => {
-    const url = `https://lovablepainel.com/tokenclientes/${token}`;
+    const url = `https://painelcreditoslovbl.lovable.app/tokenclientes/${token}`;
     navigator.clipboard.writeText(url);
     setCopiedId(id);
     toast({ title: "Link copiado!" });
