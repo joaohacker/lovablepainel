@@ -397,7 +397,7 @@ export function PublicGenerator() {
                                 });
                                 if (error) throw new Error("Falha ao criar link");
                                 if (!data?.success) throw new Error(data?.error || "Falha ao criar link");
-                                urls.push(`https://lovablepainel.lovable.app/tokenclientes/${data.token}`);
+                                urls.push(`https://lovablepainel.com/tokenclientes/${data.token}`);
                               }
                               const text = urls.join("\n");
                               try {
