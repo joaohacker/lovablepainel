@@ -517,7 +517,18 @@ const _handler = async (req: Request): Promise<Response> => {
 
         if (!farmRes.ok) {
           const errBody = await farmRes.text();
-          throw new Error(errBody || "Farm API error");
+          const isStockError = farmRes.status === 503 || /stock|capacity|unavailable|no.*available|bot.*insufficient/i.test(errBody);
+          // Refund credits before throwing
+          await supabase.rpc("refund_client_token_credits", {
+            p_token_id: clientToken.id,
+            p_credits: actualCredits,
+          });
+          const userMessage = isStockError
+            ? "⏳ Estoque temporariamente esgotado. Aguarde alguns minutos e tente gerar novamente. Seus créditos foram devolvidos."
+            : (errBody || "Farm API error");
+          return new Response(JSON.stringify({ error: userMessage, stock_error: isStockError, refunded: true }), {
+            status: isStockError ? 503 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
 
         farmData = await farmRes.json();

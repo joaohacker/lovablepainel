@@ -554,11 +554,20 @@ Se tiver qualquer dúvida, me chama.`;
 
   // Error
   if (state === "error") {
+    const isStockError = errorMessage?.includes("Estoque temporariamente") || errorMessage?.includes("estoque");
     return (
       <div className="flex flex-col items-center gap-4 py-12">
-        <AlertTriangle className="h-12 w-12 text-destructive" />
-        <p className="text-lg font-semibold">Erro</p>
-        <p className="text-muted-foreground text-center">{errorMessage}</p>
+        {isStockError ? (
+          <Clock className="h-12 w-12 text-amber-400" />
+        ) : (
+          <AlertTriangle className="h-12 w-12 text-destructive" />
+        )}
+        <p className="text-lg font-semibold">{isStockError ? "Estoque Indisponível" : "Erro"}</p>
+        <p className="text-muted-foreground text-center max-w-sm">
+          {isStockError
+            ? "Nosso estoque está temporariamente esgotado. Aguarde alguns minutos e tente gerar novamente. Seu saldo já foi reembolsado automaticamente."
+            : errorMessage}
+        </p>
         <Button onClick={onReset} variant="outline" className="mt-4 gap-2">
           <RefreshCw className="h-4 w-4" /> Tentar Novamente
         </Button>
