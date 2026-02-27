@@ -21,22 +21,39 @@ export function ReferralSection() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [referralCode, setReferralCode] = useState("");
+  const [loadingCode, setLoadingCode] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("profiles")
-      .select("referral_code")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.referral_code) setReferralCode(data.referral_code);
-      });
+    if (!user) {
+      setReferralCode("");
+      setLoadingCode(false);
+      return;
+    }
+
+    const fetchReferralCode = async () => {
+      setLoadingCode(true);
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("referral_code")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        setReferralCode(data?.referral_code || "");
+      } finally {
+        setLoadingCode(false);
+      }
+    };
+
+    fetchReferralCode();
   }, [user]);
 
   const referralLink = referralCode
     ? `https://lovablepainel.com/?ref=${referralCode}`
     : "";
+
+  const referralDisplay = loadingCode
+    ? "Gerando seu link..."
+    : referralLink || "Link indisponível. Recarregue a página.";
 
   useEffect(() => {
     if (!user) return;
@@ -96,13 +113,14 @@ export function ReferralSection() {
           <input
             type="text"
             readOnly
-            value={referralLink}
+            value={referralDisplay}
             className="flex-1 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground truncate"
           />
           <Button
             size="sm"
             variant="outline"
             onClick={copyLink}
+            disabled={!referralLink || loadingCode}
             className="shrink-0 gap-1.5"
           >
             {copied ? (
@@ -110,7 +128,7 @@ export function ReferralSection() {
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}
-            {copied ? "Copiado" : "Copiar"}
+            {copied ? "Copiado" : loadingCode ? "Aguarde" : "Copiar"}
           </Button>
         </div>
 

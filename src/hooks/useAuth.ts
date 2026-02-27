@@ -31,12 +31,30 @@ export function useAuth() {
       return false;
     };
 
+    const ensureProfile = async (u: User) => {
+      try {
+        await supabase
+          .from("profiles")
+          .upsert(
+            {
+              user_id: u.id,
+              display_name: u.user_metadata?.display_name || u.email || null,
+            },
+            { onConflict: "user_id", ignoreDuplicates: true }
+          );
+      } catch (err) {
+        console.warn("useAuth: failed to ensure profile", err);
+      }
+    };
+
     const handleSession = async (s: Session | null) => {
       if (cancelled) return;
       setSession(s);
       setUser(s?.user ?? null);
 
       if (s?.user) {
+        await ensureProfile(s.user);
+
         const admin = await checkAdmin(s.user.id);
         if (!cancelled) {
           setIsAdmin(admin);
