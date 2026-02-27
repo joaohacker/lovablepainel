@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Zap, Loader2, Wallet, Link2, Palette } from "lucide-react";
-import { ReferralSection } from "./ReferralSection";
+
 import { BrandingSettings } from "./BrandingSettings";
 import heartGradient from "@/assets/lovable-heart-gradient.png";
 import { calcularPreco, formatBRL, getPricePer100, FIXED_PACKAGES, creditsFromBalance } from "@/lib/pricing";
@@ -467,8 +467,6 @@ export function PublicGenerator() {
                    {/* My Links */}
                    <ClientLinkManager userId={user?.id} refreshKey={linksRefreshKey} />
 
-                   {/* Referral */}
-                   {user && <ReferralSection />}
 
                    {/* Tutorial Video */}
                   
