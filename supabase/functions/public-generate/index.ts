@@ -318,8 +318,12 @@ const _handler = async (req: Request): Promise<Response> => {
         p_reference_id: tempDebitRef,
       });
       const err = await farmRes.text();
-      return new Response(JSON.stringify({ error: `Erro ao criar farm: ${err}` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      const isStockError = farmRes.status === 503 || /stock|capacity|unavailable|no.*available|bot.*insufficient/i.test(err);
+      const userMessage = isStockError
+        ? "⏳ Estoque temporariamente esgotado. Aguarde alguns minutos e tente gerar novamente. Seu saldo foi reembolsado."
+        : `Erro ao criar farm: ${err}`;
+      return new Response(JSON.stringify({ error: userMessage, stock_error: isStockError, refunded: true }), {
+        status: isStockError ? 503 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
