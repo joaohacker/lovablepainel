@@ -20,9 +20,22 @@ export function ReferralSection() {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
 
-  const referralLink = user
-    ? `https://lovablepainel.com/?ref=${user.id}`
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("referral_code")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.referral_code) setReferralCode(data.referral_code);
+      });
+  }, [user]);
+
+  const referralLink = referralCode
+    ? `https://lovablepainel.com/?ref=${referralCode}`
     : "";
 
   useEffect(() => {
