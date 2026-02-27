@@ -35,15 +35,32 @@ serve(async (req) => {
       });
     }
 
-    const { referrer_id } = await req.json();
+    const { referrer_id: rawRef } = await req.json();
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!referrer_id || typeof referrer_id !== "string" || !uuidRegex.test(referrer_id)) {
+    if (!rawRef || typeof rawRef !== "string") {
       return new Response(JSON.stringify({ error: "ID de indicação inválido" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Resolve: accept both UUID and short referral_code
+    let referrer_id = rawRef;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(rawRef)) {
+      // Treat as referral_code, resolve to user_id
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("referral_code", rawRef.toUpperCase())
+        .maybeSingle();
+      if (!profile) {
+        return new Response(JSON.stringify({ error: "Código de indicação inválido" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      referrer_id = profile.user_id;
     }
 
     // Anti-exploit: no self-referral
