@@ -22,7 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export function PublicGenerator() {
-  const { user, session } = useAuth();
+  const { user, session, isAdmin } = useAuth();
   const { wallet, refetch: refetchWallet } = useWallet(user);
   const farm = useFarmGeneration();
   const { toast } = useToast();
@@ -261,8 +261,8 @@ export function PublicGenerator() {
                 </div>
               )}
 
-              {/* Night mode check */}
-              {isNightModeBRT() ? (
+              {/* Night mode check — admins bypass */}
+              {isNightModeBRT() && !isAdmin ? (
                 <NightModeBanner />
               ) : (
               <>
