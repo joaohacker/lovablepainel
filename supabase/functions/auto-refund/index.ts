@@ -34,10 +34,6 @@ function calcularPreco(creditos: number): number {
   return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
 }
 
-/**
- * Verify actual credits earned from upstream farm API.
- * Returns the real credits_earned count, or null if API unreachable.
- */
 async function verifyUpstreamCredits(farmId: string, farmApiKey: string): Promise<number | null> {
   if (farmId.startsWith("queued-")) return null;
   try {
@@ -49,7 +45,6 @@ async function verifyUpstreamCredits(farmId: string, farmApiKey: string): Promis
     const data = await res.json();
     
     let realCredits = data.creditsEarned ?? data.result?.credits ?? 0;
-    // Also count from logs if creditsEarned is 0
     if (realCredits === 0 && Array.isArray(data.logs)) {
       for (const log of data.logs) {
         if (log.type === "credit" && typeof log.message === "string") {
@@ -64,7 +59,6 @@ async function verifyUpstreamCredits(farmId: string, farmApiKey: string): Promis
   }
 }
 
-// Settle a generation: mark settled, refund wallet (on-demand) or client_token credits
 async function settleGeneration(
   supabase: ReturnType<typeof createClient>,
   gen: any,
@@ -76,16 +70,13 @@ async function settleGeneration(
   const isClientToken = !!gen.client_token_id;
   const isOnDemand = !!gen.user_id && !isClientToken;
 
-  // For completed with full delivery, just mark settled
   if (!forceStatus && gen.status === "completed" && earned >= requested) {
     await supabase.from("generations").update({ settled_at: new Date().toISOString() }).eq("id", gen.id).is("settled_at", null);
     return null;
   }
 
-  // Calculate refund
   const refundCredits = requested - earned;
 
-  // Mark as settled (with optional status override)
   const updateData: Record<string, any> = {
     settled_at: new Date().toISOString(),
     credits_earned: earned,
@@ -108,9 +99,7 @@ async function settleGeneration(
     return null;
   }
 
-  // Refund based on type
   if (isOnDemand && gen.user_id) {
-    // On-demand: refund wallet money
     const fullCost = calcularPreco(requested);
     const deliveredCost = earned > 0 ? calcularPreco(earned) : 0;
     const refundAmount = +(fullCost - deliveredCost).toFixed(2);
@@ -137,7 +126,6 @@ async function settleGeneration(
   }
 
   if (isClientToken && gen.client_token_id) {
-    // Client link: refund credits back to client_token
     if (refundCredits > 0) {
       const { error: refundError } = await supabase.rpc("refund_client_token_credits", {
         p_token_id: gen.client_token_id,
@@ -155,7 +143,6 @@ async function settleGeneration(
     return { id: gen.id, user_id: gen.client_token_id, refund: refundCredits, credits: refundCredits, reason };
   }
 
-  // No user_id and no client_token_id - just mark settled
   return null;
 }
 
@@ -164,16 +151,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // SECURITY: Only allow cron (service role) or admin users
   const authHeader = req.headers.get("authorization");
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // SECURITY: Exact match — not includes (prevents substring bypass)
   const isServiceRole = authHeader === `Bearer ${supabaseServiceKey}`;
 
   if (!isServiceRole) {
-    // If not service role, require admin auth
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Auth required" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -183,9 +167,7 @@ serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-    const _jwt = authHeader.replace("Bearer ", "");
-    const { data: _claims } = await userClient.auth.getClaims(_jwt);
-    const user = _claims?.claims ? { id: _claims.claims.sub as string, email: (_claims.claims as any).email as string } : null;
+    const { data: { user } } = await userClient.auth.getUser();
     if (!user) {
       return new Response(JSON.stringify({ error: "Invalid user" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -209,13 +191,126 @@ serve(async (req) => {
   const farmApiKey = Deno.env.get("FARM_API_KEY");
 
   try {
-    const results: Array<{ id: string; user_id: string | null; refund: number; credits: number; reason: string }> = [];
+    // Check for manual complete action
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch { /* no body */ }
 
     // ========================================================
-    // 0) RUNNING GHOSTS: verify upstream before refunding
-    // This was moved from auto_refund_cron SQL to prevent the exploit
-    // where credits are delivered but credits_earned isn't synced.
+    // MANUAL COMPLETE: admin marks a specific generation as completed
     // ========================================================
+    if (body?.action === "complete" && body?.generation_id) {
+      const genId = body.generation_id;
+      
+      const { data: gen, error: genError } = await supabase
+        .from("generations")
+        .select("id, farm_id, user_id, credits_requested, credits_earned, status, client_token_id, token_id")
+        .eq("id", genId)
+        .maybeSingle();
+
+      if (genError || !gen) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Geração não encontrada" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const earned = gen.credits_earned ?? 0;
+
+      // Sync upstream credits if possible
+      if (farmApiKey && gen.farm_id && !gen.farm_id.startsWith("queued-")) {
+        const upstreamCredits = await verifyUpstreamCredits(gen.farm_id, farmApiKey);
+        if (upstreamCredits !== null) {
+          const syncedEarned = Math.min(
+            Math.max(upstreamCredits, earned),
+            gen.credits_requested
+          );
+          if (syncedEarned !== earned) {
+            await supabase.from("generations")
+              .update({ credits_earned: syncedEarned })
+              .eq("id", gen.id);
+            gen.credits_earned = syncedEarned;
+          }
+        }
+      }
+
+      const finalEarned = gen.credits_earned ?? 0;
+
+      // Mark as completed + settled
+      const { error: updateErr } = await supabase
+        .from("generations")
+        .update({ 
+          status: "completed", 
+          settled_at: new Date().toISOString(), 
+          credits_earned: finalEarned 
+        })
+        .eq("id", genId);
+
+      if (updateErr) {
+        return new Response(
+          JSON.stringify({ success: false, error: updateErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Handle refund for partial delivery
+      let refundAmount = 0;
+      let refundCredits = 0;
+
+      if (finalEarned < gen.credits_requested) {
+        const isClientToken = !!gen.client_token_id;
+        const isOnDemand = !!gen.user_id && !isClientToken;
+
+        if (isOnDemand && gen.user_id) {
+          const fullCost = calcularPreco(gen.credits_requested);
+          const deliveredCost = finalEarned > 0 ? calcularPreco(finalEarned) : 0;
+          refundAmount = +(fullCost - deliveredCost).toFixed(2);
+
+          if (refundAmount > 0) {
+            const { data: refundResult } = await supabase.rpc("credit_wallet", {
+              p_user_id: gen.user_id,
+              p_amount: refundAmount,
+              p_description: `Reembolso admin - ${finalEarned}/${gen.credits_requested} créditos entregues`,
+              p_reference_id: `admin-complete-${gen.farm_id}`,
+            });
+
+            if (refundResult && !(refundResult as any).success) {
+              return new Response(
+                JSON.stringify({ success: false, error: `Geração concluída mas reembolso falhou: ${(refundResult as any).error}` }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+          }
+        } else if (isClientToken && gen.client_token_id) {
+          refundCredits = gen.credits_requested - finalEarned;
+          if (refundCredits > 0) {
+            await supabase.rpc("refund_client_token_credits", {
+              p_token_id: gen.client_token_id,
+              p_credits: refundCredits,
+            });
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          earned: finalEarned, 
+          requested: gen.credits_requested,
+          refund_amount: refundAmount,
+          refund_credits: refundCredits,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ========================================================
+    // AUTOMATIC REFUND PROCESSING (cron)
+    // ========================================================
+    const results: Array<{ id: string; user_id: string | null; refund: number; credits: number; reason: string }> = [];
+
+    // 0) RUNNING GHOSTS
     if (farmApiKey) {
       const ghostCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const ghostMaxAge = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -231,17 +326,14 @@ serve(async (req) => {
 
       if (runningGhosts && runningGhosts.length > 0) {
         for (const gen of runningGhosts) {
-          // CRITICAL: Verify upstream API for REAL credits earned before refunding
           const upstreamCredits = await verifyUpstreamCredits(gen.farm_id, farmApiKey);
           
           if (upstreamCredits !== null) {
-            // Sync the real credits_earned — never decrease, cap at requested
             const syncedEarned = Math.min(
               Math.max(upstreamCredits, gen.credits_earned ?? 0),
               gen.credits_requested
             );
             
-            // Update DB with real credits before settling
             await supabase.from("generations")
               .update({ credits_earned: syncedEarned })
               .eq("id", gen.id);
@@ -251,18 +343,21 @@ serve(async (req) => {
             console.log(`[auto-refund] Ghost ${gen.farm_id}: upstream=${upstreamCredits}, synced=${syncedEarned}/${gen.credits_requested}`);
           } else {
             console.log(`[auto-refund] Ghost ${gen.farm_id}: upstream unreachable, using DB credits_earned=${gen.credits_earned ?? 0}`);
-            // Log fraud attempt for auditing — API unreachable during ghost refund
-            await supabase.from("fraud_attempts").insert({
-              user_id: gen.user_id,
-              ip_address: "auto-refund",
-              action: "ghost_refund_no_upstream",
-              details: {
-                farm_id: gen.farm_id,
-                credits_requested: gen.credits_requested,
-                credits_earned_db: gen.credits_earned ?? 0,
-                reason: "Upstream API unreachable during ghost refund — using DB value",
-              },
-            }).catch(() => {});
+            try {
+              await supabase.from("fraud_attempts").insert({
+                user_id: gen.user_id,
+                ip_address: "auto-refund",
+                action: "ghost_refund_no_upstream",
+                details: {
+                  farm_id: gen.farm_id,
+                  credits_requested: gen.credits_requested,
+                  credits_earned_db: gen.credits_earned ?? 0,
+                  reason: "Upstream API unreachable during ghost refund — using DB value",
+                },
+              });
+            } catch (_e) {
+              // ignore logging failure
+            }
           }
 
           const result = await settleGeneration(supabase, gen, "ghost_auto_cancel", "cancelled");
@@ -271,9 +366,7 @@ serve(async (req) => {
       }
     }
 
-    // ========================================================
-    // 1) Auto-cancel waiting_invite stuck for > 10 minutes
-    // ========================================================
+    // 1) Auto-cancel waiting_invite stuck > 10 minutes
     const waitingCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
     const { data: stuckWaiting, error: stuckError } = await supabase
@@ -293,9 +386,7 @@ serve(async (req) => {
       }
     }
 
-    // ========================================================
     // 2) Refund expired/cancelled/error generations
-    // ========================================================
     const expiredCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
     const { data: unsettled, error: fetchError } = await supabase
@@ -315,9 +406,7 @@ serve(async (req) => {
       }
     }
 
-    // ========================================================
     // 3) Settle completed generations (partial refund if needed)
-    // ========================================================
     const { data: completed, error: completedError } = await supabase
       .from("generations")
       .select("id, farm_id, user_id, credits_requested, credits_earned, status, created_at, client_token_id")
