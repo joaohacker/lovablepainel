@@ -50,17 +50,17 @@ const _handler = async (req: Request): Promise<Response> => {
     const HIDE_DEMAND_INFO_TOKENS: string[] = (Deno.env.get("HIDE_DEMAND_INFO_TOKENS") || "").split(",").filter(Boolean);
     // ============================
 
-    // ===== NIGHT MODE (BRT 00:00 - 10:00) =====
+    // ===== NIGHT MODE (BRT 00:00 - 12:00) =====
     const nowUTC = new Date();
     // BRT = UTC-3
     const brtHour = (nowUTC.getUTCHours() - 3 + 24) % 24;
-    const isNightMode = brtHour >= 0 && brtHour < 10;
-    const NIGHT_MSG = "🌙 Gerações pausadas para encher o estoque. Voltamos às 10h (horário de Brasília)!";
-    // Next 10:00 BRT in UTC for countdown
+    const isNightMode = brtHour >= 0 && brtHour < 12;
+    const NIGHT_MSG = "🌙 Gerações pausadas para encher o estoque. Voltamos às 12h (horário de Brasília)!";
+    // Next 12:00 BRT in UTC for countdown
     const getNext10amBRT = () => {
       const next = new Date(nowUTC);
-      // 10:00 BRT = 13:00 UTC
-      next.setUTCHours(13, 0, 0, 0);
+      // 12:00 BRT = 15:00 UTC
+      next.setUTCHours(15, 0, 0, 0);
       if (nowUTC >= next) next.setUTCDate(next.getUTCDate() + 1);
       return next.toISOString();
     };
