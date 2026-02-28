@@ -828,6 +828,21 @@ export type Database = {
         }
         Returns: Json
       }
+      try_start_generation: {
+        Args: {
+          p_client_ip?: string
+          p_client_name: string
+          p_client_token_id?: string
+          p_credits_requested: number
+          p_farm_id: string
+          p_master_email?: string
+          p_max_concurrent?: number
+          p_status?: string
+          p_token_id?: string
+          p_user_id?: string
+        }
+        Returns: Json
+      }
       use_client_token_credits: {
         Args: { p_credits: number; p_token_id: string }
         Returns: Json
