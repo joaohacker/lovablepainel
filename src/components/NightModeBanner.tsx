@@ -2,23 +2,25 @@ import { useState, useEffect, useMemo } from "react";
 import { Moon, Clock } from "lucide-react";
 
 /**
- * Returns the next 10:00 BRT (13:00 UTC) as a Date.
+ * Returns true if currently in maintenance/night mode.
+ * Maintenance until 2026-02-28 23:00 UTC (20:00 BRT), then regular night mode.
  */
-function getNext10amBRT(): Date {
+export function isNightModeBRT(): boolean {
   const now = new Date();
+  const maintenanceEnd = new Date("2026-02-28T23:00:00Z");
+  if (now < maintenanceEnd) return true;
+  const brtHour = (now.getUTCHours() - 3 + 24) % 24;
+  return brtHour >= 0 && brtHour < 12;
+}
+
+function getResumeTime(): Date {
+  const now = new Date();
+  const maintenanceEnd = new Date("2026-02-28T23:00:00Z");
+  if (now < maintenanceEnd) return maintenanceEnd;
   const next = new Date(now);
   next.setUTCHours(15, 0, 0, 0);
   if (now >= next) next.setUTCDate(next.getUTCDate() + 1);
   return next;
-}
-
-/**
- * Returns true if current time is between 00:00 and 10:00 BRT.
- */
-export function isNightModeBRT(): boolean {
-  const now = new Date();
-  const brtHour = (now.getUTCHours() - 3 + 24) % 24;
-  return brtHour >= 0 && brtHour < 12;
 }
 
 function formatCountdown(ms: number): string {
@@ -38,7 +40,7 @@ interface NightModeBannerProps {
 export function NightModeBanner({ resumesAt }: NightModeBannerProps) {
   const target = useMemo(() => {
     if (resumesAt) return new Date(resumesAt);
-    return getNext10amBRT();
+    return getResumeTime();
   }, [resumesAt]);
 
   const [remaining, setRemaining] = useState(() => Math.max(0, target.getTime() - Date.now()));
@@ -64,11 +66,11 @@ export function NightModeBanner({ resumesAt }: NightModeBannerProps) {
       </div>
 
       <h2 className="text-xl font-extrabold text-foreground text-center">
-        🌙 Gerações Pausadas
+        🔧 Manutenção em Andamento
       </h2>
 
       <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed">
-        Gerações pausadas para encher o estoque. Voltamos às <span className="font-bold text-foreground">12h</span> (horário de Brasília)!
+        Guardando bots no estoque. Voltamos às <span className="font-bold text-foreground">20h</span> (horário de Brasília)!
       </p>
 
       {/* Countdown timer */}
