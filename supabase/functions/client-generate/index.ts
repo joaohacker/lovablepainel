@@ -81,17 +81,17 @@ const _handler = async (req: Request): Promise<Response> => {
     const body = await req.json();
     const { action, token, credits, farmId, creditsEarned, status, workspaceName } = body;
 
-    // ===== NIGHT MODE (BRT 00:00 - 10:00) — block create only =====
+    // ===== NIGHT MODE (BRT 00:00 - 12:00) — block create only =====
     if (action === "create") {
       const nowUTC = new Date();
       const brtHour = (nowUTC.getUTCHours() - 3 + 24) % 24;
-      const isNightMode = brtHour >= 0 && brtHour < 10;
+      const isNightMode = brtHour >= 0 && brtHour < 12;
       if (isNightMode) {
         const next = new Date(nowUTC);
-        next.setUTCHours(13, 0, 0, 0);
+        next.setUTCHours(15, 0, 0, 0);
         if (nowUTC >= next) next.setUTCDate(next.getUTCDate() + 1);
         return new Response(JSON.stringify({
-          error: "🌙 Gerações pausadas para encher o estoque. Voltamos às 10h (horário de Brasília)!",
+          error: "🌙 Gerações pausadas para encher o estoque. Voltamos às 12h (horário de Brasília)!",
           night_mode: true,
           resumes_at: next.toISOString(),
         }), {

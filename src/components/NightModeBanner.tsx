@@ -7,7 +7,7 @@ import { Moon, Clock } from "lucide-react";
 function getNext10amBRT(): Date {
   const now = new Date();
   const next = new Date(now);
-  next.setUTCHours(13, 0, 0, 0);
+  next.setUTCHours(15, 0, 0, 0);
   if (now >= next) next.setUTCDate(next.getUTCDate() + 1);
   return next;
 }
@@ -18,7 +18,7 @@ function getNext10amBRT(): Date {
 export function isNightModeBRT(): boolean {
   const now = new Date();
   const brtHour = (now.getUTCHours() - 3 + 24) % 24;
-  return brtHour >= 0 && brtHour < 10;
+  return brtHour >= 0 && brtHour < 12;
 }
 
 function formatCountdown(ms: number): string {
@@ -68,7 +68,7 @@ export function NightModeBanner({ resumesAt }: NightModeBannerProps) {
       </h2>
 
       <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed">
-        Gerações pausadas para encher o estoque. Voltamos às <span className="font-bold text-foreground">10h</span> (horário de Brasília)!
+        Gerações pausadas para encher o estoque. Voltamos às <span className="font-bold text-foreground">12h</span> (horário de Brasília)!
       </p>
 
       {/* Countdown timer */}
