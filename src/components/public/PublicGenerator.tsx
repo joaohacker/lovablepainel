@@ -263,7 +263,37 @@ export function PublicGenerator() {
 
               {/* Night mode check — admins bypass */}
               {isNightModeBRT() && !isAdmin ? (
-                <NightModeBanner />
+                <>
+                  <NightModeBanner />
+                  {/* Deposit still available during maintenance */}
+                  <div className="mt-6 space-y-3">
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        if (!user) {
+                          setShowAuth(true);
+                          return;
+                        }
+                        setDepositAmount(null);
+                        setPendingCredits(null);
+                        setShowDeposit(true);
+                      }}
+                    >
+                      <Wallet className="h-4 w-4" /> Adicionar Saldo
+                    </Button>
+                    {!user && (
+                      <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={() => setShowAuth(true)}
+                      >
+                        Já tem conta? Entrar
+                      </Button>
+                    )}
+                    {user && <TransactionHistory walletId={wallet?.id} />}
+                  </div>
+                </>
               ) : (
               <>
               {/* System active */}
