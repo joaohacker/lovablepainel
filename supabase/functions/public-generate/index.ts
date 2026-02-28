@@ -125,7 +125,7 @@ const _handler = async (req: Request): Promise<Response> => {
 
     const nowUTC = new Date();
     const brtHour = (nowUTC.getUTCHours() - 3 + 24) % 24;
-    const isNightMode = true; // FORÇADO: manutenção ativa manualmente
+    const isNightMode = brtHour >= 0 && brtHour < 12;
     if (isNightMode && !isAdminUser) {
       const next = new Date(nowUTC);
       next.setUTCHours(15, 0, 0, 0);

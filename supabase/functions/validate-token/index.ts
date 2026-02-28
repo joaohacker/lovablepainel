@@ -54,7 +54,7 @@ const _handler = async (req: Request): Promise<Response> => {
     const nowUTC = new Date();
     // BRT = UTC-3
     const brtHour = (nowUTC.getUTCHours() - 3 + 24) % 24;
-    const isNightMode = true; // FORÇADO: manutenção ativa manualmente
+    const isNightMode = brtHour >= 0 && brtHour < 12;
     const NIGHT_MSG = "🌙 Gerações pausadas para encher o estoque. Voltamos às 12h (horário de Brasília)!";
     // Next 12:00 BRT in UTC for countdown
     const getNext10amBRT = () => {
