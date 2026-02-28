@@ -175,7 +175,7 @@ export function useFarmGeneration(accessToken?: string) {
             }
 
             // Terminal states
-            if (status.status === "completed") {
+            if (status.status === "completed" || status.status === "partial") {
               pollingRef.current = null;
               completedRef.current = true;
 
