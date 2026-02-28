@@ -157,23 +157,65 @@ const ClientGenerate = () => {
       if (fnError) throw new Error("Falha ao iniciar geração");
       if (!data?.success) throw new Error(data?.error || "Falha ao iniciar geração");
 
-      // Track farmId for status updates
-      activeFarmIdRef.current = data.farmId;
-      lastPushedEarnedRef.current = 0;
-      lastPushedStatusRef.current = "";
-
       // Update remaining
       setTokenInfo((prev) =>
         prev ? { ...prev, credits_used: prev.total_credits - data.remaining, remaining: data.remaining } : prev
       );
 
-      farm.startGenerationWithFarmId(
-        data.farmId,
-        data.credits,
-        data.queued,
-        data.queuePosition,
-        data.masterEmail
-      );
+      lastPushedEarnedRef.current = 0;
+      lastPushedStatusRef.current = "";
+      if (data.queued && data.generationId && !data.farmId) {
+        const queuedFarmId = `queued-${data.generationId}`;
+        activeFarmIdRef.current = queuedFarmId;
+
+        farm.startGenerationWithFarmId(
+          queuedFarmId,
+          data.credits ?? credits,
+          true,
+          data.queuePosition
+        );
+
+        const poll = setInterval(async () => {
+          try {
+            const { data: qData } = await supabase.functions.invoke("client-generate", {
+              body: { action: "check-queue", token, generationId: data.generationId },
+            });
+
+            if (qData?.status === "queued") {
+              farm.startGenerationWithFarmId(
+                queuedFarmId,
+                data.credits ?? credits,
+                true,
+                qData.queuePosition
+              );
+              return;
+            }
+
+            if (qData?.farmId) {
+              clearInterval(poll);
+              activeFarmIdRef.current = qData.farmId;
+              farm.startGenerationWithFarmId(
+                qData.farmId,
+                qData.credits ?? data.credits ?? credits,
+                false,
+                undefined,
+                qData.masterEmail
+              );
+            }
+          } catch {
+            // ignore poll errors
+          }
+        }, 3000);
+      } else {
+        activeFarmIdRef.current = data.farmId;
+        farm.startGenerationWithFarmId(
+          data.farmId,
+          data.credits,
+          data.queued,
+          data.queuePosition,
+          data.masterEmail
+        );
+      }
     } catch (err: any) {
       farm.setError(err.message || "Erro ao iniciar geração");
     } finally {
