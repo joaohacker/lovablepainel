@@ -32,43 +32,7 @@ function calcularPreco(creditos: number): number {
   return +(creditos * (TIERS[0].price / TIERS[0].credits)).toFixed(2);
 }
 
-/**
- * Count active (non-ghost) generations.
- * Ghost filtering: only count if recently updated/created based on status.
- */
-async function getActiveGenerationCount(supabase: ReturnType<typeof createClient>): Promise<number> {
-  const now = new Date();
-  const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
-  const twelveMinAgo = new Date(now.getTime() - 12 * 60 * 1000).toISOString();
-  const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString();
-
-  // Running: updated in last 10 min
-  const { count: runningCount } = await supabase
-    .from("generations")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "running")
-    .gte("updated_at", tenMinAgo);
-
-  // Waiting invite: created in last 12 min
-  const { count: waitingCount } = await supabase
-    .from("generations")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "waiting_invite")
-    .gte("created_at", twelveMinAgo);
-
-  // Creating: created in last 3 min
-  const { count: creatingCount } = await supabase
-    .from("generations")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "creating")
-    .gte("created_at", threeMinAgo);
-
-  return (runningCount || 0) + (waitingCount || 0) + (creatingCount || 0);
-}
-
-/**
- * Get queue position for a given generation.
- */
+// Queue position helper
 async function getQueuePosition(supabase: ReturnType<typeof createClient>, generationId: string): Promise<number> {
   const { data: gen } = await supabase
     .from("generations")
@@ -264,25 +228,34 @@ const _handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Check active generation count (with ghost filtering)
-    const activeCount = await getActiveGenerationCount(supabase);
+    // ATOMIC concurrency check + insert (prevents race condition)
+    const placeholderFarmId = `pending-${tempDebitRef}`;
+    const { data: slotResult, error: slotError } = await supabase.rpc("try_start_generation", {
+      p_farm_id: placeholderFarmId,
+      p_client_name: user.email || "on-demand",
+      p_credits_requested: credits,
+      p_status: "waiting_invite",
+      p_client_ip: clientIp,
+      p_user_id: user.id,
+      p_max_concurrent: MAX_CONCURRENT,
+    });
 
-    if (activeCount >= MAX_CONCURRENT) {
-      // QUEUE: insert generation with placeholder farm_id and queued status
-      const placeholderFarmId = `queued-${tempDebitRef}`;
-      const { data: insertedGen } = await supabase
-        .from("generations")
-        .insert({
-          farm_id: placeholderFarmId,
-          client_name: user.email || "on-demand",
-          credits_requested: credits,
-          status: "queued",
-          client_ip: clientIp,
-          user_id: user.id,
-        })
-        .select("id")
-        .single();
+    if (slotError) {
+      console.error("[public-generate] try_start_generation error:", slotError);
+      await supabase.rpc("credit_wallet", {
+        p_user_id: user.id,
+        p_amount: cost,
+        p_description: `Reembolso - erro ao verificar fila`,
+        p_reference_id: tempDebitRef,
+      });
+      return new Response(JSON.stringify({ error: "Erro ao verificar fila" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
+    const slot = slotResult as { queued: boolean; generation_id: string; active_count: number; queue_position?: number };
+
+    if (slot.queued) {
       // Update debit reference_id to placeholder farmId
       const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", user.id).single();
       if (wallet) {
@@ -292,16 +265,13 @@ const _handler = async (req: Request): Promise<Response> => {
           .eq("reference_id", tempDebitRef);
       }
 
-      // Calculate queue position
-      const queuePosition = insertedGen ? await getQueuePosition(supabase, insertedGen.id) : 1;
-
-      console.log(`[public-generate] Queued: generationId=${insertedGen?.id}, position=${queuePosition}, credits=${credits}`);
+      console.log(`[public-generate] Queued: generationId=${slot.generation_id}, position=${slot.queue_position}, credits=${credits}`);
 
       return new Response(JSON.stringify({
         success: true,
         queued: true,
-        queuePosition,
-        generationId: insertedGen?.id,
+        queuePosition: slot.queue_position || 1,
+        generationId: slot.generation_id,
         credits,
         cost,
         new_balance: result.new_balance,
@@ -312,7 +282,8 @@ const _handler = async (req: Request): Promise<Response> => {
 
     // NOT QUEUED: create farm immediately
     if (!farmApiKey) {
-      // Refund if no API key
+      // Refund if no API key — also delete the placeholder generation
+      await supabase.from("generations").delete().eq("id", slot.generation_id);
       await supabase.rpc("credit_wallet", {
         p_user_id: user.id,
         p_amount: cost,
@@ -331,7 +302,8 @@ const _handler = async (req: Request): Promise<Response> => {
     });
 
     if (!farmRes.ok) {
-      // Refund on farm creation failure
+      // Refund on farm creation failure — also delete the placeholder generation
+      await supabase.from("generations").delete().eq("id", slot.generation_id);
       await supabase.rpc("credit_wallet", {
         p_user_id: user.id,
         p_amount: cost,
@@ -350,16 +322,14 @@ const _handler = async (req: Request): Promise<Response> => {
 
     const farmData = await farmRes.json();
 
-    // Insert generation with user_id
-    await supabase.from("generations").insert({
-      farm_id: farmData.farmId,
-      client_name: user.email || "on-demand",
-      credits_requested: credits,
-      status: farmData.queued ? "queued" : "waiting_invite",
-      master_email: farmData.masterEmail || null,
-      client_ip: clientIp,
-      user_id: user.id,
-    });
+    // Update generation with real farmId and masterEmail
+    await supabase.from("generations")
+      .update({
+        farm_id: farmData.farmId,
+        master_email: farmData.masterEmail || null,
+        status: farmData.queued ? "queued" : "waiting_invite",
+      })
+      .eq("id", slot.generation_id);
 
     // Update debit reference_id from temp UUID to farmId
     const { data: wallet } = await supabase.from("wallets").select("id").eq("user_id", user.id).single();

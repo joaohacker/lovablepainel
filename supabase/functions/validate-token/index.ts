@@ -763,69 +763,50 @@ const _handler = async (req: Request): Promise<Response> => {
       const MAX_CREDITS_PER_GENERATION = 10000;
       const requestedCredits = Math.min(credits || tokenData.credits_per_use, tokenData.credits_per_use, MAX_CREDITS_PER_GENERATION);
 
-      // Check active generation count (with ghost filtering) — MAX 8 concurrent
+      // ATOMIC concurrency check + insert (prevents race condition)
       const MAX_CONCURRENT = 8;
-      const now = new Date();
-      const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
-      const twelveMinAgo = new Date(now.getTime() - 12 * 60 * 1000).toISOString();
-      const threeMinAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString();
+      const placeholderFarmId = `pending-${crypto.randomUUID()}`;
+      const { data: slotResult, error: slotError } = await supabase.rpc("try_start_generation", {
+        p_farm_id: placeholderFarmId,
+        p_client_name: tokenData.client_name,
+        p_credits_requested: requestedCredits,
+        p_status: "waiting_invite",
+        p_client_ip: clientIp,
+        p_token_id: tokenData.id,
+        p_max_concurrent: MAX_CONCURRENT,
+      });
 
-      const { count: runC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "running").gte("updated_at", tenMinAgo);
-      const { count: waitC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "waiting_invite").gte("created_at", twelveMinAgo);
-      const { count: createC } = await supabase.from("generations").select("id", { count: "exact", head: true }).eq("status", "creating").gte("created_at", threeMinAgo);
-      const activeCount = (runC || 0) + (waitC || 0) + (createC || 0);
+      if (slotError) {
+        console.error("[validate-token] try_start_generation error:", slotError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Erro ao verificar fila" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-      if (activeCount >= MAX_CONCURRENT) {
-        // QUEUE: insert with placeholder farm_id
-        const placeholderFarmId = `queued-${crypto.randomUUID()}`;
+      const slot = slotResult as { queued: boolean; generation_id: string; active_count: number; queue_position?: number };
 
-        // Reserve credits atomically
-        const reserveResult = await supabase.rpc("reserve_credits", {
-          p_token_id: tokenData.id,
-          p_farm_id: placeholderFarmId,
-          p_client_name: tokenData.client_name,
-          p_credits_requested: requestedCredits,
-          p_status: "queued",
-          p_master_email: null,
-          p_client_ip: clientIp,
-          p_queued: true,
-        });
+      // Also insert token_usage
+      await supabase.from("token_usages").insert({
+        token_id: tokenData.id,
+        farm_id: placeholderFarmId,
+        credits_requested: requestedCredits,
+        status: slot.queued ? "queued" : "active",
+        client_ip: clientIp,
+      });
 
-        if (reserveResult.error || !reserveResult.data?.success) {
-          return new Response(
-            JSON.stringify({ success: false, error: reserveResult.data?.error || "Falha ao reservar créditos" }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        // Get generation id for queue position
-        const { data: queuedGen } = await supabase
-          .from("generations")
-          .select("id, created_at")
-          .eq("farm_id", placeholderFarmId)
-          .single();
-
-        let queuePosition = 1;
-        if (queuedGen) {
-          const { count } = await supabase
-            .from("generations")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "queued")
-            .lt("created_at", queuedGen.created_at);
-          queuePosition = (count || 0) + 1;
-        }
-
-        console.log(`[validate-token] Queued: generationId=${queuedGen?.id}, position=${queuePosition}, credits=${requestedCredits}`);
+      if (slot.queued) {
+        console.log(`[validate-token] Queued: generationId=${slot.generation_id}, position=${slot.queue_position}, credits=${requestedCredits}`);
 
         return new Response(
           JSON.stringify({
             success: true,
             queued: true,
-            queuePosition,
+            queuePosition: slot.queue_position || 1,
             farmId: placeholderFarmId,
-            generationId: queuedGen?.id,
+            generationId: slot.generation_id,
             masterEmail: null,
-            message: `Sua geração está na fila (posição ${queuePosition}). Aguarde...`,
+            message: `Sua geração está na fila (posição ${slot.queue_position || 1}). Aguarde...`,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -842,6 +823,9 @@ const _handler = async (req: Request): Promise<Response> => {
       });
 
       if (!farmRes.ok) {
+        // Delete placeholder generation + token_usage on failure
+        await supabase.from("generations").delete().eq("id", slot.generation_id);
+        await supabase.from("token_usages").delete().eq("farm_id", placeholderFarmId).eq("token_id", tokenData.id);
         const err = await farmRes.text();
         return new Response(
           JSON.stringify({ success: false, error: `Erro ao criar farm: ${err}` }),
@@ -851,25 +835,19 @@ const _handler = async (req: Request): Promise<Response> => {
 
       const farmData = await farmRes.json();
 
-      // Record usage
-      await supabase.from("token_usages").insert({
-        token_id: tokenData.id,
-        farm_id: farmData.farmId,
-        credits_requested: requestedCredits,
-        status: "active",
-        client_ip: clientIp,
-      });
+      // Update generation + token_usage with real farmId
+      await supabase.from("generations")
+        .update({
+          farm_id: farmData.farmId,
+          master_email: farmData.masterEmail || null,
+          status: farmData.queued ? "queued" : "waiting_invite",
+        })
+        .eq("id", slot.generation_id);
 
-      // Record generation for live dashboard
-      await supabase.from("generations").insert({
-        token_id: tokenData.id,
-        farm_id: farmData.farmId,
-        client_name: tokenData.client_name,
-        credits_requested: requestedCredits,
-        status: farmData.queued ? "queued" : "waiting_invite",
-        master_email: farmData.masterEmail || null,
-        client_ip: clientIp,
-      });
+      await supabase.from("token_usages")
+        .update({ farm_id: farmData.farmId })
+        .eq("farm_id", placeholderFarmId)
+        .eq("token_id", tokenData.id);
 
       return new Response(
         JSON.stringify({
