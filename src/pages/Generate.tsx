@@ -8,6 +8,7 @@ import { GenerationStatus } from "@/components/GenerationStatus";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ShieldX, Clock, Ban, TrendingUp, Sparkles, Zap, Crown } from "lucide-react";
+import { NightModeBanner } from "@/components/NightModeBanner";
 import lovableHeart from "@/assets/lovable-heart.png";
 import lovableHeartGradient from "@/assets/lovable-heart-gradient.png";
 
@@ -42,7 +43,13 @@ interface SavedSession {
   token: string;
 }
 
-const MaintenanceBanner = ({ hideDemandInfo = false }: { hideDemandInfo?: boolean }) => {
+const MaintenanceBanner = ({ hideDemandInfo = false, maintenance }: { hideDemandInfo?: boolean; maintenance?: { until: string; message: string } | null }) => {
+  // If it's a night mode block (message contains "estoque"), show NightModeBanner
+  const isNightBlock = maintenance?.message?.includes("estoque") || maintenance?.message?.includes("10h");
+  if (isNightBlock) {
+    return <NightModeBanner resumesAt={maintenance?.until} />;
+  }
+
   return (
     <div className="flex flex-col items-center gap-6 py-6">
       <div className="flex flex-col items-center gap-2">
@@ -385,7 +392,7 @@ const Generate = () => {
             
             <CardContent className="p-5 sm:p-6 md:p-8">
               {validation?.maintenance ? (
-                <MaintenanceBanner hideDemandInfo={validation?.maintenance?.hide_demand_info} />
+                <MaintenanceBanner hideDemandInfo={validation?.maintenance?.hide_demand_info} maintenance={validation?.maintenance} />
               ) : isDailyLimitReached ? (
                 <div className="flex flex-col items-center gap-5 py-4 text-center">
                   <TrendingUp className="h-14 w-14 text-amber-500" />

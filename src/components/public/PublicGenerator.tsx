@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Zap, Loader2, Wallet, Link2, Palette } from "lucide-react";
+import { NightModeBanner, isNightModeBRT } from "@/components/NightModeBanner";
 
 import { BrandingSettings } from "./BrandingSettings";
 import heartGradient from "@/assets/lovable-heart-gradient.png";
@@ -260,6 +261,11 @@ export function PublicGenerator() {
                 </div>
               )}
 
+              {/* Night mode check */}
+              {isNightModeBRT() ? (
+                <NightModeBanner />
+              ) : (
+              <>
               {/* System active */}
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-6 text-center space-y-2">
                 <p className="text-lg font-semibold text-foreground">✅ Painel funcionando perfeitamente</p>
@@ -487,6 +493,8 @@ export function PublicGenerator() {
                   onCancel={farm.cancelGeneration}
                   onReset={() => { farm.reset(); refetchWallet(); }}
                 />
+              )}
+              </>
               )}
           </CardContent>
       </Card>
