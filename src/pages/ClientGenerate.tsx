@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
+import { NightModeBanner, isNightModeBRT } from "@/components/NightModeBanner";
 
 import { GenerationStatus } from "@/components/GenerationStatus";
 import { useFarmGeneration } from "@/hooks/useFarmGeneration";
@@ -264,6 +265,9 @@ const ClientGenerate = () => {
         <Card className="glass-card" style={brandColor ? { borderColor: `${brandColor}30` } : {}}>
           <CardContent className="p-6 md:p-8">
             {isIdle ? (
+              isNightModeBRT() ? (
+                <NightModeBanner />
+              ) : (
               <div className="space-y-6">
                 <div className="text-center space-y-1">
                   <p className="text-sm text-muted-foreground">Créditos disponíveis</p>
@@ -314,6 +318,7 @@ const ClientGenerate = () => {
                   {submitting ? "Iniciando..." : `Gerar ${credits} Créditos`}
                 </Button>
               </div>
+              )
             ) : (
               <GenerationStatus
                 state={farm.state}
