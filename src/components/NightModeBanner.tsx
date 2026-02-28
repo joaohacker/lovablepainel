@@ -16,9 +16,8 @@ function getNext10amBRT(): Date {
  * Returns true if current time is between 00:00 and 10:00 BRT.
  */
 export function isNightModeBRT(): boolean {
-  const now = new Date();
-  const brtHour = (now.getUTCHours() - 3 + 24) % 24;
-  return brtHour >= 0 && brtHour < 12;
+  // FORÇADO: manutenção ativa manualmente
+  return true;
 }
 
 function formatCountdown(ms: number): string {
