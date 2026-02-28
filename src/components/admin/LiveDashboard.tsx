@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Users, Zap, Clock, RefreshCw, Wallet, AlertTriangle, CheckCircle } from "lucide-react";
+import { Activity, Users, Zap, Clock, RefreshCw, Wallet, AlertTriangle, CheckCircle, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -56,6 +56,61 @@ export function LiveDashboard() {
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [completing, setCompleting] = useState<string | null>(null);
+
+  const handleComplete = async (gen: Generation) => {
+    if (!confirm(`Concluir geração de ${gen.client_name}? (${gen.credits_earned}/${gen.credits_requested} créditos entregues)`)) return;
+    setCompleting(gen.id);
+    try {
+      const earned = gen.credits_earned || 0;
+
+      // 1. Mark as completed + settled
+      const { error: updateErr } = await supabase
+        .from("generations")
+        .update({ status: "completed", settled_at: new Date().toISOString(), credits_earned: earned })
+        .eq("id", gen.id);
+      if (updateErr) throw updateErr;
+
+      // 2. Handle refund if partial delivery
+      if (earned < gen.credits_requested) {
+        if (gen.user_id && gen.token_id === null) {
+          // On-demand: refund wallet
+          const { data: fullCost } = await supabase.rpc("calc_credit_price", { creditos: gen.credits_requested });
+          const { data: deliveredCost } = await supabase.rpc("calc_credit_price", { creditos: earned });
+          const refundAmount = Math.round(((fullCost || 0) - (deliveredCost || 0)) * 100) / 100;
+          if (refundAmount > 0) {
+            const { data: refundResult } = await supabase.rpc("credit_wallet", {
+              p_user_id: gen.user_id,
+              p_amount: refundAmount,
+              p_description: `Reembolso admin - ${earned}/${gen.credits_requested} créditos entregues`,
+              p_reference_id: `admin-complete-${gen.farm_id}`,
+            });
+            if (refundResult && !(refundResult as any).success) {
+              toast.warning(`Geração concluída, mas reembolso falhou: ${(refundResult as any).error}`);
+            } else {
+              toast.success(`Concluído + reembolso de R$ ${refundAmount.toFixed(2)}`);
+            }
+          } else {
+            toast.success("Geração marcada como concluída");
+          }
+        } else if (gen.token_id !== null) {
+          // Token-based: refund token credits
+          // Find the token_id on the generation for client-token refund
+          // For token-based gens, we don't have client_token_id exposed here easily
+          // The auto-refund cron will pick it up
+          toast.success("Geração concluída (reembolso de créditos do token será processado pelo sistema)");
+        } else {
+          toast.success("Geração marcada como concluída");
+        }
+      } else {
+        toast.success("Geração marcada como concluída (entrega completa)");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao concluir geração");
+    } finally {
+      setCompleting(null);
+    }
+  };
 
   const handleSync = async (gen: Generation) => {
     setSyncing(gen.farm_id);
@@ -428,6 +483,18 @@ export function LiveDashboard() {
                           title="Sincronizar com API externa"
                         >
                           <RefreshCw className={`h-3.5 w-3.5 ${syncing === gen.farm_id ? "animate-spin" : ""}`} />
+                        </Button>
+                      )}
+                      {isActive && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-success hover:text-success"
+                          disabled={completing === gen.id}
+                          onClick={() => handleComplete(gen)}
+                          title="Marcar como concluída"
+                        >
+                          <CheckCheck className={`h-3.5 w-3.5 ${completing === gen.id ? "animate-spin" : ""}`} />
                         </Button>
                       )}
                     </div>
