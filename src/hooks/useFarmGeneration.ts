@@ -224,7 +224,7 @@ export function useFarmGeneration(accessToken?: string) {
               const upstreamMsg = (status as any).error || (status as any).message || (status.result as any)?.message;
               setGen((prev) => {
                 const errorMsg = status.status === "error"
-                  ? (upstreamMsg ? `Erro: ${upstreamMsg}` : "Erro na geração — o provedor não conseguiu alocar bots. Estoque temporariamente esgotado. Aguarde alguns minutos e tente novamente.")
+                  ? (upstreamMsg ? `Erro: ${upstreamMsg}` : "Erro na geração. Tente novamente em alguns minutos.")
                   : prev.errorMessage;
                 return { ...prev, state: status.status as FarmState, errorMessage: errorMsg };
               });
