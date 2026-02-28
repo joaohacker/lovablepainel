@@ -217,32 +217,17 @@ serve(async (req) => {
     // where credits are delivered but credits_earned isn't synced.
     // ========================================================
     if (farmApiKey) {
-      const ghostCutoff15 = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-      const ghostCutoff10 = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const ghostCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const ghostMaxAge = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-      // Fetch running ghosts: 15 min for on-demand, 10 min for client tokens
-      const { data: runningGhosts15 } = await supabase
+      const { data: runningGhosts } = await supabase
         .from("generations")
         .select("id, farm_id, user_id, credits_requested, credits_earned, status, client_token_id")
         .is("settled_at", null)
         .eq("status", "running")
-        .is("client_token_id", null)
-        .lt("updated_at", ghostCutoff15)
+        .lt("updated_at", ghostCutoff)
         .gt("created_at", ghostMaxAge)
         .limit(20);
-
-      const { data: runningGhostsClient } = await supabase
-        .from("generations")
-        .select("id, farm_id, user_id, credits_requested, credits_earned, status, client_token_id")
-        .is("settled_at", null)
-        .eq("status", "running")
-        .not("client_token_id", "is", null)
-        .lt("updated_at", ghostCutoff10)
-        .gt("created_at", ghostMaxAge)
-        .limit(20);
-
-      const runningGhosts = [...(runningGhosts15 || []), ...(runningGhostsClient || [])];
 
       if (runningGhosts && runningGhosts.length > 0) {
         for (const gen of runningGhosts) {
