@@ -62,48 +62,23 @@ export function LiveDashboard() {
     if (!confirm(`Concluir geração de ${gen.client_name}? (${gen.credits_earned}/${gen.credits_requested} créditos entregues)`)) return;
     setCompleting(gen.id);
     try {
-      const earned = gen.credits_earned || 0;
+      const { data, error } = await supabase.functions.invoke("auto-refund", {
+        body: { action: "complete", generation_id: gen.id },
+      });
 
-      // 1. Mark as completed + settled
-      const { error: updateErr } = await supabase
-        .from("generations")
-        .update({ status: "completed", settled_at: new Date().toISOString(), credits_earned: earned })
-        .eq("id", gen.id);
-      if (updateErr) throw updateErr;
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Falha ao concluir");
 
-      // 2. Handle refund if partial delivery
-      if (earned < gen.credits_requested) {
-        if (gen.user_id && gen.token_id === null) {
-          // On-demand: refund wallet
-          const { data: fullCost } = await supabase.rpc("calc_credit_price", { creditos: gen.credits_requested });
-          const { data: deliveredCost } = await supabase.rpc("calc_credit_price", { creditos: earned });
-          const refundAmount = Math.round(((fullCost || 0) - (deliveredCost || 0)) * 100) / 100;
-          if (refundAmount > 0) {
-            const { data: refundResult } = await supabase.rpc("credit_wallet", {
-              p_user_id: gen.user_id,
-              p_amount: refundAmount,
-              p_description: `Reembolso admin - ${earned}/${gen.credits_requested} créditos entregues`,
-              p_reference_id: `admin-complete-${gen.farm_id}`,
-            });
-            if (refundResult && !(refundResult as any).success) {
-              toast.warning(`Geração concluída, mas reembolso falhou: ${(refundResult as any).error}`);
-            } else {
-              toast.success(`Concluído + reembolso de R$ ${refundAmount.toFixed(2)}`);
-            }
-          } else {
-            toast.success("Geração marcada como concluída");
-          }
-        } else if (gen.token_id !== null) {
-          // Token-based: refund token credits
-          // Find the token_id on the generation for client-token refund
-          // For token-based gens, we don't have client_token_id exposed here easily
-          // The auto-refund cron will pick it up
-          toast.success("Geração concluída (reembolso de créditos do token será processado pelo sistema)");
-        } else {
-          toast.success("Geração marcada como concluída");
-        }
+      const earned = data.earned ?? 0;
+      const refund = data.refund_amount ?? 0;
+      const refundCredits = data.refund_credits ?? 0;
+
+      if (refund > 0) {
+        toast.success(`Concluído + reembolso de R$ ${refund.toFixed(2)} (${earned}/${gen.credits_requested} créditos)`);
+      } else if (refundCredits > 0) {
+        toast.success(`Concluído + ${refundCredits} créditos devolvidos ao token (${earned}/${gen.credits_requested})`);
       } else {
-        toast.success("Geração marcada como concluída (entrega completa)");
+        toast.success(`Geração marcada como concluída (${earned}/${gen.credits_requested} créditos)`);
       }
     } catch (err: any) {
       toast.error(err.message || "Erro ao concluir geração");
