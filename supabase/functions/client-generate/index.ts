@@ -81,19 +81,25 @@ const _handler = async (req: Request): Promise<Response> => {
     const body = await req.json();
     const { action, token, credits, farmId, creditsEarned, status, workspaceName } = body;
 
-    // ===== NIGHT MODE (BRT 00:00 - 12:00) — block create only =====
+    // ===== MAINTENANCE MODE — block until 20:00 BRT (23:00 UTC) on 2026-02-28 =====
     if (action === "create") {
       const nowUTC = new Date();
+      const maintenanceEnd = new Date("2026-02-28T23:00:00Z");
+      const isMaintenanceMode = nowUTC < maintenanceEnd;
       const brtHour = (nowUTC.getUTCHours() - 3 + 24) % 24;
       const isNightMode = brtHour >= 0 && brtHour < 12;
-      if (isNightMode) {
-        const next = new Date(nowUTC);
-        next.setUTCHours(15, 0, 0, 0);
-        if (nowUTC >= next) next.setUTCDate(next.getUTCDate() + 1);
+
+      if (isMaintenanceMode || isNightMode) {
+        const resumesAt = isMaintenanceMode ? maintenanceEnd.toISOString() : (() => {
+          const next = new Date(nowUTC);
+          next.setUTCHours(15, 0, 0, 0);
+          if (nowUTC >= next) next.setUTCDate(next.getUTCDate() + 1);
+          return next.toISOString();
+        })();
         return new Response(JSON.stringify({
-          error: "🌙 Gerações pausadas para encher o estoque. Voltamos às 12h (horário de Brasília)!",
+          error: "🔧 Manutenção em andamento — guardando bots no estoque. Voltamos às 20h (horário de Brasília)!",
           night_mode: true,
-          resumes_at: next.toISOString(),
+          resumes_at: resumesAt,
         }), {
           status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
