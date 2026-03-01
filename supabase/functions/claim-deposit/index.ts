@@ -17,6 +17,11 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // 🚫 PAYMENTS DISABLED
+    return new Response(JSON.stringify({ error: "⚠️ Pagamentos temporariamente desativados." }), {
+      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
     // Require authentication
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {

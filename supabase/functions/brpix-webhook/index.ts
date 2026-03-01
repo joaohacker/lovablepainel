@@ -39,6 +39,12 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // 🚫 PAYMENTS DISABLED — reject all webhooks
+    console.log("[brpix-webhook] BLOCKED: Payments disabled");
+    return new Response(JSON.stringify({ error: "Payments disabled" }), {
+      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
     const rawBody = await req.text();
     // SECURITY: Don't log raw body (may contain sensitive payment data)
 

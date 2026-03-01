@@ -18,6 +18,11 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // 🚫 PAYMENTS DISABLED — block payment verification
+    return new Response(JSON.stringify({ status: "pending" }), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const body = await req.json();
     const { order_id, customer_email } = body;
