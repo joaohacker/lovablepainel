@@ -68,6 +68,11 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
+    // 🚫 PAYMENTS DISABLED
+    return new Response(JSON.stringify({ error: "⚠️ Pagamentos temporariamente desativados." }), {
+      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
     // SECURITY: Check if IP is banned
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const { data: isIpBanned } = await supabase.rpc("is_ip_banned", { p_ip: clientIp });
