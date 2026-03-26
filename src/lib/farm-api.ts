@@ -1,14 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
-
-const getFunctionUrl = () => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  return `${url}/functions/v1/farm-proxy`;
-};
-
-const getHeaders = () => ({
-  "Content-Type": "application/json",
-  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-});
+// Backend removed — types kept for interface compatibility
 
 export interface StockResponse {
   total: number;
@@ -46,7 +36,6 @@ export interface FarmStatus {
     inviteFailed: number;
     removed: number;
     message: string;
-    /** @deprecated use claimFailed */
     failed?: number;
   };
   logs?: Array<{ message: string; type: string; timestamp: number }>;
@@ -67,41 +56,17 @@ export type SSEEvent =
   | { type: "heartbeat"; timestamp: number };
 
 export async function fetchStock(): Promise<StockResponse> {
-  const res = await fetch(`${getFunctionUrl()}?action=stock`, { headers: getHeaders() });
-  if (!res.ok) throw new Error("Failed to fetch stock");
-  return res.json();
+  throw new Error("Backend removed");
 }
 
-export async function createFarm(credits: number): Promise<CreateResponse> {
-  const res = await fetch(`${getFunctionUrl()}?action=create`, {
-    method: "POST",
-    headers: getHeaders(),
-    body: JSON.stringify({ credits }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || "Failed to create farm");
-  }
-  return res.json();
+export async function createFarm(_credits: number): Promise<CreateResponse> {
+  throw new Error("Backend removed");
 }
 
-export async function getFarmStatus(farmId: string, token?: string, signal?: AbortSignal): Promise<FarmStatus> {
-  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
-  const res = await fetch(`${getFunctionUrl()}?action=status&farmId=${farmId}${tokenParam}`, { headers: getHeaders(), signal });
-  if (!res.ok) {
-    if (res.status === 404) throw new Error("SESSION_LOST");
-    throw new Error("Failed to get status");
-  }
-  return res.json();
+export async function getFarmStatus(_farmId: string, _token?: string, _signal?: AbortSignal): Promise<FarmStatus> {
+  throw new Error("Backend removed");
 }
 
-export async function cancelFarm(farmId: string, token?: string): Promise<void> {
-  const tokenParam = token ? `&token=${encodeURIComponent(token)}` : "";
-  const res = await fetch(`${getFunctionUrl()}?action=cancel&farmId=${farmId}${tokenParam}`, {
-    method: "POST",
-    headers: getHeaders(),
-  });
-  if (!res.ok) throw new Error("Failed to cancel");
+export async function cancelFarm(_farmId: string, _token?: string): Promise<void> {
+  throw new Error("Backend removed");
 }
-
-// SSE removed — using polling only for security (no API key exposure)

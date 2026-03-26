@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 
 interface Wallet {
@@ -7,100 +6,13 @@ interface Wallet {
   balance: number;
 }
 
-export function useWallet(user: User | null) {
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [loading, setLoading] = useState(false);
+export function useWallet(_user: User | null) {
+  const [wallet] = useState<Wallet | null>(null);
+  const [loading] = useState(false);
 
-  const fetchWallet = useCallback(async () => {
-    if (!user) {
-      setWallet(null);
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("wallets")
-        .select("id, balance")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!error && data) {
-        setWallet({ id: data.id, balance: Number(data.balance) });
-      } else {
-        setWallet(null);
-      }
-    } catch {
-      setWallet(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+  const refetch = useCallback(async () => {
+    // Backend removed
+  }, []);
 
-  const syncPendingDeposits = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const { data: pendingOrders, error } = await supabase
-        .from("orders")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("order_type", "deposit")
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      if (error || !pendingOrders?.length) return;
-
-      for (const order of pendingOrders) {
-        await supabase.functions.invoke("check-order-status", { body: { order_id: order.id } });
-      }
-
-      await fetchWallet();
-    } catch {
-      // silent fallback sync
-    }
-  }, [user, fetchWallet]);
-
-  useEffect(() => {
-    fetchWallet();
-    syncPendingDeposits();
-
-    // Polling fallback: re-fetch every 15s and reconcile latest pending deposits
-    if (!user) return;
-    const interval = setInterval(() => {
-      fetchWallet();
-      syncPendingDeposits();
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, [fetchWallet, syncPendingDeposits, user]);
-
-  // Realtime: atualiza saldo automaticamente quando muda no banco
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel(`wallet-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wallets",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          if (payload.new && typeof payload.new === "object" && "id" in payload.new) {
-            const row = payload.new as { id: string; balance: number };
-            setWallet({ id: row.id, balance: Number(row.balance) });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
-
-  return { wallet, loading, refetch: fetchWallet };
+  return { wallet, loading, refetch };
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,12 +33,9 @@ const Auth = () => {
     try {
       if (isLogin) {
         await signIn(email, password);
-        // Don't navigate here — let the useEffect handle redirect
-        // after admin check completes to avoid race condition
       } else {
         await signUp(email, password);
         toast({ title: "Conta criada!" });
-        // Don't navigate here either — useEffect handles it
       }
     } catch (err: any) {
       toast({
