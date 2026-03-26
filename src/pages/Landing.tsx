@@ -16,11 +16,8 @@ import {
 import lovableHeart from "@/assets/lovable-heart.png";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PublicGenerator } from "@/components/public/PublicGenerator";
-
-
 import { BackgroundEffects } from "@/components/public/BackgroundEffects";
 import { SocialProof } from "@/components/public/SocialProof";
-
 
 function LiteYouTube({ videoId }: { videoId: string }) {
   const [active, setActive] = useState(false);
@@ -83,12 +80,9 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen text-foreground overflow-x-hidden bg-cover bg-center bg-fixed bg-no-repeat relative" style={{ backgroundImage: "url('/images/bg-landing.png')" }}>
-      {/* Mobile-specific cosmic background */}
       <div className="fixed inset-0 md:hidden bg-cover bg-center bg-no-repeat z-0" style={{ backgroundImage: "url('/images/bg-mobile.png')" }} />
-      {/* Dark overlay for text contrast */}
       <div className="fixed inset-0 bg-black/60 md:bg-black/60 pointer-events-none z-0" />
       <BackgroundEffects />
-      {/* Navbar */}
       <nav className="sticky top-4 z-50 mx-auto max-w-3xl px-4 relative">
         <div className="glass-card flex items-center justify-between rounded-full px-3 md:px-6 py-2.5 md:py-3">
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
@@ -130,7 +124,6 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* Hero + Generator */}
       <section id="gerador" className="relative z-10 pt-10 md:pt-16 pb-10 md:pb-16 px-4">
         <div className="mx-auto max-w-6xl">
           <div className="text-center space-y-3 mb-8 md:mb-10">
@@ -148,8 +141,6 @@ const Landing = () => {
         </div>
       </section>
 
-
-      {/* Trust Bar */}
       <section className="relative z-10 border-y border-border/40 py-5">
         <div className="mx-auto max-w-4xl flex flex-wrap items-center justify-center gap-8 text-xs uppercase tracking-widest text-muted-foreground">
           <span className="flex items-center gap-2">
@@ -164,7 +155,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Demo Video */}
       <section className="relative z-10 py-14 md:py-24 px-4">
         <div className="mx-auto max-w-4xl text-center space-y-4 md:space-y-6">
           <h2 className="text-2xl md:text-5xl font-bold">Veja o Painel em Ação</h2>
@@ -175,7 +165,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Benefits */}
       <section id="beneficios" className="relative z-10 py-14 md:py-24 px-4">
         <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-8 md:mb-16">
           <h2 className="text-2xl md:text-5xl font-bold">Benefícios Inegáveis</h2>
@@ -186,42 +175,12 @@ const Landing = () => {
         <div className="mx-auto max-w-5xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {(() => {
             const allBenefits = [
-              {
-                icon: Infinity,
-                title: "Pague por Demanda",
-                desc: "Sem planos fixos. Pague apenas o que usar.",
-                descFull: "Sem planos fixos ou compromissos mensais. Pague apenas pelo que usar, quando quiser.",
-              },
-              {
-                icon: Zap,
-                title: "Experiência Fluida",
-                desc: "Sem pausas forçadas ou erros de cota.",
-                descFull: "Fluxo de trabalho contínuo. Sem pausas forçadas, sem mensagens de erro de cota excedida.",
-              },
-              {
-                icon: ShieldCheck,
-                title: "Controle Total",
-                desc: "Gerencie saldo e uso em tempo real.",
-                descFull: "Acompanhe seu saldo e gerações em tempo real. Controle total sobre seus gastos.",
-              },
-              {
-                icon: Cpu,
-                title: "Processamento Prioritário",
-                desc: "Prioridade máxima na geração de código.",
-                descFull: "Salte a fila. Geração prioritária com máxima velocidade de processamento.",
-              },
-              {
-                icon: Layers,
-                title: "Múltiplos Projetos",
-                desc: "Múltiplos apps sem perda de performance.",
-                descFull: "Trabalhe em múltiplos apps ao mesmo tempo sem degradação de performance.",
-              },
-              {
-                icon: Rocket,
-                title: "Preço Justo",
-                desc: "Quanto mais gera, mais barato fica.",
-                descFull: "Sistema de preços escalonado — quanto mais créditos, menor o custo por unidade.",
-              },
+              { icon: Infinity, title: "Pague por Demanda", desc: "Sem planos fixos. Pague apenas o que usar.", descFull: "Sem planos fixos ou compromissos mensais. Pague apenas pelo que usar, quando quiser." },
+              { icon: Zap, title: "Experiência Fluida", desc: "Sem pausas forçadas ou erros de cota.", descFull: "Fluxo de trabalho contínuo. Sem pausas forçadas, sem mensagens de erro de cota excedida." },
+              { icon: ShieldCheck, title: "Controle Total", desc: "Gerencie saldo e uso em tempo real.", descFull: "Acompanhe seu saldo e gerações em tempo real. Controle total sobre seus gastos." },
+              { icon: Cpu, title: "Processamento Prioritário", desc: "Prioridade máxima na geração de código.", descFull: "Salte a fila. Geração prioritária com máxima velocidade de processamento." },
+              { icon: Layers, title: "Múltiplos Projetos", desc: "Múltiplos apps sem perda de performance.", descFull: "Trabalhe em múltiplos apps ao mesmo tempo sem degradação de performance." },
+              { icon: Rocket, title: "Preço Justo", desc: "Quanto mais gera, mais barato fica.", descFull: "Sistema de preços escalonado — quanto mais créditos, menor o custo por unidade." },
             ];
             return allBenefits.map(({ icon: Icon, title, desc, descFull }) => (
               <div key={title} className="glass-card rounded-xl p-4 md:p-6 flex md:flex-col items-center md:items-start gap-3 md:gap-0 md:space-y-4 text-left">
@@ -238,12 +197,8 @@ const Landing = () => {
         </div>
       </section>
 
-
-
-      {/* Social Proof */}
       <SocialProof />
 
-      {/* How it Works */}
       <section id="como-funciona" className="relative z-10 py-14 md:py-24 px-4">
         <div className="mx-auto max-w-5xl text-center space-y-3 md:space-y-4 mb-8 md:mb-16">
           <span className="inline-block rounded-full bg-primary/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary">
@@ -257,30 +212,10 @@ const Landing = () => {
 
         <div className="mx-auto max-w-3xl space-y-5 md:space-y-10 bg-black/40 rounded-2xl p-4 md:p-12 backdrop-blur-[2px]">
           {[
-            {
-              step: "01",
-              title: "Escolha a Quantidade",
-              desc: "Selecione quantos créditos deseja.",
-              descFull: "Selecione de 5 a 5.000 créditos. Quanto mais, menor o preço por crédito.",
-            },
-            {
-              step: "02",
-              title: "Pague via PIX",
-              desc: "PIX instantâneo, saldo imediato.",
-              descFull: "Pague via PIX e seu saldo é creditado automaticamente. Rápido e seguro.",
-            },
-            {
-              step: "03",
-              title: "Convite Automático",
-              desc: "Convide o bot ao seu workspace.",
-              descFull: "Convide nosso bot como editor no seu workspace Lovable. O sistema detecta automaticamente.",
-            },
-            {
-              step: "04",
-              title: "Créditos Gerados",
-              desc: "Créditos aparecem no seu workspace.",
-              descFull: "Os créditos são gerados e injetados no seu workspace automaticamente. Acompanhe em tempo real.",
-            },
+            { step: "01", title: "Escolha a Quantidade", desc: "Selecione quantos créditos deseja.", descFull: "Selecione de 5 a 5.000 créditos. Quanto mais, menor o preço por crédito." },
+            { step: "02", title: "Pague via PIX", desc: "PIX instantâneo, saldo imediato.", descFull: "Pague via PIX e seu saldo é creditado automaticamente. Rápido e seguro." },
+            { step: "03", title: "Convite Automático", desc: "Convide o bot ao seu workspace.", descFull: "Convide nosso bot como editor no seu workspace Lovable. O sistema detecta automaticamente." },
+            { step: "04", title: "Créditos Gerados", desc: "Créditos aparecem no seu workspace.", descFull: "Os créditos são gerados e injetados no seu workspace automaticamente. Acompanhe em tempo real." },
           ].map(({ step, title, desc, descFull }) => (
             <div key={step} className="flex items-start gap-4 md:gap-6">
               <div className="shrink-0 flex items-center justify-center h-10 w-10 md:h-12 md:w-12 rounded-xl bg-primary/15 text-primary font-bold text-xs md:text-sm">
@@ -295,7 +230,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* CTA Final */}
       <section className="relative z-10 py-14 md:py-24 px-4 text-center">
         <div className="mx-auto max-w-2xl space-y-4 md:space-y-6">
           <h2 className="text-3xl md:text-5xl font-bold">Pronto para Começar?</h2>
@@ -312,12 +246,9 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="relative z-10 border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
         <p>© 2026 LovablePainel. Todos os direitos reservados.</p>
       </footer>
-
-      
     </div>
   );
 };

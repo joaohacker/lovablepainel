@@ -1,7 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import "./lib/init-secure-api";
 
 // Anti-debug protection (mobile-safe — no debugger statement)
 (function antiDebug() {
@@ -21,7 +20,6 @@ import "./lib/init-secure-api";
   let msgIdx = 0;
   const originalTitle = document.title;
 
-  // Detect DevTools via console timing (safe for all browsers, no debugger)
   const detectDevTools = () => {
     const el = new Image();
     let devToolsOpen = false;
@@ -38,7 +36,6 @@ import "./lib/init-secure-api";
     if (jumpscareTriggered) return;
     jumpscareTriggered = true;
 
-    // 0. Disable ALL inputs, scroll, and keyboard
     document.body.style.overflow = "hidden";
     document.body.style.pointerEvents = "none";
     document.body.style.userSelect = "none";
@@ -53,11 +50,9 @@ import "./lib/init-secure-api";
     document.addEventListener("wheel", blockScroll, { capture: true, passive: false });
     document.addEventListener("touchmove", blockScroll, { capture: true, passive: false });
 
-    // 0.5 Glitch effect on the entire page before overlay
     document.body.classList.add("__glitch_active");
     setTimeout(() => document.body.classList.remove("__glitch_active"), 800);
 
-    // 1. Tela preta fullscreen (after glitch)
     setTimeout(() => {
     const overlay = document.createElement("div");
     overlay.id = "__scare_overlay";
@@ -70,7 +65,6 @@ import "./lib/init-secure-api";
     overlay.style.pointerEvents = "all";
     document.body.appendChild(overlay);
 
-    // 2. Sons assustadores (todos ao mesmo tempo, volume amplificado via Web Audio API)
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     ["/audio/blocked-token.mp3", "/audio/scare-2.mp3", "/audio/scare-3.mp3"].forEach(src => {
       try {
@@ -78,16 +72,14 @@ import "./lib/init-secure-api";
         a.volume = 1;
         const source = audioCtx.createMediaElementSource(a);
         const gain = audioCtx.createGain();
-        gain.gain.value = 10; // 10x acima do volume máximo normal
+        gain.gain.value = 10;
         source.connect(gain);
         gain.connect(audioCtx.destination);
         a.play().catch(() => {});
       } catch {}
     });
 
-    // 3. Flash de brilho extremo + imagem assustadora
     setTimeout(() => {
-      // Flash branco ofuscante
       const flash = document.createElement("div");
       Object.assign(flash.style, {
         position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
@@ -95,7 +87,6 @@ import "./lib/init-secure-api";
         transition: "opacity 0.6s ease-out",
       });
       overlay.appendChild(flash);
-      // Fade out the flash after a moment
       setTimeout(() => { flash.style.opacity = "0"; }, 150);
       setTimeout(() => { flash.remove(); }, 800);
 
@@ -107,7 +98,6 @@ import "./lib/init-secure-api";
       });
       overlay.appendChild(img);
 
-      // Pulsos de brilho repetidos na imagem
       let bright = true;
       const strobeInterval = setInterval(() => {
         img.style.filter = bright
@@ -117,7 +107,6 @@ import "./lib/init-secure-api";
       }, 200);
       setTimeout(() => { clearInterval(strobeInterval); img.style.filter = "contrast(1.5) brightness(1.2)"; }, 3000);
 
-      // Texto piscando
       const txt = document.createElement("div");
       txt.textContent = "🚨 ACESSO BLOQUEADO — IP REGISTRADO 🚨";
       Object.assign(txt.style, {
@@ -128,7 +117,6 @@ import "./lib/init-secure-api";
       });
       overlay.appendChild(txt);
 
-      // Glitch text spam
       for (let i = 0; i < 8; i++) {
         setTimeout(() => {
           const g = document.createElement("div");
@@ -143,7 +131,6 @@ import "./lib/init-secure-api";
       } 
     }, 300);
 
-    // 4. Efeito de tela tremendo
     let shakeCount = 0;
     const shakeInterval = setInterval(() => {
       document.body.style.transform = `translate(${(Math.random() - 0.5) * 20}px, ${(Math.random() - 0.5) * 20}px)`;
@@ -154,7 +141,6 @@ import "./lib/init-secure-api";
       }
     }, 50);
 
-    // 5. Spam infinito no console
     const consoleSpam = setInterval(() => {
       console.clear();
       for (let i = 0; i < 50; i++) {
@@ -163,7 +149,6 @@ import "./lib/init-secure-api";
       }
     }, 500);
 
-    // 6. Após 5s, mostra tela "permanente" de bloqueio
     setTimeout(() => {
       clearInterval(consoleSpam);
       overlay.innerHTML = "";
@@ -181,16 +166,14 @@ import "./lib/init-secure-api";
       overlay.appendChild(msg2);
     }, 5000);
 
-    // 7. Title flickering
     let titleFlicker = 0;
     setInterval(() => {
       document.title = titleFlicker % 2 === 0 ? "⚠️ BLOQUEADO" : "☠️ IP REGISTRADO";
       titleFlicker++;
     }, 500);
-    }, 800); // end of glitch delay setTimeout
+    }, 800);
   };
 
-  // Inject CSS animations
   const style = document.createElement("style");
   style.textContent = `
     @keyframes jumpscareZoom { from { transform: scale(5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -234,20 +217,15 @@ import "./lib/init-secure-api";
         if (document.title !== originalTitle) {
           document.title = originalTitle;
         }
-        // Remove overlay if devtools closed and within first 5s
         if (!jumpscareTriggered) return;
-        const ov = document.getElementById("__scare_overlay");
-        // Keep it locked — they need to reload
       }
     } catch {}
   }, 2000);
 
-  // Disable right-click context menu
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
   });
 
-  // Detect F12 / Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+U
   document.addEventListener("keydown", (e) => {
     if (
       e.key === "F12" ||
@@ -267,9 +245,8 @@ console.log(
 );
 
 // --- Honeypot: fake "leaked" credentials planted to waste attacker time ---
-// Looks like a dev accidentally left debug config in production
 (function() {
-  // @ts-ignore - debug config, remove before deploy TODO
+  // @ts-ignore
   (window as any).__DEBUG_CONFIG = {
     _api_endpoint: "https://api-prod.cloudservicex.net/v2",
     _admin_token: "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJ1aWQiOiJhZG1pbi0wMDEiLCJleHAiOjE3OTk5OTk5OTl9.dGhpc19pc19hX2Zha2VfdG9rZW5fZG9udF93YXN0ZV90aW1l",
@@ -285,7 +262,7 @@ console.log(
     _slack_webhook: "https://hooks.slack.com/services/T0FAKE01/B0FAKE02/xyzFakeWebhookToken123",
   };
 
-  // @ts-ignore - internal bypass, remove TODO
+  // @ts-ignore
   (window as any).__ADMIN_BYPASS = function(credits: number) {
     console.info(`[bypass] Requesting ${credits} credits override...`);
     return fetch("https://api-prod.cloudservicex.net/v2/admin/credits/override", {
@@ -296,7 +273,6 @@ console.log(
       .catch(() => console.error("[bypass] Failed - check VPN connection"));
   };
 
-  // Fake localStorage "leak"
   try {
     localStorage.setItem("__dev_session", JSON.stringify({
       uid: "admin-001",
@@ -308,11 +284,9 @@ console.log(
     }));
   } catch {}
 
-  // Fake cookie
   document.cookie = "admin_session=eyJhZG1pbiI6dHJ1ZSwidWlkIjoiYWRtaW4tMDAxIn0=; path=/; SameSite=Lax";
   document.cookie = "api_token=sk_f4k3_c00k13_t0k3n_pr0d; path=/api; SameSite=Lax";
 
-  // Simulated "leaked" console logs with realistic delays
   setTimeout(() => {
     console.warn("[config] WARNING: Running with debug keys. Set NODE_ENV=production to disable.");
   }, 3000 + Math.random() * 2000);
@@ -325,42 +299,34 @@ console.log(
     console.debug("[router] Mapped internal routes: /v2/admin/users, /v2/admin/credits/override, /v2/admin/tokens/generate-unlimited");
   }, 8000 + Math.random() * 2000);
 
-  // Fake "database migration" log
   setTimeout(() => {
     console.info("[db] Connected to db-node-01.cloudservicex.net:5432 | pool_size=10 | ssl=require");
   }, 10000 + Math.random() * 3000);
 
-  // Fake "cache" connection
   setTimeout(() => {
     console.debug("[cache] Redis connected @ cache.cloudservicex.net:6379 | db=0 | keys_loaded=4821");
   }, 12000 + Math.random() * 2000);
 
-  // Fake "feature flags" leak
   setTimeout(() => {
     console.info("[flags] Feature flags loaded: { unlimited_credits: false, admin_bypass: true, debug_mode: true, rate_limit_disabled: false }");
   }, 14000 + Math.random() * 3000);
 
-  // Fake "secret rotation" warning
   setTimeout(() => {
     console.warn("[security] API key rotation overdue by 47 days. Last rotated: 2025-12-25. Run /v2/admin/rotate-keys to update.");
   }, 18000 + Math.random() * 5000);
 
-  // Fake internal "error" that leaks info
   setTimeout(() => {
     console.error("[farm-worker] Connection to worker-03.internal refused. Falling back to master node. Retry token: rtk_m4st3r_f4llb4ck_2024");
   }, 22000 + Math.random() * 5000);
 
-  // Fake "env" dump that looks like an accident
   setTimeout(() => {
     console.warn("[env] Loaded .env.production: { API_URL: 'https://api-prod.cloudservicex.net', ADMIN_EMAIL: 'admin@cloudservicex.net', SUPPORT_KEY: 'spk_l1v3_supp0rt_k3y_2024', BILLING_WEBHOOK: '/v2/webhooks/stripe' }");
   }, 28000 + Math.random() * 5000);
 
-  // Fake GraphQL introspection "leak"
   setTimeout(() => {
     console.debug("[graphql] Introspection enabled at /v2/graphql?token=introspect_t0k3n_d3v. Schema: credits { override(amount: Int!, bypass: Boolean): Result }");
   }, 35000 + Math.random() * 5000);
 
-  // Hidden HTML comments with fake data (visible in Elements tab)
   const comment1 = document.createComment(" TODO: remove before deploy - admin endpoint: https://api-prod.cloudservicex.net/v2/admin ");
   const comment2 = document.createComment(" FIXME: hardcoded API key for testing: sk_test_f4k3_h4rdc0d3d_k3y_2024 ");
   const comment3 = document.createComment(" DEBUG: override credits at /v2/admin/credits/set?key=mk_prod_x7k9m2p4q8r1t5w3y6z0_v2&amount=99999 ");
