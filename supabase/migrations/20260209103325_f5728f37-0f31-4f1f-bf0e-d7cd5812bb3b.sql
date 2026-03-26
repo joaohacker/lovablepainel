@@ -4,7 +4,7 @@ CREATE TYPE public.app_role AS ENUM ('admin', 'user');
 
 -- Tabela de profiles
 CREATE TABLE public.profiles (
-  id UUID PRIMARY KEY DEsdfsdfFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY gen_random_uuid(),
   user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
   display_name TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
